@@ -75,6 +75,8 @@ textarea {
 .page-shell {
   width: min(calc(100% - 32px), var(--container));
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .site-header {
@@ -112,6 +114,19 @@ textarea {
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: #fff8f3;
   box-shadow: 0 12px 26px rgba(255, 107, 61, 0.35);
+}
+
+.brand-logo-mark {
+  overflow: hidden;
+  padding: 0;
+  background: #02060d;
+}
+
+.brand-logo-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .site-nav {
@@ -277,6 +292,47 @@ textarea {
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(17, 37, 61, 0.94), rgba(11, 24, 41, 0.9));
   box-shadow: var(--shadow);
+}
+
+.panel-media,
+.service-card-media,
+.project-card-media {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: calc(var(--radius-md) - 2px);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.panel-media {
+  aspect-ratio: 16 / 10;
+  margin-bottom: 22px;
+}
+
+.service-card-media,
+.project-card-media {
+  aspect-ratio: 16 / 10;
+  margin: 0 0 18px;
+}
+
+.panel-media img,
+.service-card-media img,
+.project-card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.service-card-media img,
+.project-card-media img,
+.panel-media img {
+  transition: transform 0.35s ease;
+}
+
+.service-card:hover .service-card-media img,
+.project-card:hover .project-card-media img,
+.panel-card:hover .panel-media img {
+  transform: scale(1.04);
 }
 
 .panel-primary::after {
@@ -581,9 +637,6 @@ textarea {
   100% { transform: translateY(-60px) translateX(30px); }
 }
 
-/* ── Page shell sits above orbs ──────────────────────────── */
-.page-shell { position: relative; z-index: 1; }
-
 /* ── Scroll-reveal ───────────────────────────────────────── */
 .scroll-hide {
   opacity: 0;
@@ -812,20 +865,20 @@ textarea {
   .reviews-summary {
     grid-template-columns: 1fr 1fr;
   }
-  .review-counts { grid-column: span 2; grid-template-columns: repeat(3,1fr); }
-  .reviews-grid { grid-template-columns: 1fr 1fr; }
-  .review-featured { grid-column: span 2; }
-}
 
-@media (max-width: 720px) {
-  .reviews-summary { grid-template-columns: 1fr; }
-  .review-counts { grid-column: span 1; grid-template-columns: repeat(3,1fr); }
-  .reviews-grid { grid-template-columns: 1fr; }
-  .review-featured { grid-column: span 1; }
-  .rating-number { font-size: 3rem; }
-}
+  .review-counts {
+    grid-column: span 2;
+    grid-template-columns: repeat(3, 1fr);
+  }
 
-@media (max-width: 1080px) {
+  .reviews-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .review-featured {
+    grid-column: span 2;
+  }
+
   .site-header,
   .hero,
   .split-section,
@@ -854,6 +907,27 @@ textarea {
 }
 
 @media (max-width: 720px) {
+  .reviews-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .review-counts {
+    grid-column: span 1;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .reviews-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .review-featured {
+    grid-column: span 1;
+  }
+
+  .rating-number {
+    font-size: 3rem;
+  }
+
   .page-shell {
     width: min(calc(100% - 24px), var(--container));
   }
@@ -973,6 +1047,7 @@ textarea {
    AI CHATBOT
 ═══════════════════════════════════════════════════════════ */
 .chatbot-wrapper { position: fixed; bottom: 24px; right: 24px; z-index: 200; 
+
                 bottom: calc(24px + env(safe-area-inset-bottom));
   bottom: calc(24px + env(safe-area-inset-bottom));}
 
