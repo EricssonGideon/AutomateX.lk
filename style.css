@@ -1,3 +1,11 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
 :root {
   --bg: #07111f;
   --bg-soft: #0d1a2d;
@@ -37,6 +45,9 @@ body {
   color: var(--text);
   font-family: "Manrope", sans-serif;
   line-height: 1.6;
+}
+body {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 body {
   overflow-x: hidden;
@@ -951,6 +962,7 @@ textarea {
   text-decoration: none;
   animation: waBounce 3s ease-in-out infinite;
   transition: transform 0.2s, box-shadow 0.2s;
+  bottom: calc(100px + env(safe-area-inset-bottom));
 }
 .wa-float:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 14px 40px rgba(37,211,102,0.5); }
 .wa-icon { display: flex; align-items: center; justify-content: center; }
@@ -964,7 +976,8 @@ textarea {
 /* ═══════════════════════════════════════════════════════════
    AI CHATBOT
 ═══════════════════════════════════════════════════════════ */
-.chatbot-wrapper { position: fixed; bottom: 24px; right: 24px; z-index: 200; }
+.chatbot-wrapper { position: fixed; bottom: 24px; right: 24px; z-index: 200; 
+                bottom: calc(24px + env(safe-area-inset-bottom));}
 
 .chatbot-toggle {
   width: 60px; height: 60px; border-radius: 50%;
