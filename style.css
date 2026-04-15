@@ -45,11 +45,7 @@ body {
   color: var(--text);
   font-family: "Manrope", sans-serif;
   line-height: 1.6;
-}
-body {
   padding-bottom: env(safe-area-inset-bottom);
-}
-body {
   overflow-x: hidden;
 }
 
@@ -977,7 +973,8 @@ textarea {
    AI CHATBOT
 ═══════════════════════════════════════════════════════════ */
 .chatbot-wrapper { position: fixed; bottom: 24px; right: 24px; z-index: 200; 
-                bottom: calc(24px + env(safe-area-inset-bottom));}
+                bottom: calc(24px + env(safe-area-inset-bottom));
+  bottom: calc(24px + env(safe-area-inset-bottom));}
 
 .chatbot-toggle {
   width: 60px; height: 60px; border-radius: 50%;
