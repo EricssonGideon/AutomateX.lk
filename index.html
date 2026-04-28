@@ -41,9 +41,10 @@
       </a>
 
       <nav class="site-nav" aria-label="Primary">
-        <a href="#services">Services</a>
+        <a href="pricing.html">Services</a>
         <a href="#work">Work</a>
         <a href="#process">Process</a>
+        <a href="#architecture">Architecture</a>
         <a href="#about">About</a>
         <a href="#reviews">Reviews</a>
         <a href="#booking">Book a Call</a>
@@ -64,8 +65,8 @@
           </p>
 
           <div class="hero-actions">
-            <a href="#contact" class="btn btn-primary">Start Your Project</a>
-            <a href="#work" class="btn btn-secondary">See Our Work</a>
+            <a href="pricing.html" class="btn btn-primary">Start Your Project</a>
+            <a href="pricing.html" class="btn btn-secondary">See Our Work</a>
           </div>
 
           <div class="hero-stats">
@@ -286,6 +287,56 @@
         </div>
       </section>
 
+      <section id="architecture" class="section architecture-section">
+        <div class="section-heading">
+          <p class="eyebrow">System Architecture</p>
+          <h2>A complete client-server booking flow built for real requests.</h2>
+          <p>
+            The booking experience now follows a practical full-stack architecture where the browser
+            collects details, sends them to an API, stores them in MongoDB, and returns a live
+            confirmation to the client.
+          </p>
+        </div>
+
+        <div class="architecture-grid">
+          <article class="architecture-card">
+            <span>01</span>
+            <h3>Frontend client</h3>
+            <p>
+              The HTML, CSS, and JavaScript interface captures the selected date, time, and client
+              details from the booking form.
+            </p>
+          </article>
+
+          <article class="architecture-card">
+            <span>02</span>
+            <h3>HTTP POST request</h3>
+            <p>
+              JavaScript sends the booking payload to the backend using <code>fetch()</code> and a
+              JSON <code>POST</code> request to the API.
+            </p>
+          </article>
+
+          <article class="architecture-card">
+            <span>03</span>
+            <h3>Node.js + Express API</h3>
+            <p>
+              The Express server validates the request, checks whether the slot is available, and
+              prepares the booking record for storage.
+            </p>
+          </article>
+
+          <article class="architecture-card">
+            <span>04</span>
+            <h3>MongoDB database</h3>
+            <p>
+              MongoDB stores the booking in a NoSQL collection so future availability checks and
+              booking confirmations use live server data.
+            </p>
+          </article>
+        </div>
+      </section>
+
       <section id="about" class="section about-section">
         <div class="section-heading compact">
           <p class="eyebrow">About AutomateX</p>
@@ -419,7 +470,7 @@
             <p class="eyebrow">Join 20+ happy clients</p>
             <h3>Ready to see results like these?</h3>
             <p>Let's build something that makes your business impossible to ignore.</p>
-            <a href="#contact" class="btn btn-primary">Start Your Project</a>
+            <a href="pricing.html" class="btn btn-primary">Start Your Project</a>
           </article>
 
         </div>
@@ -472,6 +523,7 @@
                   <option>Launch Support</option>
                 </select>
                 <button class="btn btn-primary" id="confirmBooking">Confirm Booking</button>
+                <p class="booking-feedback hidden" id="bookingFeedback"></p>
               </div>
             </div>
             <div class="booking-step hidden" id="step-success">
@@ -559,285 +611,6 @@
       </div>
     </div>
   </div>
-  <script>
-  // ── Floating micro-dots ─────────────────────────────────
-  const container = document.getElementById('floatDots');
-  for (let i = 0; i < 22; i++) {
-    const dot = document.createElement('span');
-    dot.className = 'fdot';
-    dot.style.cssText = `left:${Math.random()*100}vw;top:${Math.random()*100}vh;width:${2+Math.random()*5}px;height:${2+Math.random()*5}px;animation-duration:${6+Math.random()*14}s;animation-delay:-${Math.random()*10}s;opacity:${0.08+Math.random()*0.22};`;
-    container.appendChild(dot);
-  }
-
-  // ── Scroll-reveal ───────────────────────────────────────
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('revealed'); observer.unobserve(e.target); } });
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.service-card,.project-card,.timeline article,.review-card,.rating-hero,.rating-bars,.review-counts,.booking-feature,.contact-detail-item').forEach((el,i) => {
-    el.style.setProperty('--delay',`${i*0.07}s`); el.classList.add('scroll-hide'); observer.observe(el);
-  });
-
-  // ── Review card tilt ────────────────────────────────────
-  document.querySelectorAll('.review-card').forEach(card => {
-    card.addEventListener('mousemove', e => {
-      const r = card.getBoundingClientRect();
-      card.style.transform = `perspective(800px) rotateY(${((e.clientX-r.left)/r.width-0.5)*6}deg) rotateX(${-((e.clientY-r.top)/r.height-0.5)*6}deg) translateY(-4px)`;
-    });
-    card.addEventListener('mouseleave', () => { card.style.transform=''; });
-  });
-
-  // ═══════════════════════════════════════════════
-  // REAL-TIME REVIEWS SYSTEM
-  // ═══════════════════════════════════════════════
-  const REVIEWS_KEY = 'ax_reviews_v2';
-  let userRating = 0;
-  const reviewsGrid = document.querySelector('.reviews-grid');
-
-  // Inject submit form into reviews section
-  const submitHTML = `
-    <div class="review-submit-block" id="reviewSubmitBlock">
-      <p class="eyebrow" style="margin-bottom:10px">Leave a Review</p>
-      <div class="star-picker" id="starPicker">
-        <span data-v="1">&#9733;</span><span data-v="2">&#9733;</span><span data-v="3">&#9733;</span><span data-v="4">&#9733;</span><span data-v="5">&#9733;</span>
-      </div>
-      <input type="text" id="rvName" placeholder="Your name" maxlength="40">
-      <input type="text" id="rvRole" placeholder="Your role / company" maxlength="50">
-      <textarea id="rvMsg" placeholder="Write your review..." rows="3" maxlength="280"></textarea>
-      <button class="btn btn-primary" id="submitReview">Post Review</button>
-    </div>`;
-  reviewsGrid.insertAdjacentHTML('beforeend', submitHTML);
-
-  // Star picker
-  document.querySelectorAll('#starPicker span').forEach(s => {
-    s.addEventListener('click', () => {
-      userRating = +s.dataset.v;
-      document.querySelectorAll('#starPicker span').forEach((x,i) => x.style.color = i < userRating ? '#f5b944' : 'rgba(255,255,255,0.2)');
-    });
-    s.addEventListener('mouseover', () => {
-      document.querySelectorAll('#starPicker span').forEach((x,i) => x.style.color = i <= +s.dataset.v-1 ? '#f5b944' : 'rgba(255,255,255,0.2)');
-    });
-  });
-  document.getElementById('starPicker').addEventListener('mouseleave', () => {
-    document.querySelectorAll('#starPicker span').forEach((x,i) => x.style.color = i < userRating ? '#f5b944' : 'rgba(255,255,255,0.2)');
-  });
-
-  function loadReviews() {
-    try { return JSON.parse(localStorage.getItem(REVIEWS_KEY)) || []; } catch { return []; }
-  }
-  function saveReviews(arr) { localStorage.setItem(REVIEWS_KEY, JSON.stringify(arr)); }
-
-  function renderUserReview(rv) {
-    const initials = rv.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-    const stars = '★'.repeat(rv.rating) + '☆'.repeat(5-rv.rating);
-    const colors = ['#ff6b3d','#4fd1c5','#a78bfa','#f59e0b','#34d399'];
-    const bg = colors[rv.name.charCodeAt(0)%colors.length];
-    const card = document.createElement('article');
-    card.className = 'review-card user-review-card';
-    card.style.animation = 'reviewPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both';
-    card.innerHTML = `
-      <div class="review-header">
-        <div class="avatar" style="background:${bg};color:#fff">${initials}</div>
-        <div><strong>${rv.name}</strong><p>${rv.role||'AutomateX Client'}</p></div>
-        <div class="review-stars" style="color:#f5b944">${stars}</div>
-      </div>
-      <blockquote>"${rv.text}"</blockquote>
-      <div class="review-tag" style="display:flex;align-items:center;gap:6px">
-        <span style="width:6px;height:6px;border-radius:50%;background:#4fd1c5;display:inline-block"></span>
-        Verified Review &bull; ${new Date(rv.ts).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
-      </div>`;
-    return card;
-  }
-
-  function refreshUserReviews() {
-    document.querySelectorAll('.user-review-card').forEach(c=>c.remove());
-    const submitBlock = document.getElementById('reviewSubmitBlock');
-    loadReviews().forEach(rv => {
-      const card = renderUserReview(rv);
-      reviewsGrid.insertBefore(card, submitBlock);
-    });
-  }
-  refreshUserReviews();
-
-  document.getElementById('submitReview').addEventListener('click', () => {
-    const name = document.getElementById('rvName').value.trim();
-    const role = document.getElementById('rvRole').value.trim();
-    const text = document.getElementById('rvMsg').value.trim();
-    if (!name || !text || userRating === 0) { alert('Please fill in your name, review, and select a star rating.'); return; }
-    const reviews = loadReviews();
-    reviews.unshift({ name, role, text, rating: userRating, ts: Date.now() });
-    saveReviews(reviews);
-    // Reset form
-    document.getElementById('rvName').value = '';
-    document.getElementById('rvRole').value = '';
-    document.getElementById('rvMsg').value = '';
-    userRating = 0;
-    document.querySelectorAll('#starPicker span').forEach(x => x.style.color='rgba(255,255,255,0.2)');
-    refreshUserReviews();
-  });
-
-  // ═══════════════════════════════════════════════
-  // CONTACT FORM
-  // ═══════════════════════════════════════════════
-  document.getElementById('contactForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const btn = document.getElementById('cfSubmit');
-    btn.textContent = 'Sending...'; btn.disabled = true;
-    setTimeout(() => {
-      document.getElementById('cfSuccess').classList.remove('hidden');
-      document.getElementById('cfName').value='';
-      document.getElementById('cfEmail').value='';
-      document.getElementById('cfMessage').value='';
-      btn.textContent='Send Project Inquiry'; btn.disabled=false;
-    }, 1200);
-  });
-
-  // ═══════════════════════════════════════════════
-  // BOOKING CALENDAR
-  // ═══════════════════════════════════════════════
-  let calDate = new Date();
-  let selectedDate = null, selectedTime = null;
-  const TIMES = ['09:00','09:30','10:00','10:30','11:00','11:30','14:00','14:30','15:00','15:30','16:00','16:30'];
-  const BOOKED_KEY = 'ax_booked_v1';
-  function getBooked() { try { return JSON.parse(localStorage.getItem(BOOKED_KEY))||{}; } catch { return {}; } }
-
-  function renderCal() {
-    const y=calDate.getFullYear(), m=calDate.getMonth();
-    document.getElementById('calMonthLabel').textContent = calDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
-    const grid = document.getElementById('calGrid');
-    grid.innerHTML = '<span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>';
-    const first = new Date(y,m,1).getDay();
-    const days = new Date(y,m+1,0).getDate();
-    const today = new Date(); today.setHours(0,0,0,0);
-    for (let i=0;i<first;i++) grid.appendChild(Object.assign(document.createElement('span'),{className:'cal-empty'}));
-    for (let d=1;d<=days;d++) {
-      const btn = document.createElement('button');
-      btn.className='cal-day'; btn.textContent=d;
-      const dt = new Date(y,m,d); dt.setHours(0,0,0,0);
-      if (dt < today || dt.getDay()===0 || dt.getDay()===6) { btn.disabled=true; btn.classList.add('cal-disabled'); }
-      else {
-        btn.addEventListener('click', () => {
-          selectedDate = new Date(y,m,d);
-          document.getElementById('selectedDateLabel').textContent = selectedDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
-          showStep('step-time'); renderTimes();
-        });
-      }
-      grid.appendChild(btn);
-    }
-  }
-
-  function renderTimes() {
-    const booked = getBooked();
-    const dateKey = selectedDate.toISOString().split('T')[0];
-    const slots = document.getElementById('timeSlots');
-    slots.innerHTML = '';
-    TIMES.forEach(t => {
-      const key = dateKey+'_'+t;
-      const btn = document.createElement('button');
-      btn.className='time-slot'; btn.textContent=t;
-      if (booked[key]) { btn.disabled=true; btn.classList.add('slot-taken'); btn.textContent=t+' (Taken)'; }
-      else btn.addEventListener('click',()=>{ selectedTime=t; document.getElementById('bookingSummary').textContent=selectedDate.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' at '+t; showStep('step-form'); });
-      slots.appendChild(btn);
-    });
-  }
-
-  function showStep(id) {
-    document.querySelectorAll('.booking-step').forEach(s=>s.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-  }
-
-  document.getElementById('prevMonth').addEventListener('click',()=>{ calDate.setMonth(calDate.getMonth()-1); renderCal(); });
-  document.getElementById('nextMonth').addEventListener('click',()=>{ calDate.setMonth(calDate.getMonth()+1); renderCal(); });
-  document.getElementById('backToDate').addEventListener('click',()=>showStep('step-date'));
-  document.getElementById('backToTime').addEventListener('click',()=>showStep('step-time'));
-  document.getElementById('confirmBooking').addEventListener('click',()=>{
-    const name=document.getElementById('bkName').value.trim();
-    const email=document.getElementById('bkEmail').value.trim();
-    if (!name||!email) { alert('Please fill in your name and email.'); return; }
-    const dateKey=selectedDate.toISOString().split('T')[0];
-    const booked=getBooked(); booked[dateKey+'_'+selectedTime]=true;
-    localStorage.setItem(BOOKED_KEY,JSON.stringify(booked));
-    document.getElementById('successMsg').textContent=`${name}, your call is booked for ${selectedDate.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})} at ${selectedTime}.`;
-    showStep('step-success');
-  });
-  renderCal();
-
-  // ═══════════════════════════════════════════════
-  // AI CHATBOT
-  // ═══════════════════════════════════════════════
-  const FLOWS = {
-    start: { msg:'Hi! Welcome to AutomateX. What service do you need?', opts:['Website Development','Business Automation','AI Chatbot','WhatsApp Flows','Book a Call','Talk to a human'] },
-    'Website Development': { msg:"Great choice! We build high-converting websites tailored to your brand. Typical delivery is 3–5 days. What's your budget range?", opts:['Under $500','$500–$1,500','$1,500+','Book a free call'] },
-    'Business Automation': { msg:'We automate lead capture, follow-up flows, and internal processes. What do you want to automate?', opts:['Lead follow-up','Inquiry handling','Internal workflows','Book a call'] },
-    'AI Chatbot': { msg:'Our AI chatbots work 24/7 — handling FAQs, lead capture, and support. What platform do you need?', opts:['Website chatbot','WhatsApp bot','Both','Book a call'] },
-    'WhatsApp Flows': { msg:'WhatsApp automation is one of our most popular services! We can set up lead flows, booking confirmations, and follow-ups. Ready to start?', opts:['Yes, let\'s go!','Tell me more','Book a call'] },
-    'Book a Call': { msg:'Awesome! Our discovery calls are free and only 15 minutes. Click below to pick a time.', opts:['Go to booking','Maybe later'] },
-    'Go to booking': { msg:'Redirecting you to our booking calendar...', opts:[], action:'booking' },
-    'Talk to a human': { msg:'Sure! Reach us directly:', opts:['WhatsApp us','Email us','Back to start'], links:{ 'WhatsApp us':'https://wa.me/94711861722','Email us':'mailto:automatex100@gmail.com' } },
-    'Back to start': { msg:'No problem! What else can I help with?', opts:['Website Development','Business Automation','AI Chatbot','WhatsApp Flows','Book a Call'] },
-    default: { msg:"Thanks! A team member will follow up with you shortly. Anything else?", opts:['Website Development','Business Automation','Book a Call','Talk to a human'] }
-  };
-
-  const chatBox = document.getElementById('chatBox');
-  const chatMsgs = document.getElementById('chatMessages');
-  const chatToggle = document.getElementById('chatToggle');
-  const chatBadge = document.getElementById('chatBadge');
-  let chatOpen = false, badgeDismissed = false;
-
-  function addMsg(text, from='bot', link=null) {
-    const wrap = document.createElement('div');
-    wrap.className = 'chat-msg chat-msg-'+from;
-    if (link) { const a=document.createElement('a'); a.href=link; a.target='_blank'; a.textContent=text; a.className='chat-link'; wrap.appendChild(a); }
-    else wrap.textContent = text;
-    chatMsgs.appendChild(wrap);
-    chatMsgs.scrollTop=chatMsgs.scrollHeight;
-  }
-
-  function addOptions(opts, links={}) {
-    const wrap = document.createElement('div');
-    wrap.className='chat-options';
-    opts.forEach(o => {
-      const btn=document.createElement('button');
-      btn.className='chat-opt'; btn.textContent=o;
-      btn.addEventListener('click',()=>{
-        wrap.remove();
-        addMsg(o,'user');
-        if (links[o]) { setTimeout(()=>window.open(links[o],'_blank'),300); return; }
-        setTimeout(()=>respond(o),600);
-      });
-      wrap.appendChild(btn);
-    });
-    chatMsgs.appendChild(wrap);
-    chatMsgs.scrollTop=chatMsgs.scrollHeight;
-  }
-
-  function respond(key) {
-    const flow = FLOWS[key] || FLOWS.default;
-    addMsg(flow.msg,'bot');
-    if (flow.action==='booking') { setTimeout(()=>document.getElementById('booking').scrollIntoView({behavior:'smooth'}),800); }
-    if (flow.opts && flow.opts.length) setTimeout(()=>addOptions(flow.opts, flow.links||{}),400);
-  }
-
-  chatToggle.addEventListener('click',()=>{
-    chatOpen=!chatOpen;
-    chatBox.classList.toggle('hidden',!chatOpen);
-    document.querySelector('.chat-icon-open').classList.toggle('hidden',chatOpen);
-    document.querySelector('.chat-icon-close').classList.toggle('hidden',!chatOpen);
-    if (!badgeDismissed) { chatBadge.style.display='none'; badgeDismissed=true; }
-    if (chatOpen && chatMsgs.children.length===0) { setTimeout(()=>respond('start'),300); }
-  });
-
-  document.getElementById('chatSend').addEventListener('click', sendChat);
-  document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
-  function sendChat() {
-    const val=document.getElementById('chatInput').value.trim();
-    if (!val) return;
-    document.getElementById('chatInput').value='';
-    addMsg(val,'user');
-    setTimeout(()=>respond('default'),700);
-  }
-
-  // Auto-open chatbot after 8s
-  setTimeout(()=>{ if(!chatOpen){ chatBadge.style.display='flex'; } },4000);
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
