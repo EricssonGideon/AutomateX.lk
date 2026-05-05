@@ -74,6 +74,7 @@ textarea {
 
 .page-shell {
   width: min(calc(100% - 32px), var(--container));
+  max-width: 100%;
   margin: 0 auto;
   position: relative;
   z-index: 1;
@@ -446,6 +447,7 @@ textarea {
 .about-grid,
 .architecture-grid {
   display: grid;
+  min-width: 0;
   gap: 20px;
   margin-top: 32px;
 }
@@ -459,6 +461,9 @@ textarea {
 .timeline article,
 .contact-card {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   padding: 26px;
   border: 1px solid var(--line);
@@ -513,6 +518,9 @@ textarea {
 
 .architecture-card {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   padding: 26px;
   border: 1px solid var(--line);
@@ -603,6 +611,44 @@ textarea {
 .contact-form textarea:focus {
   border-color: rgba(79, 209, 197, 0.55);
   box-shadow: 0 0 0 4px rgba(79, 209, 197, 0.12);
+}
+
+.panel-card,
+.service-card,
+.project-card,
+.timeline article,
+.architecture-card,
+.review-card,
+.contact-card,
+.booking-card,
+.booking-feature,
+.contact-detail-item,
+.review-submit-block {
+  box-sizing: border-box;
+}
+
+.panel-card > *,
+.service-card > *,
+.project-card > *,
+.timeline article > *,
+.architecture-card > *,
+.review-card > *,
+.contact-card > *,
+.booking-card > * {
+  min-width: 0;
+}
+
+.service-card h3,
+.project-card h3,
+.timeline h3,
+.architecture-card h3,
+.review-card blockquote,
+.contact-card h2,
+.booking-label,
+.booking-sublabel,
+.contact-detail-item span,
+.contact-detail-item strong {
+  overflow-wrap: anywhere;
 }
 
 .site-footer {
@@ -813,6 +859,9 @@ textarea {
 
 .review-card {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
@@ -981,6 +1030,20 @@ textarea {
     width: min(calc(100% - 24px), var(--container));
   }
 
+  .panel-card,
+  .service-card,
+  .project-card,
+  .timeline article,
+  .architecture-card,
+  .review-card,
+  .contact-card,
+  .booking-card,
+  .review-submit-block {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+  }
+
   .site-header {
     position: static;
     margin-top: 16px;
@@ -1016,6 +1079,13 @@ textarea {
   .project-card,
   .timeline article,
   .contact-card {
+    padding: 22px;
+  }
+
+  .architecture-card,
+  .review-card,
+  .booking-card,
+  .review-submit-block {
     padding: 22px;
   }
 
@@ -1242,6 +1312,9 @@ textarea {
 .booking-feature p { color: var(--muted); font-size: 0.82rem; margin: 0; }
 
 .booking-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 28px;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);

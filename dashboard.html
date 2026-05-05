@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutomateX Client Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white">
+  <div class="min-h-screen lg:flex">
+    <aside class="border-b border-slate-800 bg-slate-900/90 lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
+      <div class="flex items-center justify-between px-5 py-5 lg:block">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-cyan-400">AutomateX</p>
+          <h1 class="mt-2 text-xl font-semibold">Client Dashboard</h1>
+        </div>
+        <button id="logoutButtonMobile" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 lg:hidden">Logout</button>
+      </div>
+
+      <nav class="px-4 pb-5">
+        <div class="grid gap-2">
+          <button data-tab="overview" class="dashboard-tab rounded-2xl bg-cyan-400 px-4 py-3 text-left text-sm font-semibold text-slate-950">Overview</button>
+          <button data-tab="bookings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Bookings</button>
+          <button data-tab="inquiries" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Inquiries</button>
+          <button data-tab="reviews" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Reviews</button>
+          <button data-tab="settings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Settings</button>
+          <button id="upgradePlanButton" data-tab="upgrade" class="dashboard-tab rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm font-semibold text-amber-200">Upgrade Plan</button>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="flex-1">
+      <header class="border-b border-slate-800 bg-slate-900/70 px-5 py-4 backdrop-blur sm:px-8">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="pageTitle" class="text-2xl font-semibold">Overview</h2>
+            <p id="pageSubtitle" class="mt-1 text-sm text-slate-400">Manage your AutomateX workspace.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="planBadge" class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Starter</span>
+            <button id="logoutButtonDesktop" class="hidden rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 lg:inline-flex">Logout</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="feedback" class="hidden border-b border-slate-800 px-5 py-3 text-sm sm:px-8"></div>
+
+      <section id="loadingShell" class="px-5 py-8 sm:px-8">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
+          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
+          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
+          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
+        </div>
+        <div class="mt-6 h-72 animate-pulse rounded-3xl bg-slate-900"></div>
+      </section>
+
+      <section id="dashboardContent" class="hidden px-5 py-8 sm:px-8">
+        <div id="tab-overview" class="dashboard-panel">
+          <section class="grid gap-4 xl:grid-cols-4">
+            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5 xl:col-span-2">
+              <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Welcome</p>
+              <h3 id="welcomeBusinessName" class="mt-3 text-3xl font-semibold">Your business</h3>
+              <p id="welcomeCopy" class="mt-3 text-sm leading-7 text-slate-400">Here's what's happening in your workspace right now.</p>
+            </article>
+            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Bookings This Month</p>
+              <p id="overviewBookingsCount" class="mt-4 text-3xl font-semibold">0</p>
+            </article>
+            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">New Inquiries</p>
+              <p id="overviewInquiriesCount" class="mt-4 text-3xl font-semibold">0</p>
+            </article>
+            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Pending Reviews</p>
+              <p id="overviewPendingReviewsCount" class="mt-4 text-3xl font-semibold">0</p>
+            </article>
+            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Current Plan</p>
+              <p id="overviewPlanBadge" class="mt-4 text-2xl font-semibold capitalize">starter</p>
+            </article>
+          </section>
+
+          <section class="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 class="text-lg font-semibold">Quick Actions</h3>
+                <p class="mt-1 text-sm text-slate-400">Useful shortcuts for your day-to-day workflow.</p>
+              </div>
+            </div>
+            <div class="mt-5 grid gap-3 md:grid-cols-3">
+              <button id="copyBookingLinkButton" class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-left text-sm text-slate-200">
+                <span class="block font-semibold">Copy booking link</span>
+                <span class="mt-1 block text-slate-400">Share your booking page with customers.</span>
+              </button>
+              <button id="viewPublicPageButton" class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-left text-sm text-slate-200">
+                <span class="block font-semibold">View public page</span>
+                <span class="mt-1 block text-slate-400">Open your public client page in a new tab.</span>
+              </button>
+              <button id="whatsAppSupportButton" class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-left text-sm text-slate-200">
+                <span class="block font-semibold">WhatsApp support</span>
+                <span class="mt-1 block text-slate-400">Chat with the AutomateX support team.</span>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <div id="tab-bookings" class="dashboard-panel hidden">
+          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 class="text-lg font-semibold">Bookings</h3>
+                <p class="mt-1 text-sm text-slate-400">Review and manage customer bookings.</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button data-booking-filter="week" class="booking-filter rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">This week</button>
+                <button data-booking-filter="month" class="booking-filter rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">This month</button>
+                <button data-booking-filter="all" class="booking-filter rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">All time</button>
+              </div>
+            </div>
+
+            <div class="mt-6 overflow-hidden rounded-3xl border border-slate-800">
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-800">
+                  <thead class="bg-slate-950/70">
+                    <tr class="text-left text-xs uppercase tracking-[0.2em] text-slate-400">
+                      <th class="px-4 py-3">Date</th>
+                      <th class="px-4 py-3">Time</th>
+                      <th class="px-4 py-3">Customer</th>
+                      <th class="px-4 py-3">Email</th>
+                      <th class="px-4 py-3">Status</th>
+                      <th class="px-4 py-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bookingsTableBody" class="divide-y divide-slate-800 bg-slate-900"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div id="tab-inquiries" class="dashboard-panel hidden">
+          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div>
+              <h3 class="text-lg font-semibold">Inquiries</h3>
+              <p class="mt-1 text-sm text-slate-400">Newest inquiries appear first. Expand any message to read it fully.</p>
+            </div>
+            <div id="inquiriesList" class="mt-6 grid gap-4"></div>
+          </section>
+        </div>
+
+        <div id="tab-reviews" class="dashboard-panel hidden">
+          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div>
+              <h3 class="text-lg font-semibold">Reviews</h3>
+              <p class="mt-1 text-sm text-slate-400">Published reviews appear on your public site. Pending reviews stay private until moderated.</p>
+            </div>
+            <div id="reviewsGrid" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+          </section>
+        </div>
+
+        <div id="tab-settings" class="dashboard-panel hidden">
+          <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+            <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+              <h3 class="text-lg font-semibold">Business Settings</h3>
+              <p class="mt-1 text-sm text-slate-400">Update the details AutomateX uses across your workspace and AI chatbot.</p>
+
+              <form id="settingsForm" class="mt-6 grid gap-4 sm:grid-cols-2">
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Business name</span>
+                  <input id="settingsBusinessName" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Business type</span>
+                  <input id="settingsBusinessType" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Location</span>
+                  <input id="settingsLocation" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Working hours</span>
+                  <input id="settingsWorkingHours" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block sm:col-span-2">
+                  <span class="mb-2 block text-sm text-slate-300">Services</span>
+                  <input id="settingsServices" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="Comma separated services">
+                </label>
+                <label class="block sm:col-span-2">
+                  <span class="mb-2 block text-sm text-slate-300">Booking URL</span>
+                  <input id="settingsBookingUrl" type="url" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Email</span>
+                  <input id="settingsEmail" type="email" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Chatbot language</span>
+                  <input id="settingsChatbotLanguage" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="English, Sinhala, Tamil...">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Current password</span>
+                  <input id="settingsCurrentPassword" type="password" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">New password</span>
+                  <input id="settingsNewPassword" type="password" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <div class="sm:col-span-2">
+                  <button type="submit" class="rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950">Save settings</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5">
+              <h3 class="text-lg font-semibold text-rose-200">Danger Zone</h3>
+              <p class="mt-2 text-sm leading-7 text-rose-100/80">Cancel your subscription or manage billing details from the Stripe billing portal.</p>
+              <button id="cancelSubscriptionButton" class="mt-5 rounded-2xl border border-rose-400/40 px-4 py-3 text-sm text-rose-100">Cancel subscription</button>
+            </section>
+          </div>
+        </div>
+
+        <div id="tab-upgrade" class="dashboard-panel hidden">
+          <section class="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6">
+            <h3 class="text-2xl font-semibold text-amber-100">Upgrade your plan</h3>
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-amber-50/90">Unlock more automation, smarter AI chat, and higher-capacity workflows by upgrading your AutomateX subscription.</p>
+            <div class="mt-5 flex flex-wrap gap-3">
+              <a href="/pricing.html" class="rounded-2xl bg-amber-300 px-5 py-3 text-sm font-semibold text-slate-950">View plans</a>
+              <button id="openBillingPortalButton" class="rounded-2xl border border-amber-300/40 px-5 py-3 text-sm text-amber-100">Manage billing</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const TOKEN_KEYS = ["automatex_client_token", "automatex_token"];
+    const USER_KEY = "automatex_client_user";
+    const LOGIN_URL = "/client-login.html";
+    const state = {
+      token: "",
+      currentTab: "overview",
+      bookingFilter: "month",
+      user: null,
+      bookings: [],
+      inquiries: [],
+      reviews: []
+    };
+
+    function getToken() {
+      return TOKEN_KEYS.map((key) => localStorage.getItem(key)).find(Boolean) || "";
+    }
+
+    function saveToken(token) {
+      TOKEN_KEYS.forEach((key) => {
+        if (token) {
+          localStorage.setItem(key, token);
+        } else {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+
+    function redirectToLogin() {
+      saveToken("");
+      localStorage.removeItem(USER_KEY);
+      window.location.href = LOGIN_URL;
+    }
+
+    function setFeedback(message, tone = "info") {
+      const feedback = document.getElementById("feedback");
+      feedback.textContent = message;
+      feedback.className = "border-b px-5 py-3 text-sm sm:px-8";
+
+      if (tone === "error") {
+        feedback.classList.add("border-rose-500/30", "bg-rose-500/10", "text-rose-200");
+      } else {
+        feedback.classList.add("border-cyan-500/30", "bg-cyan-500/10", "text-cyan-100");
+      }
+    }
+
+    function clearFeedback() {
+      const feedback = document.getElementById("feedback");
+      feedback.className = "hidden border-b px-5 py-3 text-sm sm:px-8";
+      feedback.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatDate(value) {
+      return new Date(value).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+      });
+    }
+
+    function formatDateTime(value) {
+      return new Date(value).toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    async function apiRequest(path, options = {}) {
+      const token = state.token || getToken();
+      if (!token) {
+        redirectToLogin();
+        throw new Error("Missing authentication token.");
+      }
+
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(options.headers || {})
+        }
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (response.status === 401 || response.status === 403) {
+        redirectToLogin();
+        throw new Error(payload.message || payload.error || "Authentication failed.");
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.message || payload.error || "Request failed.");
+      }
+
+      return payload;
+    }
+
+    function isThisWeek(dateValue) {
+      const now = new Date();
+      const date = new Date(dateValue);
+      const firstDay = new Date(now);
+      const dayOfWeek = (firstDay.getDay() + 6) % 7;
+      firstDay.setDate(now.getDate() - dayOfWeek);
+      firstDay.setHours(0, 0, 0, 0);
+      const lastDay = new Date(firstDay);
+      lastDay.setDate(firstDay.getDate() + 7);
+      return date >= firstDay && date < lastDay;
+    }
+
+    function isThisMonth(dateValue) {
+      const now = new Date();
+      const date = new Date(dateValue);
+      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    }
+
+    function getFilteredBookings() {
+      if (state.bookingFilter === "week") {
+        return state.bookings.filter((booking) => isThisWeek(`${booking.date}T00:00:00`));
+      }
+
+      if (state.bookingFilter === "month") {
+        return state.bookings.filter((booking) => isThisMonth(`${booking.date}T00:00:00`));
+      }
+
+      return state.bookings;
+    }
+
+    function updateHeaderForTab(tab) {
+      const titleMap = {
+        overview: ["Overview", "Track your bookings, inquiries, reviews, and plan status."],
+        bookings: ["Bookings", "Manage customer reservations and availability."],
+        inquiries: ["Inquiries", "Review and respond to incoming leads quickly."],
+        reviews: ["Reviews", "See which reviews are published, pending, or hidden."],
+        settings: ["Settings", "Update your business profile, credentials, and chatbot preferences."],
+        upgrade: ["Upgrade Plan", "Unlock more automation and premium features."]
+      };
+
+      document.getElementById("pageTitle").textContent = titleMap[tab][0];
+      document.getElementById("pageSubtitle").textContent = titleMap[tab][1];
+    }
+
+    function setActiveTab(tabName) {
+      state.currentTab = tabName;
+      updateHeaderForTab(tabName);
+
+      document.querySelectorAll(".dashboard-tab").forEach((button) => {
+        const active = button.dataset.tab === tabName;
+        if (active) {
+          button.className = "dashboard-tab rounded-2xl bg-cyan-400 px-4 py-3 text-left text-sm font-semibold text-slate-950";
+        } else if (button.dataset.tab === "upgrade") {
+          button.className = "dashboard-tab rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm font-semibold text-amber-200";
+        } else {
+          button.className = "dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300";
+        }
+      });
+
+      document.querySelectorAll(".dashboard-panel").forEach((panel) => {
+        panel.classList.toggle("hidden", panel.id !== `tab-${tabName}`);
+      });
+    }
+
+    function statusBadge(status) {
+      if (status === "confirmed" || status === "published") {
+        return "inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold capitalize text-emerald-300";
+      }
+
+      if (status === "cancelled") {
+        return "inline-flex rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold capitalize text-rose-300";
+      }
+
+      if (status === "pending") {
+        return "inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold capitalize text-amber-300";
+      }
+
+      return "inline-flex rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold capitalize text-slate-300";
+    }
+
+    function renderOverview() {
+      const businessName = state.user.businessName || state.user.name || "Your business";
+      const monthlyBookings = state.bookings.filter((booking) => isThisMonth(`${booking.date}T00:00:00`)).length;
+      const newInquiries = state.inquiries.filter((inquiry) => inquiry.status === "new").length;
+      const pendingReviews = state.reviews.filter((review) => review.status === "pending").length;
+
+      document.getElementById("welcomeBusinessName").textContent = businessName;
+      document.getElementById("welcomeCopy").textContent = `Welcome back. ${businessName} is currently on the ${state.user.plan || "starter"} plan.`;
+      document.getElementById("overviewBookingsCount").textContent = monthlyBookings;
+      document.getElementById("overviewInquiriesCount").textContent = newInquiries;
+      document.getElementById("overviewPendingReviewsCount").textContent = pendingReviews;
+      document.getElementById("overviewPlanBadge").textContent = state.user.plan || "starter";
+    }
+
+    function renderBookings() {
+      const tbody = document.getElementById("bookingsTableBody");
+      const bookings = getFilteredBookings();
+
+      if (!bookings.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">No bookings found for this filter.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = bookings.map((booking) => `
+        <tr>
+          <td class="px-4 py-4 text-sm text-slate-300">${escapeHtml(booking.date)}</td>
+          <td class="px-4 py-4 text-sm text-slate-300">${escapeHtml(booking.time)}</td>
+          <td class="px-4 py-4 text-sm text-white">${escapeHtml(booking.name)}</td>
+          <td class="px-4 py-4 text-sm text-slate-300">${escapeHtml(booking.email)}</td>
+          <td class="px-4 py-4"><span class="${statusBadge(booking.status)}">${escapeHtml(booking.status)}</span></td>
+          <td class="px-4 py-4">
+            ${booking.status === "confirmed" ? `<button data-cancel-booking="${booking._id || booking.id}" class="rounded-2xl border border-rose-500/40 px-3 py-2 text-xs text-rose-300">Cancel</button>` : `<span class="text-xs text-slate-500">No action</span>`}
+          </td>
+        </tr>
+      `).join("");
+
+      tbody.querySelectorAll("[data-cancel-booking]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await apiRequest(`/api/bookings/${button.dataset.cancelBooking}/cancel`, {
+              method: "PATCH"
+            });
+            setFeedback("Booking cancelled successfully.");
+            await loadBookings();
+            renderOverview();
+          } catch (error) {
+            setFeedback(error.message, "error");
+          }
+        });
+      });
+    }
+
+    function renderInquiries() {
+      const list = document.getElementById("inquiriesList");
+
+      if (!state.inquiries.length) {
+        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No inquiries found yet.</div>`;
+        return;
+      }
+
+      list.innerHTML = state.inquiries.map((inquiry) => `
+        <article class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="max-w-3xl">
+              <div class="flex flex-wrap items-center gap-3">
+                <h4 class="text-lg font-semibold">${escapeHtml(inquiry.name)}</h4>
+                <span class="text-sm text-slate-400">${escapeHtml(inquiry.email)}</span>
+                <span class="${statusBadge(inquiry.status)}">${escapeHtml(inquiry.status.replace("_", " "))}</span>
+              </div>
+              <p class="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">${formatDateTime(inquiry.createdAt)}</p>
+              <p class="mt-3 text-sm text-slate-300">${escapeHtml(inquiry.message.slice(0, 140))}${inquiry.message.length > 140 ? "..." : ""}</p>
+              <details class="mt-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                <summary class="cursor-pointer text-sm font-semibold text-cyan-300">View full message</summary>
+                <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">${escapeHtml(inquiry.message)}</p>
+              </details>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button data-inquiry-status="${inquiry._id || inquiry.id}" data-status-value="in_progress" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200">Mark as read</button>
+              <button data-inquiry-status="${inquiry._id || inquiry.id}" data-status-value="closed" class="rounded-2xl border border-cyan-500/30 px-4 py-2 text-sm text-cyan-200">Marked replied</button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+
+      list.querySelectorAll("[data-inquiry-status]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          try {
+            await apiRequest(`/api/inquiries/${button.dataset.inquiryStatus}/status`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: button.dataset.statusValue
+              })
+            });
+            setFeedback("Inquiry updated successfully.");
+            await loadInquiries();
+            renderOverview();
+          } catch (error) {
+            setFeedback(error.message, "error");
+          }
+        });
+      });
+    }
+
+    function renderStars(rating) {
+      return `${"★".repeat(rating)}${"☆".repeat(5 - rating)}`;
+    }
+
+    function renderReviews() {
+      const grid = document.getElementById("reviewsGrid");
+
+      if (!state.reviews.length) {
+        grid.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No reviews found yet.</div>`;
+        return;
+      }
+
+      grid.innerHTML = state.reviews.map((review) => `
+        <article class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h4 class="text-lg font-semibold">${escapeHtml(review.name)}</h4>
+              <p class="mt-1 text-sm text-slate-400">${escapeHtml(review.role || "Customer review")}</p>
+            </div>
+            <span class="${statusBadge(review.status)}">${escapeHtml(review.status)}</span>
+          </div>
+          <p class="mt-4 text-sm tracking-[0.2em] text-amber-300">${renderStars(Number(review.rating || 0))}</p>
+          <p class="mt-3 text-sm leading-7 text-slate-300">${escapeHtml(review.text)}</p>
+          <p class="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">${formatDateTime(review.createdAt)}</p>
+        </article>
+      `).join("");
+    }
+
+    function renderSettings() {
+      const user = state.user;
+      document.getElementById("settingsBusinessName").value = user.businessName || "";
+      document.getElementById("settingsBusinessType").value = user.businessType || "";
+      document.getElementById("settingsLocation").value = user.location || "";
+      document.getElementById("settingsWorkingHours").value = user.workingHours || "";
+      document.getElementById("settingsBookingUrl").value = user.bookingUrl || "";
+      document.getElementById("settingsEmail").value = user.email || "";
+      document.getElementById("settingsChatbotLanguage").value = user.chatbotLanguage || "";
+      document.getElementById("settingsServices").value = Array.isArray(user.services) ? user.services.join(", ") : "";
+      document.getElementById("settingsCurrentPassword").value = "";
+      document.getElementById("settingsNewPassword").value = "";
+    }
+
+    function updatePlanBadge() {
+      const plan = state.user.plan || "starter";
+      const badge = document.getElementById("planBadge");
+      badge.textContent = plan;
+      badge.className = "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]";
+
+      if (plan === "starter") {
+        badge.classList.add("border", "border-amber-500/30", "bg-amber-500/10", "text-amber-200");
+      } else if (plan === "standard") {
+        badge.classList.add("border", "border-cyan-500/30", "bg-cyan-500/10", "text-cyan-200");
+      } else {
+        badge.classList.add("border", "border-emerald-500/30", "bg-emerald-500/10", "text-emerald-200");
+      }
+
+      const upgradeButton = document.getElementById("upgradePlanButton");
+      if (plan === "starter") {
+        upgradeButton.classList.add("ring-2", "ring-amber-300/30");
+      } else {
+        upgradeButton.classList.remove("ring-2", "ring-amber-300/30");
+      }
+    }
+
+    async function loadProfile() {
+      const payload = await apiRequest("/api/auth/me");
+      state.user = payload.user;
+      localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      updatePlanBadge();
+      renderSettings();
+    }
+
+    async function loadBookings() {
+      const payload = await apiRequest("/api/bookings");
+      state.bookings = payload.bookings || [];
+      renderBookings();
+    }
+
+    async function loadInquiries() {
+      const payload = await apiRequest("/api/inquiries");
+      state.inquiries = payload.inquiries || [];
+      renderInquiries();
+    }
+
+    async function loadReviews() {
+      const payload = await apiRequest("/api/reviews/manage");
+      state.reviews = payload.reviews || [];
+      renderReviews();
+    }
+
+    function handleQuickActions() {
+      document.getElementById("copyBookingLinkButton").addEventListener("click", async () => {
+        try {
+          const bookingUrl = state.user.bookingUrl || `${window.location.origin}/#booking`;
+          await navigator.clipboard.writeText(bookingUrl);
+          setFeedback("Booking link copied to clipboard.");
+        } catch (_error) {
+          setFeedback("Unable to copy the booking link right now.", "error");
+        }
+      });
+
+      document.getElementById("viewPublicPageButton").addEventListener("click", () => {
+        const publicUrl = state.user.bookingUrl || `${window.location.origin}/#booking`;
+        window.open(publicUrl, "_blank", "noopener,noreferrer");
+      });
+
+      document.getElementById("whatsAppSupportButton").addEventListener("click", () => {
+        window.open("https://wa.me/94711861722", "_blank", "noopener,noreferrer");
+      });
+    }
+
+    function handleSettingsSubmit() {
+      document.getElementById("settingsForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearFeedback();
+
+        try {
+          const payload = await apiRequest("/api/auth/me", {
+            method: "PATCH",
+            body: JSON.stringify({
+              businessName: document.getElementById("settingsBusinessName").value.trim(),
+              businessType: document.getElementById("settingsBusinessType").value.trim(),
+              location: document.getElementById("settingsLocation").value.trim(),
+              workingHours: document.getElementById("settingsWorkingHours").value.trim(),
+              bookingUrl: document.getElementById("settingsBookingUrl").value.trim(),
+              email: document.getElementById("settingsEmail").value.trim(),
+              chatbotLanguage: document.getElementById("settingsChatbotLanguage").value.trim(),
+              currentPassword: document.getElementById("settingsCurrentPassword").value,
+              newPassword: document.getElementById("settingsNewPassword").value,
+              services: document.getElementById("settingsServices").value
+                .split(",")
+                .map((service) => service.trim())
+                .filter(Boolean)
+            })
+          });
+
+          state.user = payload.user;
+          localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+          renderSettings();
+          renderOverview();
+          updatePlanBadge();
+          setFeedback("Settings updated successfully.");
+        } catch (error) {
+          setFeedback(error.message, "error");
+        }
+      });
+    }
+
+    function handleBillingButtons() {
+      const openPortal = async () => {
+        try {
+          const payload = await apiRequest("/api/billing/portal");
+          window.location.href = payload.portalUrl;
+        } catch (error) {
+          setFeedback(error.message, "error");
+        }
+      };
+
+      document.getElementById("cancelSubscriptionButton").addEventListener("click", openPortal);
+      document.getElementById("openBillingPortalButton").addEventListener("click", openPortal);
+    }
+
+    function handleBookingFilters() {
+      document.querySelectorAll(".booking-filter").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.bookingFilter = button.dataset.bookingFilter;
+          document.querySelectorAll(".booking-filter").forEach((item) => {
+            item.className = "booking-filter rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300";
+          });
+          button.className = "booking-filter rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950";
+          renderBookings();
+        });
+      });
+    }
+
+    function handleTabNavigation() {
+      document.querySelectorAll(".dashboard-tab").forEach((button) => {
+        button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+      });
+    }
+
+    async function logout() {
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } finally {
+        redirectToLogin();
+      }
+    }
+
+    function attachStaticActions() {
+      document.getElementById("logoutButtonMobile").addEventListener("click", logout);
+      document.getElementById("logoutButtonDesktop").addEventListener("click", logout);
+      handleQuickActions();
+      handleSettingsSubmit();
+      handleBillingButtons();
+      handleBookingFilters();
+      handleTabNavigation();
+    }
+
+    async function initDashboard() {
+      state.token = getToken();
+      if (!state.token) {
+        redirectToLogin();
+        return;
+      }
+
+      attachStaticActions();
+
+      try {
+        clearFeedback();
+        await Promise.all([
+          loadProfile(),
+          loadBookings(),
+          loadInquiries(),
+          loadReviews()
+        ]);
+
+        renderOverview();
+        renderSettings();
+        document.getElementById("loadingShell").classList.add("hidden");
+        document.getElementById("dashboardContent").classList.remove("hidden");
+        setActiveTab("overview");
+      } catch (error) {
+        setFeedback(error.message || "Unable to load your dashboard right now.", "error");
+        document.getElementById("loadingShell").classList.add("hidden");
+        document.getElementById("dashboardContent").classList.remove("hidden");
+        setActiveTab("overview");
+      }
+    }
+
+    initDashboard();
+  </script>
+</body>
+</html>

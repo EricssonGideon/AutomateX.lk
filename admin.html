@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutomateX Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white">
+  <div class="min-h-screen">
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div>
+          <p class="text-xs uppercase tracking-[0.32em] text-cyan-400">AutomateX</p>
+          <h1 class="mt-2 text-2xl font-semibold">Admin Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="adminIdentity" class="hidden rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 sm:inline-flex"></span>
+          <button id="logoutButton" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-rose-400 hover:text-rose-300">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Clients</p>
+          <p id="statClients" class="mt-4 text-3xl font-semibold">0</p>
+        </article>
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Active Subs</p>
+          <p id="statSubscriptions" class="mt-4 text-3xl font-semibold">0</p>
+        </article>
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Bookings</p>
+          <p id="statBookings" class="mt-4 text-3xl font-semibold">0</p>
+        </article>
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Inquiries</p>
+          <p id="statInquiries" class="mt-4 text-3xl font-semibold">0</p>
+        </article>
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Pending Reviews</p>
+          <p id="statPendingReviews" class="mt-4 text-3xl font-semibold">0</p>
+        </article>
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Revenue Est.</p>
+          <p id="statRevenue" class="mt-4 text-3xl font-semibold">$0</p>
+        </article>
+      </section>
+
+      <section class="mt-8 rounded-3xl border border-slate-800 bg-slate-900">
+        <div class="border-b border-slate-800 px-4 py-4 sm:px-6">
+          <nav class="flex flex-wrap gap-2">
+            <button data-tab="clients" class="tab-button rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Clients</button>
+            <button data-tab="bookings" class="tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Bookings</button>
+            <button data-tab="inquiries" class="tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Inquiries</button>
+            <button data-tab="reviews" class="tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Reviews</button>
+          </nav>
+        </div>
+
+        <div id="globalFeedback" class="hidden border-b border-slate-800 px-4 py-3 text-sm sm:px-6"></div>
+
+        <section id="tab-clients" class="tab-panel px-4 py-6 sm:px-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div class="grid gap-4 sm:grid-cols-3">
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Search</span>
+                <input id="clientSearch" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="Search name or email">
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Plan</span>
+                <select id="clientPlanFilter" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                  <option value="">All plans</option>
+                  <option value="starter">Starter</option>
+                  <option value="standard">Standard</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Status</span>
+                <select id="clientStatusFilter" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                  <option value="">All statuses</option>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            </div>
+            <button id="refreshClientsButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Clients</button>
+          </div>
+
+          <div class="mt-6 overflow-hidden rounded-3xl border border-slate-800">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-800">
+                <thead class="bg-slate-950/70">
+                  <tr class="text-left text-xs uppercase tracking-[0.22em] text-slate-400">
+                    <th class="px-4 py-3">Client</th>
+                    <th class="px-4 py-3">Plan</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3">Bookings</th>
+                    <th class="px-4 py-3">Inquiries</th>
+                    <th class="px-4 py-3">Created</th>
+                    <th class="px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="clientsTableBody" class="divide-y divide-slate-800 bg-slate-900"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <section id="clientDetailPanel" class="mt-6 hidden rounded-3xl border border-slate-800 bg-slate-950/50 p-6">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Client Detail</p>
+                <h2 id="clientDetailName" class="mt-3 text-2xl font-semibold"></h2>
+                <p id="clientDetailMeta" class="mt-2 text-sm text-slate-400"></p>
+              </div>
+              <form id="clientUpdateForm" class="grid gap-3 sm:grid-cols-3">
+                <input type="hidden" id="clientDetailId">
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Plan</span>
+                  <select id="clientDetailPlan" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                    <option value="starter">Starter</option>
+                    <option value="standard">Standard</option>
+                    <option value="pro">Pro</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Active</span>
+                  <select id="clientDetailActive" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </label>
+                <div class="flex items-end gap-3">
+                  <button class="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Save</button>
+                  <button id="deactivateClientButton" class="rounded-2xl border border-rose-500/40 px-4 py-3 text-sm text-rose-300 transition hover:border-rose-400 hover:bg-rose-500/10" type="button">Soft Delete</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="mt-6 grid gap-6 xl:grid-cols-2">
+              <div>
+                <h3 class="text-lg font-semibold">Recent Bookings</h3>
+                <div id="clientRecentBookings" class="mt-3 space-y-3"></div>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold">Recent Inquiries</h3>
+                <div id="clientRecentInquiries" class="mt-3 space-y-3"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <section id="tab-bookings" class="tab-panel hidden px-4 py-6 sm:px-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Client ID</span>
+                <input id="bookingClientFilter" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="Optional ObjectId">
+              </label>
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Month</span>
+                <input id="bookingDateFilter" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="YYYY-MM">
+              </label>
+            </div>
+            <button id="refreshBookingsButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Bookings</button>
+          </div>
+          <div id="bookingsList" class="mt-6 grid gap-3"></div>
+        </section>
+
+        <section id="tab-inquiries" class="tab-panel hidden px-4 py-6 sm:px-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-semibold">All Inquiries</h2>
+              <p class="mt-1 text-sm text-slate-400">Newest inquiries across all tenants.</p>
+            </div>
+            <button id="refreshInquiriesButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Inquiries</button>
+          </div>
+          <div id="inquiriesList" class="mt-6 grid gap-3"></div>
+        </section>
+
+        <section id="tab-reviews" class="tab-panel hidden px-4 py-6 sm:px-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xl font-semibold">Review Moderation</h2>
+              <p class="mt-1 text-sm text-slate-400">Pending reviews appear first so you can approve or hide them quickly.</p>
+            </div>
+            <button id="refreshReviewsButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Reviews</button>
+          </div>
+          <div id="reviewsList" class="mt-6 grid gap-4"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const TOKEN_KEY = "automatex_admin_token";
+    const USER_KEY = "automatex_admin_user";
+    const state = {
+      currentTab: "clients",
+      selectedClientId: null
+    };
+
+    const globalFeedback = document.getElementById("globalFeedback");
+
+    function redirectToLogin() {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      window.location.href = "/admin-login.html";
+    }
+
+    function showFeedback(message, tone = "info") {
+      globalFeedback.textContent = message;
+      globalFeedback.className = "border-b px-4 py-3 text-sm sm:px-6";
+
+      if (tone === "error") {
+        globalFeedback.classList.add("border-rose-500/30", "bg-rose-500/10", "text-rose-200");
+      } else {
+        globalFeedback.classList.add("border-cyan-500/30", "bg-cyan-500/10", "text-cyan-100");
+      }
+    }
+
+    function hideFeedback() {
+      globalFeedback.className = "hidden border-b px-4 py-3 text-sm sm:px-6";
+      globalFeedback.textContent = "";
+    }
+
+    function formatCurrency(value) {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0
+      }).format(value || 0);
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return "—";
+      }
+
+      return new Date(value).toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    async function apiFetch(path, options = {}) {
+      const token = localStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        redirectToLogin();
+        throw new Error("Missing admin token.");
+      }
+
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(options.headers || {})
+        }
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (response.status === 401 || response.status === 403) {
+        redirectToLogin();
+        throw new Error(payload.message || "Authentication failed.");
+      }
+
+      if (!response.ok) {
+        throw new Error(payload.message || "Request failed.");
+      }
+
+      return payload;
+    }
+
+    async function verifyAdminSession() {
+      const payload = await apiFetch("/api/auth/me");
+      if (!payload.user || payload.user.role !== "admin") {
+        redirectToLogin();
+        throw new Error("Admin access is required.");
+      }
+
+      localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      document.getElementById("adminIdentity").textContent = payload.user.email;
+      document.getElementById("adminIdentity").classList.remove("hidden");
+    }
+
+    function setActiveTab(tabName) {
+      state.currentTab = tabName;
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        const active = button.dataset.tab === tabName;
+        button.className = active
+          ? "tab-button rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
+          : "tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300";
+      });
+
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        panel.classList.toggle("hidden", panel.id !== `tab-${tabName}`);
+      });
+    }
+
+    async function loadStats() {
+      const stats = await apiFetch("/api/admin/stats");
+      document.getElementById("statClients").textContent = stats.totalClients;
+      document.getElementById("statSubscriptions").textContent = stats.activeSubscriptions;
+      document.getElementById("statBookings").textContent = stats.totalBookingsThisMonth;
+      document.getElementById("statInquiries").textContent = stats.totalInquiriesThisMonth;
+      document.getElementById("statPendingReviews").textContent = stats.totalReviewsPendingModeration;
+      document.getElementById("statRevenue").textContent = formatCurrency(stats.monthlyRevenueEstimate);
+    }
+
+    function clientRowMarkup(client) {
+      const statusTone = client.isActive
+        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
+        : "bg-rose-500/15 text-rose-300 border-rose-500/20";
+
+      return `
+        <tr class="align-top">
+          <td class="px-4 py-4">
+            <p class="font-medium text-white">${client.name}</p>
+            <p class="mt-1 text-sm text-slate-400">${client.email}</p>
+          </td>
+          <td class="px-4 py-4 text-sm text-slate-300">${client.plan}</td>
+          <td class="px-4 py-4">
+            <span class="inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusTone}">${client.isActive ? "Active" : "Inactive"}</span>
+          </td>
+          <td class="px-4 py-4 text-sm text-slate-300">${client.bookingCount}</td>
+          <td class="px-4 py-4 text-sm text-slate-300">${client.inquiryCount}</td>
+          <td class="px-4 py-4 text-sm text-slate-300">${formatDate(client.createdAt)}</td>
+          <td class="px-4 py-4">
+            <button data-client-view="${client._id || client.id}" class="rounded-2xl border border-slate-700 px-3 py-2 text-xs text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">View</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    async function loadClients() {
+      const search = document.getElementById("clientSearch").value.trim();
+      const plan = document.getElementById("clientPlanFilter").value;
+      const isActive = document.getElementById("clientStatusFilter").value;
+      const params = new URLSearchParams();
+
+      if (search) params.set("search", search);
+      if (plan) params.set("plan", plan);
+      if (isActive) params.set("isActive", isActive);
+
+      const data = await apiFetch(`/api/admin/clients${params.toString() ? `?${params}` : ""}`);
+      const tbody = document.getElementById("clientsTableBody");
+
+      if (!data.clients.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">No clients found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.clients.map(clientRowMarkup).join("");
+      tbody.querySelectorAll("[data-client-view]").forEach((button) => {
+        button.addEventListener("click", () => loadClientDetail(button.dataset.clientView));
+      });
+    }
+
+    function listCardMarkup(title, subtitle, meta) {
+      return `
+        <article class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 class="font-medium text-white">${title}</h4>
+              <p class="mt-1 text-sm text-slate-400">${subtitle}</p>
+            </div>
+            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">${meta}</p>
+          </div>
+        </article>
+      `;
+    }
+
+    async function loadClientDetail(clientId) {
+      const data = await apiFetch(`/api/admin/clients/${clientId}`);
+      state.selectedClientId = clientId;
+
+      document.getElementById("clientDetailPanel").classList.remove("hidden");
+      document.getElementById("clientDetailId").value = clientId;
+      document.getElementById("clientDetailName").textContent = data.client.name;
+      document.getElementById("clientDetailMeta").textContent = `${data.client.email} • ${data.client.plan} • ${data.client.isActive ? "Active" : "Inactive"}`;
+      document.getElementById("clientDetailPlan").value = data.client.plan;
+      document.getElementById("clientDetailActive").value = String(data.client.isActive);
+
+      document.getElementById("clientRecentBookings").innerHTML = data.bookings.length
+        ? data.bookings.map((booking) => listCardMarkup(
+            `${booking.service || "Discovery Call"} • ${booking.date} ${booking.time}`,
+            `${booking.name} • ${booking.email}`,
+            booking.status
+          )).join("")
+        : `<p class="text-sm text-slate-400">No recent bookings.</p>`;
+
+      document.getElementById("clientRecentInquiries").innerHTML = data.inquiries.length
+        ? data.inquiries.map((inquiry) => listCardMarkup(
+            inquiry.name,
+            inquiry.message,
+            inquiry.status
+          )).join("")
+        : `<p class="text-sm text-slate-400">No recent inquiries.</p>`;
+    }
+
+    async function saveClientDetail(event) {
+      event.preventDefault();
+      const clientId = document.getElementById("clientDetailId").value;
+      if (!clientId) {
+        return;
+      }
+
+      await apiFetch(`/api/admin/clients/${clientId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          plan: document.getElementById("clientDetailPlan").value,
+          isActive: document.getElementById("clientDetailActive").value === "true"
+        })
+      });
+
+      showFeedback("Client updated successfully.");
+      await Promise.all([loadClients(), loadClientDetail(clientId), loadStats()]);
+    }
+
+    async function softDeleteClient() {
+      const clientId = document.getElementById("clientDetailId").value;
+      if (!clientId) {
+        return;
+      }
+
+      await apiFetch(`/api/admin/clients/${clientId}`, {
+        method: "DELETE"
+      });
+
+      showFeedback("Client deactivated successfully.");
+      await Promise.all([loadClients(), loadClientDetail(clientId), loadStats()]);
+    }
+
+    async function loadBookings() {
+      const params = new URLSearchParams();
+      const clientId = document.getElementById("bookingClientFilter").value.trim();
+      const date = document.getElementById("bookingDateFilter").value.trim();
+      if (clientId) params.set("clientId", clientId);
+      if (date) params.set("date", date);
+
+      const data = await apiFetch(`/api/admin/bookings${params.toString() ? `?${params}` : ""}`);
+      const list = document.getElementById("bookingsList");
+
+      list.innerHTML = data.bookings.length
+        ? data.bookings.map((booking) => listCardMarkup(
+            `${booking.service || "Discovery Call"} • ${booking.date} ${booking.time}`,
+            `${booking.name} • ${booking.email} • Client ${booking.clientId}`,
+            `${booking.status} • ${formatDate(booking.createdAt)}`
+          )).join("")
+        : `<p class="text-sm text-slate-400">No bookings found for the current filters.</p>`;
+    }
+
+    async function loadInquiries() {
+      const data = await apiFetch("/api/admin/inquiries");
+      const list = document.getElementById("inquiriesList");
+
+      list.innerHTML = data.inquiries.length
+        ? data.inquiries.map((inquiry) => listCardMarkup(
+            inquiry.name,
+            `${inquiry.message} • ${inquiry.email}`,
+            `${inquiry.status} • Client ${inquiry.clientId}`
+          )).join("")
+        : `<p class="text-sm text-slate-400">No inquiries found.</p>`;
+    }
+
+    function reviewCardMarkup(review) {
+      const statusTone = review.status === "pending"
+        ? "text-amber-300"
+        : review.status === "published"
+          ? "text-emerald-300"
+          : "text-slate-400";
+
+      return `
+        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="max-w-3xl">
+              <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-semibold">${review.name}</h3>
+                <span class="text-sm text-slate-400">${review.role || "No role"}</span>
+                <span class="text-sm ${statusTone}">${review.status}</span>
+              </div>
+              <p class="mt-3 text-sm text-slate-200">${review.text}</p>
+              <p class="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">Client ${review.clientId} • ${formatDate(review.createdAt)}</p>
+            </div>
+            <div class="flex gap-3">
+              <button data-review-action="published" data-review-id="${review._id}" class="rounded-2xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Approve</button>
+              <button data-review-action="hidden" data-review-id="${review._id}" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-rose-400 hover:text-rose-300">Hide</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    async function loadReviews() {
+      const data = await apiFetch("/api/admin/reviews");
+      const list = document.getElementById("reviewsList");
+
+      list.innerHTML = data.reviews.length
+        ? data.reviews.map(reviewCardMarkup).join("")
+        : `<p class="text-sm text-slate-400">No reviews found.</p>`;
+
+      list.querySelectorAll("[data-review-action]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          await apiFetch(`/api/admin/reviews/${button.dataset.reviewId}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              status: button.dataset.reviewAction
+            })
+          });
+
+          showFeedback(`Review marked as ${button.dataset.reviewAction}.`);
+          await Promise.all([loadReviews(), loadStats()]);
+        });
+      });
+    }
+
+    async function logoutAdmin() {
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } finally {
+        redirectToLogin();
+      }
+    }
+
+    document.querySelectorAll(".tab-button").forEach((button) => {
+      button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+    });
+
+    document.getElementById("refreshClientsButton").addEventListener("click", () => loadClients().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("refreshBookingsButton").addEventListener("click", () => loadBookings().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("refreshInquiriesButton").addEventListener("click", () => loadInquiries().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("refreshReviewsButton").addEventListener("click", () => loadReviews().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("clientUpdateForm").addEventListener("submit", (event) => saveClientDetail(event).catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("deactivateClientButton").addEventListener("click", () => softDeleteClient().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("logoutButton").addEventListener("click", logoutAdmin);
+    document.getElementById("clientSearch").addEventListener("input", () => loadClients().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("clientPlanFilter").addEventListener("change", () => loadClients().catch((error) => showFeedback(error.message, "error")));
+    document.getElementById("clientStatusFilter").addEventListener("change", () => loadClients().catch((error) => showFeedback(error.message, "error")));
+
+    async function initDashboard() {
+      try {
+        hideFeedback();
+        if (!localStorage.getItem(TOKEN_KEY)) {
+          redirectToLogin();
+          return;
+        }
+
+        await verifyAdminSession();
+        setActiveTab("clients");
+        await Promise.all([loadStats(), loadClients(), loadBookings(), loadInquiries(), loadReviews()]);
+      } catch (error) {
+        showFeedback(error.message || "Unable to load the admin dashboard.", "error");
+      }
+    }
+
+    initDashboard();
+  </script>
+</body>
+</html>

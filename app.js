@@ -1,5 +1,14 @@
 const API_BASE = "/api";
 
+function sanitizeHTML(html) {
+  // DOMPurify is used anywhere we intentionally inject HTML snippets.
+  if (window.DOMPurify) {
+    return window.DOMPurify.sanitize(html);
+  }
+
+  return html;
+}
+
 // Floating micro-dots
 const container = document.getElementById("floatDots");
 for (let index = 0; index < 22; index += 1) {
@@ -92,7 +101,7 @@ const submitHTML = `
     <p class="form-success hidden" id="rvFeedback"></p>
   </div>`;
 
-reviewsGrid.insertAdjacentHTML("beforeend", submitHTML);
+reviewsGrid.insertAdjacentHTML("beforeend", sanitizeHTML(submitHTML));
 
 document.querySelectorAll("#starPicker span").forEach((star) => {
   star.addEventListener("click", () => {
@@ -125,24 +134,71 @@ function renderUserReview(review) {
   const stars = "★".repeat(review.rating) + "☆".repeat(5 - review.rating);
   const colors = ["#ff6b3d", "#4fd1c5", "#a78bfa", "#f59e0b", "#34d399"];
   const background = colors[review.name.charCodeAt(0) % colors.length];
+
   const card = document.createElement("article");
   card.className = "review-card user-review-card";
   card.style.animation = "reviewPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both";
-  card.innerHTML = `
-    <div class="review-header">
-      <div class="avatar" style="background:${background};color:#fff">${initials}</div>
-      <div><strong>${review.name}</strong><p>${review.role || "AutomateX Client"}</p></div>
-      <div class="review-stars" style="color:#f5b944">${stars}</div>
-    </div>
-    <blockquote>"${review.text}"</blockquote>
-    <div class="review-tag" style="display:flex;align-items:center;gap:6px">
-      <span style="width:6px;height:6px;border-radius:50%;background:#4fd1c5;display:inline-block"></span>
-      Verified Review &bull; ${new Date(review.createdAt || review.ts).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric"
-      })}
-    </div>`;
+
+  const header = document.createElement("div");
+  header.className = "review-header";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.style.background = background;
+  avatar.style.color = "#fff";
+  avatar.textContent = initials;
+
+  const meta = document.createElement("div");
+  const name = document.createElement("strong");
+  name.textContent = review.name;
+  const role = document.createElement("p");
+  role.textContent = review.role || "AutomateX Client";
+  meta.appendChild(name);
+  meta.appendChild(role);
+
+  const starBlock = document.createElement("div");
+  starBlock.className = "review-stars";
+  starBlock.style.color = "#f5b944";
+  // textContent prevents user data from turning into executable markup.
+  starBlock.textContent = stars;
+
+  header.appendChild(avatar);
+  header.appendChild(meta);
+  header.appendChild(starBlock);
+
+  const quote = document.createElement("blockquote");
+  quote.textContent = `"${review.text}"`;
+
+  const tag = document.createElement("div");
+  tag.className = "review-tag";
+  tag.style.display = "flex";
+  tag.style.alignItems = "center";
+  tag.style.gap = "6px";
+
+  const dot = document.createElement("span");
+  dot.style.width = "6px";
+  dot.style.height = "6px";
+  dot.style.borderRadius = "50%";
+  dot.style.background = "#4fd1c5";
+  dot.style.display = "inline-block";
+
+  const tagText = document.createElement("span");
+  tagText.textContent = `Verified Review • ${new Date(review.createdAt || review.ts).toLocaleDateString(
+    "en-GB",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    }
+  )}`;
+
+  tag.appendChild(dot);
+  tag.appendChild(tagText);
+
+  card.appendChild(header);
+  card.appendChild(quote);
+  card.appendChild(tag);
+
   return card;
 }
 
@@ -159,7 +215,7 @@ async function loadReviewsFromServer() {
   try {
     const payload = await apiRequest("/reviews");
     refreshUserReviews(payload.reviews || []);
-  } catch (error) {
+  } catch (_error) {
     document.getElementById("rvFeedback").textContent = "Live reviews could not be loaded right now.";
     document.getElementById("rvFeedback").classList.remove("hidden");
     document.getElementById("rvFeedback").classList.add("is-error");
@@ -324,7 +380,7 @@ async function fetchAvailability() {
       accumulator[slotKey] = true;
       return accumulator;
     }, {});
-  } catch (error) {
+  } catch (_error) {
     bookedSlots = {};
   }
 }
@@ -338,7 +394,9 @@ function renderCalendar() {
   );
 
   const grid = document.getElementById("calGrid");
-  grid.innerHTML = "<span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>";
+  grid.innerHTML = sanitizeHTML(
+    "<span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>"
+  );
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -380,7 +438,7 @@ function renderCalendar() {
 function renderTimes() {
   const dateKey = formatDateKey(selectedDate);
   const slots = document.getElementById("timeSlots");
-  slots.innerHTML = "";
+  slots.textContent = "";
 
   TIMES.forEach((time) => {
     const slotKey = `${dateKey}_${time}`;
@@ -500,68 +558,23 @@ confirmBookingButton.addEventListener("click", async () => {
   }
 });
 
-// Chatbot
-const FLOWS = {
-  start: {
-    msg: "Hi! Welcome to AutomateX. What service do you need?",
-    opts: [
-      "Website Development",
-      "Business Automation",
-      "AI Chatbot",
-      "WhatsApp Flows",
-      "Book a Call",
-      "Talk to a human"
-    ]
-  },
-  "Website Development": {
-    msg: "Great choice! We build high-converting websites tailored to your brand. Typical delivery is 3–5 days. What's your budget range?",
-    opts: ["Under $500", "$500-$1,500", "$1,500+", "Book a free call"]
-  },
-  "Business Automation": {
-    msg: "We automate lead capture, follow-up flows, and internal processes. What do you want to automate?",
-    opts: ["Lead follow-up", "Inquiry handling", "Internal workflows", "Book a call"]
-  },
-  "AI Chatbot": {
-    msg: "Our AI chatbots work 24/7 - handling FAQs, lead capture, and support. What platform do you need?",
-    opts: ["Website chatbot", "WhatsApp bot", "Both", "Book a call"]
-  },
-  "WhatsApp Flows": {
-    msg: "WhatsApp automation is one of our most popular services! We can set up lead flows, booking confirmations, and follow-ups. Ready to start?",
-    opts: ["Yes, let's go!", "Tell me more", "Book a call"]
-  },
-  "Book a Call": {
-    msg: "Awesome! Our discovery calls are free and only 15 minutes. Click below to pick a time.",
-    opts: ["Go to booking", "Maybe later"]
-  },
-  "Go to booking": {
-    msg: "Redirecting you to our booking calendar...",
-    opts: [],
-    action: "booking"
-  },
-  "Talk to a human": {
-    msg: "Sure! Reach us directly:",
-    opts: ["WhatsApp us", "Email us", "Back to start"],
-    links: {
-      "WhatsApp us": "https://wa.me/94711861722",
-      "Email us": "mailto:automatex100@gmail.com"
-    }
-  },
-  "Back to start": {
-    msg: "No problem! What else can I help with?",
-    opts: ["Website Development", "Business Automation", "AI Chatbot", "WhatsApp Flows", "Book a Call"]
-  },
-  default: {
-    msg: "Thanks! A team member will follow up with you shortly. Anything else?",
-    opts: ["Website Development", "Business Automation", "Book a Call", "Talk to a human"]
-  }
-};
-
 const chatBox = document.getElementById("chatBox");
 const chatMessages = document.getElementById("chatMessages");
 const chatToggle = document.getElementById("chatToggle");
 const chatBadge = document.getElementById("chatBadge");
 let chatOpen = false;
 let badgeDismissed = false;
+let conversationHistory = [];
+let typingIndicatorNode = null;
+
+function getChatAuthToken() {
+  return (
+    localStorage.getItem("automatex_client_token") ||
+    localStorage.getItem("automatex_token") ||
+    localStorage.getItem("automatex_admin_token") ||
+    ""
+  );
+}
 
 function addMessage(text, from = "bot", link = null) {
   const wrapper = document.createElement("div");
@@ -582,44 +595,47 @@ function addMessage(text, from = "bot", link = null) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function addOptions(options, links = {}) {
+function addTypingIndicator() {
+  removeTypingIndicator();
   const wrapper = document.createElement("div");
-  wrapper.className = "chat-options";
-
-  options.forEach((option) => {
-    const button = document.createElement("button");
-    button.className = "chat-opt";
-    button.textContent = option;
-    button.addEventListener("click", () => {
-      wrapper.remove();
-      addMessage(option, "user");
-
-      if (links[option]) {
-        setTimeout(() => window.open(links[option], "_blank"), 300);
-        return;
-      }
-
-      setTimeout(() => respond(option), 600);
-    });
-
-    wrapper.appendChild(button);
-  });
-
+  wrapper.className = "chat-msg chat-msg-bot";
+  wrapper.textContent = "Typing...";
+  typingIndicatorNode = wrapper;
   chatMessages.appendChild(wrapper);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function respond(flowKey) {
-  const flow = FLOWS[flowKey] || FLOWS.default;
-  addMessage(flow.msg, "bot");
+function removeTypingIndicator() {
+  if (typingIndicatorNode && typingIndicatorNode.parentNode) {
+    typingIndicatorNode.parentNode.removeChild(typingIndicatorNode);
+  }
+  typingIndicatorNode = null;
+}
 
-  if (flow.action === "booking") {
-    setTimeout(() => document.getElementById("booking").scrollIntoView({ behavior: "smooth" }), 800);
+function pushConversationEntry(role, content) {
+  conversationHistory.push({ role, content });
+  conversationHistory = conversationHistory.slice(-10);
+}
+
+async function requestChatReply(message, historySnapshot) {
+  const token = getChatAuthToken();
+
+  if (!token) {
+    throw new Error("missing-auth");
   }
 
-  if (flow.opts && flow.opts.length) {
-    setTimeout(() => addOptions(flow.opts, flow.links || {}), 400);
-  }
+  const payload = await apiRequest("/chat", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      message,
+      conversationHistory: historySnapshot
+    })
+  });
+
+  return payload.reply;
 }
 
 chatToggle.addEventListener("click", () => {
@@ -634,11 +650,13 @@ chatToggle.addEventListener("click", () => {
   }
 
   if (chatOpen && chatMessages.children.length === 0) {
-    setTimeout(() => respond("start"), 300);
+    setTimeout(() => {
+      addMessage("Hi! Ask me anything and I'll do my best to help.");
+    }, 300);
   }
 });
 
-function sendChat() {
+async function sendChat() {
   const input = document.getElementById("chatInput");
   const value = input.value.trim();
   if (!value) {
@@ -647,10 +665,27 @@ function sendChat() {
 
   input.value = "";
   addMessage(value, "user");
-  setTimeout(() => respond("default"), 700);
+  const historySnapshot = conversationHistory.slice(-10);
+  addTypingIndicator();
+
+  try {
+    const reply = await requestChatReply(value, historySnapshot);
+    removeTypingIndicator();
+    pushConversationEntry("user", value);
+    addMessage(reply, "bot");
+    pushConversationEntry("assistant", reply);
+  } catch (_error) {
+    removeTypingIndicator();
+    pushConversationEntry("user", value);
+    const fallback = "Sorry, I'm having trouble. Please WhatsApp us.";
+    addMessage(fallback, "bot");
+    pushConversationEntry("assistant", fallback);
+  }
 }
 
-document.getElementById("chatSend").addEventListener("click", sendChat);
+document.getElementById("chatSend").addEventListener("click", () => {
+  sendChat();
+});
 document.getElementById("chatInput").addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     sendChat();
