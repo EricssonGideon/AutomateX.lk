@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { sendSuccess } = require("../utils/response");
+const { connectToDatabase } = require("../utils/db");
 
 const AVAILABLE_TIMES = [
   "09:00",
@@ -16,7 +17,9 @@ const AVAILABLE_TIMES = [
   "16:30"
 ];
 
-function getHealth(_req, res) {
+async function getHealth(_req, res) {
+  await connectToDatabase();
+
   return sendSuccess(res, 200, {
     ok: true,
     service: "AutomateX API",

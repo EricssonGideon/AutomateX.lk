@@ -8,18 +8,16 @@ const mongoose = require("mongoose");
 
 const apiRoutes = require("./routes");
 const { apiLimiter, handleCorsError } = require("./middleware/rateLimit");
+const { connectToDatabase } = require("./utils/db");
 
 dotenv.config();
 
 const app = express();
 const projectRoot = path.resolve(__dirname, "..");
-const mongoUri = process.env.MONGODB_URI;
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-
-let mongoConnectionPromise = null;
 
 function logStructuredError(payload) {
   console.error(JSON.stringify({
@@ -28,35 +26,6 @@ function logStructuredError(payload) {
     errorMessage: payload.message,
     stack: payload.stack || ""
   }));
-}
-
-async function connectToDatabase() {
-  if (!mongoUri) {
-    console.warn("MONGODB_URI is not configured. Continuing without a database connection.");
-    return null;
-  }
-
-  if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
-  }
-
-  if (mongoConnectionPromise) {
-    return mongoConnectionPromise;
-  }
-
-  mongoConnectionPromise = mongoose.connect(mongoUri)
-    .then(() => mongoose.connection)
-    .catch((error) => {
-      mongoConnectionPromise = null;
-      logStructuredError({
-        route: "process:mongodb",
-        message: error.message || "Failed to connect to MongoDB.",
-        stack: error.stack
-      });
-      return null;
-    });
-
-  return mongoConnectionPromise;
 }
 
 const corsOptions = {
@@ -78,12 +47,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(projectRoot));
 app.use("/vendor", express.static(path.join(projectRoot, "node_modules")));
 
-app.get("/api/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
-  });
+app.get("/api/health", async (_req, res, next) => {
+  try {
+    await connectToDatabase();
+
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.use("/api", async (_req, _res, next) => {
