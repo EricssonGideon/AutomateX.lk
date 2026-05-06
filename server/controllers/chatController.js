@@ -4,10 +4,6 @@ const { body, validationResult } = require("express-validator");
 const User = require("../models/User");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
 const chatValidators = [
   body("message")
     .trim()
@@ -80,6 +76,21 @@ function sanitizeConversationHistory(history) {
 }
 
 /**
+ * Lazily creates an OpenAI client for the current request.
+ *
+ * @returns {OpenAI|null} Configured OpenAI client or null when unavailable.
+ */
+function createOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  return new OpenAI({ apiKey });
+}
+
+/**
  * Sends the tenant-aware conversation to OpenAI and returns a short AI reply.
  *
  * @param {import("express").Request} req - The authenticated request.
@@ -88,7 +99,9 @@ function sanitizeConversationHistory(history) {
  */
 async function createChatReply(req, res) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    const openai = createOpenAIClient();
+
+    if (!openai) {
       return sendError(res, 500, "Missing OPENAI_API_KEY environment variable.");
     }
 
@@ -142,6 +155,10 @@ async function createChatReply(req, res) {
       reply
     });
   } catch (error) {
+    if (error && error.status === 401) {
+      return sendError(res, 500, "Invalid OpenAI API key configuration.");
+    }
+
     return sendError(res, 500, error.message || "Unable to get an AI response right now.");
   }
 }
