@@ -13,8 +13,6 @@ const { connectToDatabase } = require("./utils/db");
 dotenv.config();
 
 const app = express();
-const projectRoot = path.resolve(__dirname, "..");
-const publicDir = path.join(projectRoot, "public");
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -45,8 +43,6 @@ app.use(cors(corsOptions));
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(publicDir));
-app.use("/vendor", express.static(path.join(projectRoot, "node_modules")));
 
 app.get("/api/health", async (_req, res, next) => {
   try {
@@ -73,10 +69,6 @@ app.use("/api", async (_req, _res, next) => {
 
 app.use("/api", apiLimiter, apiRoutes);
 app.use(handleCorsError);
-
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
-});
 
 app.use("/api", (req, res) => {
   res.status(404).json({
