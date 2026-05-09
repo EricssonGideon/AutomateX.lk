@@ -6,13 +6,19 @@ const {
   getInquiries,
   updateInquiryStatus
 } = require("../controllers/inquiryController");
-const { verifyToken } = require("../middleware/auth");
+const {
+  verifyToken,
+  requireClient,
+  requireActiveAccount,
+  requireFeature
+} = require("../middleware/auth");
 const { publicFormLimiter } = require("../middleware/rateLimit");
 
 const router = express.Router();
 
-router.get("/", verifyToken, getInquiries);
 router.post("/", publicFormLimiter, inquiryValidators, createInquiry);
-router.patch("/:inquiryId/status", verifyToken, updateInquiryStatus);
+router.use(verifyToken, requireClient, requireActiveAccount, requireFeature("inquiry-management"));
+router.get("/", getInquiries);
+router.patch("/:inquiryId/status", updateInquiryStatus);
 
 module.exports = router;

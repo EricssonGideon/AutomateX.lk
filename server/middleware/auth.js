@@ -73,7 +73,78 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+/**
+ * Ensures the authenticated user has the client role.
+ *
+ * @param {import("express").Request} req - The incoming request.
+ * @param {import("express").Response} res - The outgoing response.
+ * @param {import("express").NextFunction} next - The next middleware callback.
+ * @returns {void|import("express").Response} Continues the chain or returns an authorization error.
+ */
+function requireClient(req, res, next) {
+  if (!req.user || req.user.role !== "client") {
+    return res.status(403).json({
+      error: "Client access required",
+      message: "Only client accounts can access this route."
+    });
+  }
+
+  return next();
+}
+
+/**
+ * Blocks access for client accounts that are not currently active.
+ *
+ * @param {import("express").Request} req - The incoming request.
+ * @param {import("express").Response} res - The outgoing response.
+ * @param {import("express").NextFunction} next - The next middleware callback.
+ * @returns {void|import("express").Response} Continues the chain or returns an account-status error.
+ */
+function requireActiveAccount(req, res, next) {
+  const accountStatus = req.user && req.user.accountStatus ? req.user.accountStatus : "pending";
+
+  if (accountStatus !== "active") {
+    return res.status(403).json({
+      error: accountStatus === "suspended" ? "Account suspended" : "Pending admin approval",
+      message: accountStatus === "suspended"
+        ? "Your account is suspended. Please contact AutomateX support."
+        : "Your account is pending admin approval.",
+      accountStatus
+    });
+  }
+
+  return next();
+}
+
+/**
+ * Enforces client feature access using the normalized feature keys on `req.user`.
+ *
+ * @param {string} featureKey - The required feature key.
+ * @returns {import("express").RequestHandler} Middleware enforcing feature access.
+ */
+function requireFeature(featureKey) {
+  return (req, res, next) => {
+    const allowedFeatures = Array.isArray(req.user && req.user.allowedFeatures)
+      ? req.user.allowedFeatures
+      : [];
+
+    if (!allowedFeatures.includes(featureKey)) {
+      return res.status(403).json({
+        error: "Feature not enabled",
+        message: "Your current package does not include access to this feature.",
+        feature: featureKey,
+        accountStatus: req.user && req.user.accountStatus ? req.user.accountStatus : "pending"
+      });
+    }
+
+    return next();
+  };
+}
+
 module.exports = {
   verifyToken,
-  requireAdmin
+  requireAdmin,
+  requireClient,
+  requireActiveAccount,
+  requireFeature
 };

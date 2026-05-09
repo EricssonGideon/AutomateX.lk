@@ -439,7 +439,8 @@
   </div>
 
   <script>
-    const TOKEN_KEYS = ["automatex_client_token", "automatex_token"];
+    const CLIENT_TOKEN_KEYS = ["automatex_client_token", "automatex_token"];
+    const ADMIN_TOKEN_KEY = "automatex_admin_token";
     const USER_KEY = "automatex_client_user";
     const LOGIN_URL = "/login.html";
     const THEME_KEY = "automatex_dashboard_theme";
@@ -464,11 +465,13 @@
     };
 
     function getToken() {
-      return TOKEN_KEYS.map((key) => localStorage.getItem(key)).find(Boolean) || "";
+      return CLIENT_TOKEN_KEYS.map((key) => localStorage.getItem(key)).find(Boolean) ||
+        localStorage.getItem(ADMIN_TOKEN_KEY) ||
+        "";
     }
 
     function saveToken(token) {
-      TOKEN_KEYS.forEach((key) => {
+      CLIENT_TOKEN_KEYS.forEach((key) => {
         if (token) {
           localStorage.setItem(key, token);
         } else {
@@ -655,7 +658,7 @@
 
       const payload = await response.json().catch(() => ({}));
 
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         redirectToLogin();
         throw new Error(payload.message || payload.error || "Authentication failed.");
       }
@@ -915,6 +918,16 @@
       const bookings = getFilteredBookings();
       const bookingFeatureEnabled = hasFeature("booking-system");
 
+      if (!canManageWorkspace()) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">${escapeHtml(getRestrictionMessage())}</td></tr>`;
+        return;
+      }
+
+      if (!bookingFeatureEnabled) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-amber-300">Booking management is not included in your current package.</td></tr>`;
+        return;
+      }
+
       if (!bookings.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">No bookings found for this filter.</td></tr>`;
         return;
@@ -956,6 +969,16 @@
     function renderInquiries() {
       const list = document.getElementById("inquiriesList");
       const inquiryFeatureEnabled = hasFeature("inquiry-management");
+
+      if (!canManageWorkspace()) {
+        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">${escapeHtml(getRestrictionMessage())}</div>`;
+        return;
+      }
+
+      if (!inquiryFeatureEnabled) {
+        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-amber-300">Inquiry management is not included in your current package.</div>`;
+        return;
+      }
 
       if (!state.inquiries.length) {
         list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No inquiries found yet.</div>`;
@@ -1016,6 +1039,16 @@
     function renderReviews() {
       const grid = document.getElementById("reviewsGrid");
       const reviewFeatureEnabled = hasFeature("review-management");
+
+      if (!canManageWorkspace()) {
+        grid.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">${escapeHtml(getRestrictionMessage())}</div>`;
+        return;
+      }
+
+      if (!reviewFeatureEnabled) {
+        grid.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-amber-300">Review management is not included in your current package.</div>`;
+        return;
+      }
 
       if (!state.reviews.length) {
         grid.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No reviews found yet.</div>`;
@@ -1094,10 +1127,26 @@
 
     async function loadProfile() {
       const payload = await apiRequest("/api/auth/me");
+      if (!payload.user) {
+        redirectToLogin();
+        return false;
+      }
+
+      if (payload.user.role === "admin") {
+        window.location.replace("/admin.html");
+        return false;
+      }
+
+      if (payload.user.role !== "client") {
+        redirectToLogin();
+        return false;
+      }
+
       state.user = payload.user;
       localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
       updatePlanBadge();
       renderSettings();
+      return true;
     }
 
     async function loadBookings() {
@@ -1275,12 +1324,35 @@
 
       try {
         clearFeedback();
-        await Promise.all([
-          loadProfile(),
-          loadBookings(),
-          loadInquiries(),
-          loadReviews()
-        ]);
+        const canContinue = await loadProfile();
+        if (!canContinue) {
+          return;
+        }
+
+        const dataLoaders = [];
+
+        if (hasFeature("booking-system")) {
+          dataLoaders.push(loadBookings());
+        } else {
+          state.bookings = [];
+          renderBookings();
+        }
+
+        if (hasFeature("inquiry-management")) {
+          dataLoaders.push(loadInquiries());
+        } else {
+          state.inquiries = [];
+          renderInquiries();
+        }
+
+        if (hasFeature("review-management")) {
+          dataLoaders.push(loadReviews());
+        } else {
+          state.reviews = [];
+          renderReviews();
+        }
+
+        await Promise.all(dataLoaders);
 
         renderOverview();
         renderSettings();

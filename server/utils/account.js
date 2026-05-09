@@ -97,7 +97,11 @@ function normalizeAllowedFeatures(features) {
 
 function resolveAllowedFeatures(user) {
   if (user && Array.isArray(user.allowedFeatures)) {
-    return normalizeAllowedFeatures(user.allowedFeatures);
+    const normalizedAllowedFeatures = normalizeAllowedFeatures(user.allowedFeatures);
+
+    if (normalizedAllowedFeatures.length) {
+      return normalizedAllowedFeatures;
+    }
   }
 
   const plan = normalizePlan(user && user.plan);

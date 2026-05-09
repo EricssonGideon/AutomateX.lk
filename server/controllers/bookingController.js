@@ -23,6 +23,7 @@ const AVAILABLE_TIMES = [
   "16:00",
   "16:30"
 ];
+const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
 
 /**
  * Trims unknown input into a predictable string.
@@ -170,7 +171,7 @@ async function getAvailability(req, res) {
     const bookings = await Booking.find({
       clientId: req.user.id,
       date: { $regex: `^${month}` },
-      status: "confirmed"
+      status: { $in: ACTIVE_BOOKING_STATUSES }
     })
       .select("date time -_id")
       .lean();
@@ -194,7 +195,7 @@ async function getPublicAvailability(req, res) {
     const bookings = await Booking.find({
       clientId: owner._id,
       date: { $regex: `^${month}` },
-      status: "confirmed"
+      status: { $in: ACTIVE_BOOKING_STATUSES }
     })
       .select("date time -_id")
       .lean();
@@ -219,7 +220,7 @@ async function saveBookingForAudience(owner, payload) {
     clientId: owner._id,
     date,
     time,
-    status: "confirmed"
+    status: { $in: ACTIVE_BOOKING_STATUSES }
   }).lean();
 
   if (existingBooking) {

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
 
 const bookingSchema = new mongoose.Schema(
   {
@@ -52,6 +53,15 @@ const bookingSchema = new mongoose.Schema(
   }
 );
 
-bookingSchema.index({ clientId: 1, date: 1, time: 1 }, { unique: true });
+bookingSchema.index(
+  { clientId: 1, date: 1, time: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ACTIVE_BOOKING_STATUSES }
+    },
+    name: "booking_active_slot_unique"
+  }
+);
 
 module.exports = mongoose.model("Booking", bookingSchema);

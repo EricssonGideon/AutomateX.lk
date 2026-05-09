@@ -25,6 +25,7 @@ const PLAN_PRICES = {
   standard: 99,
   pro: 199
 };
+const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
 const BOOKING_STATUS_OPTIONS = ["pending", "confirmed", "completed", "cancelled"];
 const INQUIRY_STATUS_OPTIONS = ["new", "in_progress", "contacted", "converted", "closed"];
 const REVIEW_STATUS_OPTIONS = ["pending", "published", "hidden"];
@@ -609,7 +610,7 @@ async function updateAdminBooking(req, res) {
       clientId: booking.clientId,
       date: booking.date,
       time: booking.time,
-      status: { $ne: "cancelled" }
+      status: { $in: ACTIVE_BOOKING_STATUSES }
     }).lean();
 
     if (duplicateBooking) {
