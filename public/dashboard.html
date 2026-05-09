@@ -82,10 +82,36 @@
       color: #475569 !important;
     }
 
+    :root[data-theme="light"] .text-cyan-200,
+    :root[data-theme="light"] .text-cyan-300,
+    :root[data-theme="light"] .text-cyan-400 {
+      color: #0f766e !important;
+    }
+
+    :root[data-theme="light"] .text-amber-50\/90,
+    :root[data-theme="light"] .text-amber-100,
+    :root[data-theme="light"] .text-amber-200,
+    :root[data-theme="light"] .text-amber-300 {
+      color: #92400e !important;
+    }
+
+    :root[data-theme="light"] .text-rose-100,
+    :root[data-theme="light"] .text-rose-100\/80,
+    :root[data-theme="light"] .text-rose-200,
+    :root[data-theme="light"] .text-rose-300 {
+      color: #9f1239 !important;
+    }
+
+    :root[data-theme="light"] .text-emerald-200,
+    :root[data-theme="light"] .text-emerald-300 {
+      color: #166534 !important;
+    }
+
     :root[data-theme="light"] .bg-slate-900,
     :root[data-theme="light"] .bg-slate-900\/70,
     :root[data-theme="light"] .bg-slate-900\/80,
     :root[data-theme="light"] .bg-slate-900\/90,
+    :root[data-theme="light"] .bg-slate-800,
     :root[data-theme="light"] .bg-slate-950,
     :root[data-theme="light"] .bg-slate-950\/50,
     :root[data-theme="light"] .bg-slate-950\/60,
@@ -94,12 +120,17 @@
     }
 
     :root[data-theme="light"] .border-slate-700,
+    :root[data-theme="light"] .border-slate-600,
     :root[data-theme="light"] .border-slate-800 {
       border-color: #cbd5e1 !important;
     }
 
     :root[data-theme="light"] thead.bg-slate-950\/70 {
       background-color: rgba(241, 245, 249, 0.95) !important;
+    }
+
+    :root[data-theme="light"] .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+      border-color: #cbd5e1 !important;
     }
   </style>
 </head>
@@ -142,7 +173,7 @@
                 <option value="system">System</option>
               </select>
             </label>
-            <span id="planBadge" class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Pending</span>
+            <span id="planBadge" class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Pending Admin Approval</span>
             <button id="logoutButtonDesktop" class="hidden rounded-2xl border border-slate-700 px-4 py-2 text-sm lg:inline-flex">Logout</button>
           </div>
         </div>
@@ -184,7 +215,7 @@
             </article>
             <article class="dashboard-panel-surface rounded-3xl border p-5">
               <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Current Plan</p>
-              <p id="overviewPlanBadge" class="mt-4 text-2xl font-semibold capitalize">Not Assigned</p>
+              <p id="overviewPlanBadge" class="mt-4 text-2xl font-semibold">Package Not Assigned</p>
             </article>
           </section>
 
@@ -201,7 +232,7 @@
               <div class="mt-6 grid gap-4 sm:grid-cols-2">
                 <div class="dashboard-soft-surface rounded-2xl border p-4">
                   <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Current Package</p>
-                  <p id="accountPlanValue" class="mt-3 text-lg font-semibold">Not Assigned</p>
+                  <p id="accountPlanValue" class="mt-3 text-lg font-semibold">Package Not Assigned</p>
                 </div>
                 <div class="dashboard-soft-surface rounded-2xl border p-4">
                   <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Monthly Service Fee</p>
@@ -517,13 +548,25 @@
 
     function formatPlanLabel(plan) {
       if (!plan || plan === "not_assigned") {
-        return "Not Assigned";
+        return "Package Not Assigned";
       }
 
       return String(plan)
         .split("_")
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(" ");
+    }
+
+    function hasAssignedPlan(user = state.user) {
+      return Boolean(user?.plan && user.plan !== "not_assigned");
+    }
+
+    function getDisplayedPackageLabel(user = state.user) {
+      if (hasAssignedPlan(user)) {
+        return formatPlanLabel(user.plan);
+      }
+
+      return user?.accountStatus === "pending" ? "Pending Admin Approval" : "Package Not Assigned";
     }
 
     function formatStatusLabel(value) {
@@ -709,19 +752,21 @@
       const monthlyBookings = state.bookings.filter((booking) => isThisMonth(`${booking.date}T00:00:00`)).length;
       const newInquiries = state.inquiries.filter((inquiry) => inquiry.status === "new").length;
       const pendingReviews = state.reviews.filter((review) => review.status === "pending").length;
-      const hasAssignedPlan = state.user.plan && state.user.plan !== "not_assigned";
+      const hasAssignedPlanValue = hasAssignedPlan(state.user);
       const allowedFeatures = Array.isArray(state.user.allowedFeatures) ? state.user.allowedFeatures : [];
 
       document.getElementById("welcomeBusinessName").textContent = businessName;
       document.getElementById("welcomeCopy").textContent = canManageWorkspace()
-        ? `Welcome back. ${businessName} is currently on the ${formatPlanLabel(state.user.plan)} package.`
+        ? hasAssignedPlanValue
+          ? `Welcome back. ${businessName} is currently on the ${formatPlanLabel(state.user.plan)} package.`
+          : `Welcome back. ${businessName} is active, but no package has been assigned yet.`
         : getRestrictionMessage();
       document.getElementById("overviewBookingsCount").textContent = monthlyBookings;
       document.getElementById("overviewInquiriesCount").textContent = newInquiries;
       document.getElementById("overviewPendingReviewsCount").textContent = pendingReviews;
-      document.getElementById("overviewPlanBadge").textContent = formatPlanLabel(state.user.plan);
-      document.getElementById("accountPlanValue").textContent = formatPlanLabel(state.user.plan);
-      document.getElementById("accountMonthlyFeeValue").textContent = hasAssignedPlan && Number(state.user.monthlyFee || 0) > 0
+      document.getElementById("overviewPlanBadge").textContent = getDisplayedPackageLabel(state.user);
+      document.getElementById("accountPlanValue").textContent = getDisplayedPackageLabel(state.user);
+      document.getElementById("accountMonthlyFeeValue").textContent = hasAssignedPlanValue && Number(state.user.monthlyFee || 0) > 0
         ? formatMoney(state.user.monthlyFee)
         : "Waiting for admin";
       document.getElementById("accountPaymentStatusValue").textContent = formatStatusLabel(state.user.paymentStatus);
@@ -794,8 +839,8 @@
         },
         {
           label: "Package assigned",
-          done: state.user.plan && state.user.plan !== "not_assigned",
-          hint: state.user.plan && state.user.plan !== "not_assigned" ? `Assigned to ${formatPlanLabel(state.user.plan)}.` : "Your package will appear here once assigned."
+          done: hasAssignedPlan(state.user),
+          hint: hasAssignedPlan(state.user) ? `Assigned to ${formatPlanLabel(state.user.plan)}.` : "Your package will appear here once assigned."
         },
         {
           label: "First payment confirmed",
@@ -1018,7 +1063,11 @@
       const plan = state.user.plan || "not_assigned";
       const accountStatus = state.user.accountStatus || "pending";
       const badge = document.getElementById("planBadge");
-      badge.textContent = accountStatus === "active" ? formatPlanLabel(plan) : formatStatusLabel(accountStatus);
+      badge.textContent = accountStatus === "active"
+        ? getDisplayedPackageLabel(state.user)
+        : accountStatus === "pending" && !hasAssignedPlan(state.user)
+          ? "Pending Admin Approval"
+          : formatStatusLabel(accountStatus);
       badge.className = "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]";
 
       if (accountStatus === "suspended") {
