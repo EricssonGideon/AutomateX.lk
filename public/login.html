@@ -340,20 +340,6 @@
       }
     }
 
-    async function syncBusinessProfile(token, businessName, businessType) {
-      await fetch("/api/auth/me", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          businessName,
-          businessType
-        })
-      }).catch(() => null);
-    }
-
     function setLoading(button, isLoading, loadingText, idleText) {
       button.disabled = isLoading;
       button.textContent = isLoading ? loadingText : idleText;
@@ -462,7 +448,10 @@
           body: JSON.stringify({
             name: ownerName,
             email,
-            password
+            password,
+            businessName,
+            businessType,
+            phone
           })
         });
 
@@ -476,7 +465,6 @@
         }
 
         saveClientSession(payload.token, payload.user);
-        await syncBusinessProfile(payload.token, businessName, businessType);
         showMessage("Account created successfully. Redirecting to your dashboard...", "success");
         window.location.href = "/dashboard.html";
       } catch (error) {

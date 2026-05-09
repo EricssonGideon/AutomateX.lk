@@ -6,6 +6,7 @@ const {
   sendBookingConfirmationToClient,
   sendBookingConfirmationToCustomer
 } = require("../utils/email");
+const { resolvePublicAudienceUser } = require("../utils/publicAudience");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
 
 const AVAILABLE_TIMES = [
@@ -181,6 +182,74 @@ async function getAvailability(req, res) {
   }
 }
 
+async function getPublicAvailability(req, res) {
+  try {
+    const month = req.query.month;
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return sendError(res, 400, "Query parameter 'month' must use YYYY-MM format.");
+    }
+
+    const owner = await resolvePublicAudienceUser(req.query.publicProfileUrl);
+    const bookings = await Booking.find({
+      clientId: owner._id,
+      date: { $regex: `^${month}` },
+      status: "confirmed"
+    })
+      .select("date time -_id")
+      .lean();
+
+    const bookedSlots = bookings.map((booking) => `${booking.date}_${booking.time}`);
+    return sendSuccess(res, 200, { bookedSlots });
+  } catch (error) {
+    return sendError(res, 500, error.message || "Unable to load booking availability.");
+  }
+}
+
+async function saveBookingForAudience(owner, payload) {
+  const date = cleanString(payload.date);
+  const time = cleanString(payload.time);
+  const details = validateBookingBusinessRules(date, time);
+
+  if (details.length) {
+    return { details };
+  }
+
+  const existingBooking = await Booking.findOne({
+    clientId: owner._id,
+    date,
+    time,
+    status: "confirmed"
+  }).lean();
+
+  if (existingBooking) {
+    return {
+      conflict: true
+    };
+  }
+
+  const booking = await Booking.create({
+    clientId: owner._id,
+    name: cleanString(payload.name),
+    email: cleanString(payload.email).toLowerCase(),
+    phone: cleanString(payload.phone),
+    service: cleanString(payload.service),
+    date,
+    time
+  });
+
+  const businessName = owner.businessName || owner.name || "AutomateX";
+
+  await Promise.allSettled([
+    sendBookingConfirmationToClient(booking, owner),
+    sendBookingConfirmationToCustomer(booking, businessName)
+  ]);
+
+  return {
+    booking
+  };
+}
+
 /**
  * Creates a booking for the authenticated tenant and attaches the tenant ID server-side.
  *
@@ -191,51 +260,28 @@ async function getAvailability(req, res) {
 async function createBooking(req, res) {
   try {
     const details = validationMessages(req);
-    const date = cleanString(req.body.date);
-    const time = cleanString(req.body.time);
-
-    details.push(...validateBookingBusinessRules(date, time));
 
     if (details.length) {
       return sendValidationError(res, "Please fix the booking form and try again.", details);
     }
 
-    const existingBooking = await Booking.findOne({
-      clientId: req.user.id,
-      date,
-      time,
-      status: "confirmed"
-    }).lean();
-
-    if (existingBooking) {
-      return sendError(res, 409, "This time slot is already booked. Please choose another one.");
-    }
-
-    const client = await User.findOne({
-      _id: req.user.id,
-      role: "client"
-    }).lean();
+    const client = await User.findById(req.user.id).lean();
 
     if (!client) {
       return sendError(res, 404, "Client not found.");
     }
 
-    const booking = await Booking.create({
-      clientId: req.user.id,
-      name: cleanString(req.body.name),
-      email: cleanString(req.body.email).toLowerCase(),
-      phone: cleanString(req.body.phone),
-      service: cleanString(req.body.service),
-      date,
-      time
-    });
+    const result = await saveBookingForAudience(client, req.body);
 
-    const businessName = client.name || "AutomateX Client";
+    if (result.details?.length) {
+      return sendValidationError(res, "Please fix the booking form and try again.", result.details);
+    }
 
-    await Promise.allSettled([
-      sendBookingConfirmationToClient(booking, client),
-      sendBookingConfirmationToCustomer(booking, businessName)
-    ]);
+    if (result.conflict) {
+      return sendError(res, 409, "This time slot is already booked. Please choose another one.");
+    }
+
+    const { booking } = result;
 
     return sendSuccess(res, 201, {
       message: "Booking confirmed successfully.",
@@ -257,6 +303,50 @@ async function createBooking(req, res) {
     }
 
     return sendError(res, 500, "Server error while saving the booking.");
+  }
+}
+
+async function createPublicBooking(req, res) {
+  try {
+    const details = validationMessages(req);
+
+    if (details.length) {
+      return sendValidationError(res, "Please fix the booking form and try again.", details);
+    }
+
+    const owner = await resolvePublicAudienceUser(req.body.publicProfileUrl);
+    const result = await saveBookingForAudience(owner, req.body);
+
+    if (result.details?.length) {
+      return sendValidationError(res, "Please fix the booking form and try again.", result.details);
+    }
+
+    if (result.conflict) {
+      return sendError(res, 409, "This time slot is already booked. Please choose another one.");
+    }
+
+    const { booking } = result;
+
+    return sendSuccess(res, 201, {
+      message: "Booking confirmed successfully.",
+      booking: {
+        id: booking._id,
+        clientId: booking.clientId,
+        name: booking.name,
+        email: booking.email,
+        phone: booking.phone,
+        service: booking.service,
+        date: booking.date,
+        time: booking.time,
+        status: booking.status
+      }
+    });
+  } catch (error) {
+    if (error && error.code === 11000) {
+      return sendError(res, 409, "This time slot is already booked. Please choose another one.");
+    }
+
+    return sendError(res, 500, error.message || "Server error while saving the booking.");
   }
 }
 
@@ -300,6 +390,8 @@ module.exports = {
   bookingValidators,
   getBookings,
   getAvailability,
+  getPublicAvailability,
   createBooking,
+  createPublicBooking,
   cancelBooking
 };

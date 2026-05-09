@@ -3,8 +3,10 @@ const express = require("express");
 const {
   reviewValidators,
   getReviews,
+  getPublicReviews,
   getClientReviews,
   createReview,
+  createPublicReview,
   getAllReviews,
   updateReviewStatus
 } = require("../controllers/reviewController");
@@ -13,6 +15,8 @@ const { publicFormLimiter } = require("../middleware/rateLimit");
 
 const router = express.Router();
 
+router.get("/public", publicFormLimiter, getPublicReviews);
+router.post("/public", publicFormLimiter, reviewValidators, createPublicReview);
 router.get("/", verifyToken, getReviews);
 router.get("/manage", verifyToken, getClientReviews);
 router.get("/admin/all", verifyToken, requireAdmin, getAllReviews);

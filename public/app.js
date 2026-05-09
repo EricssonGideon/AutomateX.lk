@@ -213,7 +213,7 @@ function refreshUserReviews(reviews) {
 
 async function loadReviewsFromServer() {
   try {
-    const payload = await apiRequest("/reviews");
+    const payload = await apiRequest("/reviews/public");
     refreshUserReviews(payload.reviews || []);
   } catch (_error) {
     document.getElementById("rvFeedback").textContent = "Live reviews could not be loaded right now.";
@@ -245,7 +245,7 @@ document.getElementById("submitReview").addEventListener("click", async () => {
   reviewFeedback.classList.remove("is-error");
 
   try {
-    await apiRequest("/reviews", {
+    await apiRequest("/reviews/public", {
       method: "POST",
       body: JSON.stringify({
         name,
@@ -263,7 +263,7 @@ document.getElementById("submitReview").addEventListener("click", async () => {
       .querySelectorAll("#starPicker span")
       .forEach((item) => (item.style.color = "rgba(255,255,255,0.2)"));
 
-    reviewFeedback.textContent = "Review posted successfully.";
+    reviewFeedback.textContent = "Review submitted successfully and is awaiting moderation.";
     reviewFeedback.classList.remove("hidden");
     reviewFeedback.classList.remove("is-error");
     await loadReviewsFromServer();
@@ -375,7 +375,7 @@ async function fetchAvailability() {
   const month = formatMonthKey(calendarDate);
 
   try {
-    const data = await apiRequest(`/bookings/availability?month=${month}`);
+    const data = await apiRequest(`/bookings/public/availability?month=${month}`);
     bookedSlots = (data.bookedSlots || []).reduce((accumulator, slotKey) => {
       accumulator[slotKey] = true;
       return accumulator;
@@ -517,7 +517,7 @@ confirmBookingButton.addEventListener("click", async () => {
   setBookingFeedback("Sending your booking to the server...", "warning");
 
   try {
-    const payload = await apiRequest("/bookings", {
+    const payload = await apiRequest("/bookings/public", {
       method: "POST",
       body: JSON.stringify({
         name,
@@ -621,7 +621,7 @@ async function requestChatReply(message, historySnapshot) {
   const token = getChatAuthToken();
 
   if (!token) {
-    throw new Error("missing-auth");
+    throw new Error("public-chat-disabled");
   }
 
   const payload = await apiRequest("/chat", {
@@ -651,6 +651,14 @@ chatToggle.addEventListener("click", () => {
 
   if (chatOpen && chatMessages.children.length === 0) {
     setTimeout(() => {
+      if (!getChatAuthToken()) {
+        addMessage("Live chat is coming soon for public visitors. Use WhatsApp for the fastest reply.", "bot", "https://wa.me/94711861722");
+        document.getElementById("chatInput").disabled = true;
+        document.getElementById("chatInput").placeholder = "Chat coming soon";
+        document.getElementById("chatSend").disabled = true;
+        return;
+      }
+
       addMessage("Hi! Ask me anything and I'll do my best to help.");
     }, 300);
   }
@@ -674,11 +682,13 @@ async function sendChat() {
     pushConversationEntry("user", value);
     addMessage(reply, "bot");
     pushConversationEntry("assistant", reply);
-  } catch (_error) {
+  } catch (error) {
     removeTypingIndicator();
     pushConversationEntry("user", value);
-    const fallback = "Sorry, I'm having trouble. Please WhatsApp us.";
-    addMessage(fallback, "bot");
+    const fallback = error.message === "public-chat-disabled"
+      ? "Live chat is coming soon for public visitors. Please contact us on WhatsApp."
+      : "Sorry, I'm having trouble. Please WhatsApp us.";
+    addMessage(fallback, "bot", "https://wa.me/94711861722");
     pushConversationEntry("assistant", fallback);
   }
 }

@@ -1,10 +1,8 @@
-const { URL } = require("url");
 const { body, validationResult } = require("express-validator");
-const mongoose = require("mongoose");
 
 const Inquiry = require("../models/Inquiry");
-const User = require("../models/User");
 const { sendInquiryNotification } = require("../utils/email");
+const { resolvePublicAudienceUser } = require("../utils/publicAudience");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
 
 /**
@@ -32,34 +30,6 @@ function validationMessages(req) {
   return result.array().map((error) => error.msg);
 }
 
-/**
- * Resolves a client record from a public profile URL by reading the final path segment as a user ID.
- *
- * @param {string} publicProfileUrl - The public profile URL supplied by the inquiry source.
- * @returns {Promise<import("../models/User")>} The matching active client user.
- */
-async function resolveClientFromPublicProfileUrl(publicProfileUrl) {
-  const parsedUrl = new URL(publicProfileUrl);
-  const segments = parsedUrl.pathname.split("/").filter(Boolean);
-  const candidateId = segments[segments.length - 1];
-
-  if (!mongoose.Types.ObjectId.isValid(candidateId)) {
-    throw new Error("Invalid public profile URL.");
-  }
-
-  const client = await User.findOne({
-    _id: candidateId,
-    role: "client",
-    isActive: true
-  });
-
-  if (!client) {
-    throw new Error("Target client not found.");
-  }
-
-  return client;
-}
-
 const inquiryValidators = [
   body("name")
     .trim()
@@ -83,9 +53,8 @@ const inquiryValidators = [
     .withMessage("Project details must be 2000 characters or fewer.")
     .escape(),
   body("publicProfileUrl")
+    .optional({ checkFalsy: true })
     .trim()
-    .notEmpty()
-    .withMessage("A target client public profile URL is required.")
     .isURL()
     .withMessage("Enter a valid public profile URL.")
 ];
@@ -107,7 +76,7 @@ async function createInquiry(req, res) {
 
     let client;
     try {
-      client = await resolveClientFromPublicProfileUrl(cleanString(req.body.publicProfileUrl));
+      client = await resolvePublicAudienceUser(cleanString(req.body.publicProfileUrl));
     } catch (error) {
       return sendError(res, 400, error.message);
     }
@@ -116,7 +85,8 @@ async function createInquiry(req, res) {
       clientId: client._id,
       name: cleanString(req.body.name),
       email: cleanString(req.body.email).toLowerCase(),
-      message: cleanString(req.body.message)
+      message: cleanString(req.body.message),
+      source: cleanString(req.body.publicProfileUrl) ? "public-client-page" : "public-website"
     });
 
     await sendInquiryNotification(inquiry, client);

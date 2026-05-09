@@ -64,7 +64,7 @@ function signToken(user) {
  * Converts a user document into a safe API payload without password data.
  *
  * @param {import("../models/User")} user - The user document or plain object.
- * @returns {{id: string, name: string, email: string, role: string, plan: string, isActive: boolean, stripeCustomerId: string, stripeSubscriptionId: string, businessName: string, businessType: string, location: string, services: string[], workingHours: string, bookingUrl: string, chatbotLanguage: string, planExpiresAt: Date|null, createdAt: Date}} Safe user data.
+ * @returns {{id: string, name: string, email: string, role: string, plan: string, isActive: boolean, stripeCustomerId: string, stripeSubscriptionId: string, businessName: string, businessType: string, phone: string, location: string, services: string[], workingHours: string, bookingUrl: string, chatbotLanguage: string, planExpiresAt: Date|null, createdAt: Date}} Safe user data.
  */
 function serializeUser(user) {
   const accountStatus = resolveAccountStatus(user);
@@ -103,6 +103,7 @@ function serializeUser(user) {
     stripeSubscriptionId: user.stripeSubscriptionId,
     businessName: user.businessName || "",
     businessType: user.businessType || "",
+    phone: user.phone || "",
     location: user.location || "",
     services: Array.isArray(user.services) ? user.services : [],
     workingHours: user.workingHours || "",
@@ -130,7 +131,25 @@ const signupValidators = [
     .normalizeEmail(),
   body("password")
     .isLength({ min: 8, max: 128 })
-    .withMessage("Password must be between 8 and 128 characters.")
+    .withMessage("Password must be between 8 and 128 characters."),
+  body("businessName")
+    .trim()
+    .notEmpty()
+    .withMessage("Business name is required.")
+    .isLength({ max: 120 })
+    .withMessage("Business name must be 120 characters or fewer."),
+  body("businessType")
+    .trim()
+    .notEmpty()
+    .withMessage("Business type is required.")
+    .isLength({ max: 120 })
+    .withMessage("Business type must be 120 characters or fewer."),
+  body("phone")
+    .trim()
+    .notEmpty()
+    .withMessage("Phone is required.")
+    .isLength({ max: 30 })
+    .withMessage("Phone must be 30 characters or fewer.")
 ];
 
 const loginValidators = [
@@ -157,6 +176,11 @@ const updateProfileValidators = [
     .trim()
     .isLength({ max: 120 })
     .withMessage("Business type must be 120 characters or fewer."),
+  body("phone")
+    .optional()
+    .trim()
+    .isLength({ max: 30 })
+    .withMessage("Phone must be 30 characters or fewer."),
   body("location")
     .optional()
     .trim()
@@ -224,6 +248,9 @@ async function signup(req, res) {
       name: String(req.body.name || "").trim(),
       email,
       passwordHash,
+      businessName: String(req.body.businessName || "").trim(),
+      businessType: String(req.body.businessType || "").trim(),
+      phone: String(req.body.phone || "").trim(),
       plan: "not_assigned",
       monthlyFee: 0,
       accountStatus: "pending",
@@ -374,6 +401,10 @@ async function updateMe(req, res) {
 
     if (typeof req.body.businessType === "string") {
       user.businessType = req.body.businessType.trim();
+    }
+
+    if (typeof req.body.phone === "string") {
+      user.phone = req.body.phone.trim();
     }
 
     if (typeof req.body.location === "string") {

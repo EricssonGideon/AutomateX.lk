@@ -1,6 +1,7 @@
 const { body, validationResult } = require("express-validator");
 
 const Review = require("../models/Review");
+const { resolvePublicAudienceUser } = require("../utils/publicAudience");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
 
 /**
@@ -90,6 +91,35 @@ async function getReviews(req, res) {
   }
 }
 
+async function getPublicReviews(req, res) {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 12, 1), 30);
+    const owner = await resolvePublicAudienceUser(req.query.publicProfileUrl);
+    const reviews = await Review.find({
+      clientId: owner._id,
+      status: "published"
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return sendSuccess(res, 200, {
+      reviews: reviews.map((review) => ({
+        id: review._id,
+        clientId: review.clientId,
+        name: review.name,
+        role: review.role,
+        text: review.text,
+        rating: review.rating,
+        status: review.status,
+        createdAt: review.createdAt
+      }))
+    });
+  } catch (error) {
+    return sendError(res, 500, error.message || "Unable to load reviews right now.");
+  }
+}
+
 /**
  * Returns all reviews for the authenticated tenant, including moderation states.
  *
@@ -153,6 +183,43 @@ async function createReview(req, res) {
   }
 }
 
+async function createPublicReview(req, res) {
+  try {
+    const details = validationMessages(req);
+
+    if (details.length) {
+      return sendValidationError(res, "Please fix the review form and try again.", details);
+    }
+
+    const owner = await resolvePublicAudienceUser(req.body.publicProfileUrl);
+    const review = await Review.create({
+      clientId: owner._id,
+      name: cleanString(req.body.name),
+      role: cleanString(req.body.role),
+      text: cleanString(req.body.text),
+      rating: Number(req.body.rating),
+      status: "pending",
+      source: "public-website"
+    });
+
+    return sendSuccess(res, 201, {
+      message: "Review submitted successfully and is awaiting moderation.",
+      review: {
+        id: review._id,
+        clientId: review.clientId,
+        name: review.name,
+        role: review.role,
+        text: review.text,
+        rating: review.rating,
+        status: review.status,
+        createdAt: review.createdAt
+      }
+    });
+  } catch (error) {
+    return sendError(res, 500, error.message || "Unable to save your review right now.");
+  }
+}
+
 /**
  * Lists all reviews across all tenants for admins.
  *
@@ -206,8 +273,10 @@ async function updateReviewStatus(req, res) {
 module.exports = {
   reviewValidators,
   getReviews,
+  getPublicReviews,
   getClientReviews,
   createReview,
+  createPublicReview,
   getAllReviews,
   updateReviewStatus
 };

@@ -173,7 +173,9 @@ async function sendEmail({ to, subject, html, text }) {
  */
 async function sendWelcomeEmail(user) {
   const dashboardUrl = getDashboardUrl();
-  const planLabel = user.plan || "starter";
+  const planLabel = user.plan && user.plan !== "not_assigned"
+    ? user.plan
+    : "Pending Admin Approval";
 
   return sendEmail({
     to: user.email,
