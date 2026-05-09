@@ -36,6 +36,11 @@ const reviewSchema = new mongoose.Schema(
     source: {
       type: String,
       default: "website"
+    },
+    adminNotes: {
+      type: String,
+      default: "",
+      trim: true
     }
   },
   {

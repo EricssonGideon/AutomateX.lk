@@ -7,7 +7,9 @@ const {
   updateClient,
   softDeleteClient,
   getAdminBookings,
+  updateAdminBooking,
   getAdminInquiries,
+  updateAdminInquiry,
   getAdminReviews,
   updateAdminReview
 } = require("../controllers/adminController");
@@ -23,7 +25,9 @@ router.get("/clients/:id", getClientById);
 router.patch("/clients/:id", updateClient);
 router.delete("/clients/:id", softDeleteClient);
 router.get("/bookings", getAdminBookings);
+router.patch("/bookings/:id", updateAdminBooking);
 router.get("/inquiries", getAdminInquiries);
+router.patch("/inquiries/:id", updateAdminInquiry);
 router.get("/reviews", getAdminReviews);
 router.patch("/reviews/:id", updateAdminReview);
 

@@ -25,12 +25,12 @@ const PLAN_PRICES = {
   standard: 99,
   pro: 199
 };
+const BOOKING_STATUS_OPTIONS = ["pending", "confirmed", "completed", "cancelled"];
+const INQUIRY_STATUS_OPTIONS = ["new", "in_progress", "contacted", "converted", "closed"];
+const REVIEW_STATUS_OPTIONS = ["pending", "published", "hidden"];
+const BOOKING_TIME_PATTERN = /^\d{2}:\d{2}$/;
+const BOOKING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * Creates a normalized month date range from the current time.
- *
- * @returns {{start: Date, end: Date}} The first moment of this month and next month.
- */
 function getCurrentMonthRange() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -38,29 +38,6 @@ function getCurrentMonthRange() {
   return { start, end };
 }
 
-/**
- * Creates a normalized month date range from a `YYYY-MM` query string.
- *
- * @param {string} value - The month filter in `YYYY-MM` format.
- * @returns {{start: Date, end: Date}|null} The range or null if the value is invalid.
- */
-function getMonthRangeFromString(value) {
-  if (!/^\d{4}-\d{2}$/.test(value || "")) {
-    return null;
-  }
-
-  const [year, month] = value.split("-").map(Number);
-  const start = new Date(year, month - 1, 1);
-  const end = new Date(year, month, 1);
-  return { start, end };
-}
-
-/**
- * Parses a boolean-ish string query param into a real boolean when provided.
- *
- * @param {string|undefined} value - The raw query string value.
- * @returns {boolean|undefined} Parsed boolean, or undefined if omitted.
- */
 function parseBooleanFilter(value) {
   if (value === "true") {
     return true;
@@ -73,12 +50,23 @@ function parseBooleanFilter(value) {
   return undefined;
 }
 
-/**
- * Builds a monthly revenue estimate using active client plan counts.
- *
- * @param {{starter: number, standard: number, pro: number}} planCounts - Active plan totals.
- * @returns {number} Estimated monthly recurring revenue.
- */
+function getSortDirection(value) {
+  return value === "asc" ? 1 : -1;
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildSearchRegex(value) {
+  const term = String(value || "").trim();
+  return term ? new RegExp(escapeRegExp(term), "i") : null;
+}
+
+function normalizeAdminNote(value) {
+  return String(value || "").trim().slice(0, 2000);
+}
+
 function estimateMonthlyRevenue(clients) {
   return clients.reduce((total, client) => {
     const monthlyFee = normalizeMonthlyFee(client.monthlyFee);
@@ -121,6 +109,14 @@ function serializeAdminClient(client) {
     isActive: client.isActive,
     stripeCustomerId: client.stripeCustomerId || "",
     stripeSubscriptionId: client.stripeSubscriptionId || "",
+    businessName: client.businessName || "",
+    businessType: client.businessType || "",
+    phone: client.phone || "",
+    location: client.location || "",
+    services: Array.isArray(client.services) ? client.services : [],
+    workingHours: client.workingHours || "",
+    bookingUrl: client.bookingUrl || "",
+    chatbotLanguage: client.chatbotLanguage || "",
     planExpiresAt: client.planExpiresAt || null,
     createdAt: client.createdAt,
     bookingCount: typeof client.bookingCount === "number" ? client.bookingCount : undefined,
@@ -133,13 +129,42 @@ function serializeAdminClient(client) {
   };
 }
 
-/**
- * Returns high-level dashboard totals for the admin overview cards.
- *
- * @param {import("express").Request} _req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Stats payload for the admin dashboard.
- */
+function enrichWithClientMap(items, clientMap) {
+  return items.map((item) => {
+    const client = clientMap.get(String(item.clientId));
+
+    return {
+      ...item,
+      clientName: client?.name || "",
+      clientEmail: client?.email || "",
+      clientBusinessName: client?.businessName || ""
+    };
+  });
+}
+
+async function buildClientMap(clientIds) {
+  const clients = await User.find(
+    { _id: { $in: clientIds } },
+    { name: 1, email: 1, businessName: 1 }
+  ).lean();
+
+  return new Map(clients.map((client) => [String(client._id), client]));
+}
+
+function validateBookingDateTime(date, time) {
+  const errors = [];
+
+  if (!BOOKING_DATE_PATTERN.test(String(date || ""))) {
+    errors.push("Booking date must use YYYY-MM-DD format.");
+  }
+
+  if (!BOOKING_TIME_PATTERN.test(String(time || ""))) {
+    errors.push("Booking time must use HH:MM format.");
+  }
+
+  return errors;
+}
+
 async function getStats(_req, res) {
   try {
     const { start, end } = getCurrentMonthRange();
@@ -157,57 +182,98 @@ async function getStats(_req, res) {
 
     const [
       totalClients,
-      activeSubscriptions,
+      activeClientsCount,
+      pendingClients,
+      suspendedClients,
       bookingsThisMonth,
+      totalBookings,
       inquiriesThisMonth,
+      totalInquiries,
       pendingReviews,
-      activeClients
+      totalReviews,
+      clientRecords
     ] = await Promise.all([
       User.countDocuments({ role: "client" }),
       User.countDocuments(activeAccountQuery),
+      User.countDocuments({ role: "client", accountStatus: "pending", isActive: true }),
+      User.countDocuments({ role: "client", accountStatus: "suspended" }),
       Booking.countDocuments({ createdAt: { $gte: start, $lt: end } }),
+      Booking.countDocuments({}),
       Inquiry.countDocuments({ createdAt: { $gte: start, $lt: end } }),
+      Inquiry.countDocuments({}),
       Review.countDocuments({ status: "pending" }),
+      Review.countDocuments({}),
       User.find(
-        activeAccountQuery,
-        { plan: 1, monthlyFee: 1, accountStatus: 1 }
+        { role: "client" },
+        { plan: 1, monthlyFee: 1, accountStatus: 1, paymentStatus: 1, nextPaymentDate: 1, isActive: 1 }
       ).lean()
     ]);
 
-    const planCounts = {
+    const activePackages = {
       starter: 0,
       standard: 0,
-      pro: 0
+      pro: 0,
+      custom: 0
     };
+    let unpaidMonthlyFees = 0;
+    let overdueClients = 0;
+    let paidClients = 0;
+    let unpaidClients = 0;
 
-    activeClients.forEach((client) => {
+    clientRecords.forEach((client) => {
       const plan = normalizePlan(client.plan);
-      if (plan in planCounts) {
-        planCounts[plan] += 1;
+      const accountStatus = resolveAccountStatus(client);
+      const paymentStatus = normalizePaymentStatus(client.paymentStatus);
+      const monthlyFee = normalizeMonthlyFee(client.monthlyFee);
+
+      if (accountStatus === "active" && plan in activePackages) {
+        activePackages[plan] += 1;
+      }
+
+      if (paymentStatus === "paid") {
+        paidClients += 1;
+      } else {
+        unpaidClients += 1;
+      }
+
+      if (paymentStatus === "overdue") {
+        overdueClients += 1;
+      }
+
+      if (monthlyFee > 0 && paymentStatus !== "paid") {
+        unpaidMonthlyFees += monthlyFee;
       }
     });
 
     return sendSuccess(res, 200, {
       totalClients,
-      activeSubscriptions,
+      activeClients: activeClientsCount,
+      pendingClients,
+      suspendedClients,
       totalBookingsThisMonth: bookingsThisMonth,
+      totalBookings,
       totalInquiriesThisMonth: inquiriesThisMonth,
+      totalInquiries,
       totalReviewsPendingModeration: pendingReviews,
-      monthlyRevenueEstimate: estimateMonthlyRevenue(activeClients),
-      planCounts
+      totalReviews,
+      monthlyRevenueEstimate: estimateMonthlyRevenue(clientRecords.filter((client) => resolveAccountStatus(client) === "active")),
+      unpaidMonthlyFees,
+      overdueClients,
+      paidClients,
+      unpaidClients,
+      activePackages,
+      newLeadsThisMonth: inquiriesThisMonth,
+      systemHealth: {
+        api: "online",
+        database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+        status: mongoose.connection.readyState === 1 ? "operational" : "degraded"
+      }
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to load admin stats right now.");
   }
 }
 
-/**
- * Returns a filtered client list with booking and inquiry counts for each client.
- *
- * @param {import("express").Request} req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Client list payload.
- */
 async function getClients(req, res) {
   try {
     const match = { role: "client" };
@@ -225,13 +291,24 @@ async function getClients(req, res) {
       ? req.query.accountStatus
       : "";
 
-    if (req.query.search) {
-      const searchPattern = new RegExp(req.query.search, "i");
+    const searchPattern = buildSearchRegex(req.query.search);
+    if (searchPattern) {
       match.$or = [
         { name: searchPattern },
-        { email: searchPattern }
+        { email: searchPattern },
+        { businessName: searchPattern },
+        { businessType: searchPattern },
+        { phone: searchPattern }
       ];
     }
+
+    const sortBy = String(req.query.sortBy || "createdAt");
+    const sortDirection = getSortDirection(req.query.sortDirection);
+    const sortMap = {
+      createdAt: { createdAt: sortDirection },
+      name: { name: sortDirection },
+      monthlyFee: { monthlyFee: sortDirection }
+    };
 
     const clients = await User.aggregate([
       { $match: match },
@@ -255,6 +332,14 @@ async function getClients(req, res) {
         $project: {
           name: 1,
           email: 1,
+          businessName: 1,
+          businessType: 1,
+          phone: 1,
+          location: 1,
+          services: 1,
+          workingHours: 1,
+          bookingUrl: 1,
+          chatbotLanguage: 1,
           plan: 1,
           monthlyFee: 1,
           accountStatus: 1,
@@ -268,7 +353,7 @@ async function getClients(req, res) {
           inquiryCount: { $size: "$inquiries" }
         }
       },
-      { $sort: { createdAt: -1 } }
+      { $sort: sortMap[sortBy] || sortMap.createdAt }
     ]);
 
     const serializedClients = clients
@@ -283,13 +368,6 @@ async function getClients(req, res) {
   }
 }
 
-/**
- * Returns one client profile plus the client's ten most recent bookings and inquiries.
- *
- * @param {import("express").Request} req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Client detail payload.
- */
 async function getClientById(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -311,9 +389,7 @@ async function getClientById(req, res) {
     ]);
 
     return sendSuccess(res, 200, {
-      client: {
-        ...serializeAdminClient(client)
-      },
+      client: serializeAdminClient(client),
       bookings,
       inquiries
     });
@@ -322,13 +398,6 @@ async function getClientById(req, res) {
   }
 }
 
-/**
- * Updates a client's editable admin fields.
- *
- * @param {import("express").Request} req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Updated client payload.
- */
 async function updateClient(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -375,31 +444,45 @@ async function updateClient(req, res) {
       updates.allowedFeatures = normalizeAllowedFeatures(req.body.allowedFeatures);
     }
 
-    const clientBeforeUpdate = await User.findOne({ _id: req.params.id, role: "client" });
-    if (!clientBeforeUpdate) {
+    [
+      "businessName",
+      "businessType",
+      "phone",
+      "location",
+      "workingHours",
+      "bookingUrl",
+      "chatbotLanguage"
+    ].forEach((field) => {
+      if (typeof req.body[field] === "string") {
+        updates[field] = req.body[field].trim();
+      }
+    });
+
+    if (Array.isArray(req.body.services)) {
+      updates.services = req.body.services
+        .map((service) => String(service || "").trim())
+        .filter(Boolean)
+        .slice(0, 30);
+    }
+
+    const client = await User.findOne({ _id: req.params.id, role: "client" });
+    if (!client) {
       return sendError(res, 404, "Client not found.");
     }
 
-    Object.assign(clientBeforeUpdate, updates);
-    clientBeforeUpdate.onboardingStatus = resolveOnboardingStatus(clientBeforeUpdate);
-    await clientBeforeUpdate.save();
+    Object.assign(client, updates);
+    client.onboardingStatus = resolveOnboardingStatus(client);
+    await client.save();
 
     return sendSuccess(res, 200, {
       message: "Client updated successfully.",
-      client: serializeAdminClient(clientBeforeUpdate.toObject())
+      client: serializeAdminClient(client.toObject())
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to update the client right now.");
   }
 }
 
-/**
- * Soft-deletes a client by deactivating the account instead of removing it.
- *
- * @param {import("express").Request} req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Deactivation response.
- */
 async function softDeleteClient(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -425,13 +508,6 @@ async function softDeleteClient(req, res) {
   }
 }
 
-/**
- * Returns all bookings across all tenants with optional client and booking-month filters.
- *
- * @param {import("express").Request} req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Booking list payload.
- */
 async function getAdminBookings(req, res) {
   try {
     const query = {};
@@ -444,90 +520,287 @@ async function getAdminBookings(req, res) {
     }
 
     if (req.query.date) {
-      if (!/^\d{4}-\d{2}$/.test(req.query.date)) {
-        return sendError(res, 400, "Date filter must use YYYY-MM format.");
+      if (/^\d{4}-\d{2}$/.test(req.query.date)) {
+        query.date = { $regex: `^${req.query.date}` };
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(req.query.date)) {
+        query.date = req.query.date;
+      } else {
+        return sendError(res, 400, "Date filter must use YYYY-MM or YYYY-MM-DD format.");
       }
-      query.date = { $regex: `^${req.query.date}` };
     }
 
-    const bookings = await Booking.find(query).sort({ createdAt: -1 }).lean();
-    return sendSuccess(res, 200, { bookings });
+    if (req.query.status) {
+      if (!BOOKING_STATUS_OPTIONS.includes(req.query.status)) {
+        return sendError(res, 400, "Invalid booking status filter.");
+      }
+      query.status = req.query.status;
+    }
+
+    const sortBy = String(req.query.sortBy || "createdAt");
+    const sortDirection = getSortDirection(req.query.sortDirection);
+    const sortMap = {
+      createdAt: { createdAt: sortDirection },
+      date: { date: sortDirection, time: sortDirection },
+      status: { status: sortDirection }
+    };
+    const searchPattern = buildSearchRegex(req.query.search);
+
+    const bookings = await Booking.find(query).sort(sortMap[sortBy] || sortMap.createdAt).lean();
+    const clientMap = await buildClientMap([...new Set(bookings.map((booking) => String(booking.clientId)).filter(Boolean))]);
+
+    const enrichedBookings = enrichWithClientMap(bookings, clientMap).filter((booking) => {
+      if (!searchPattern) {
+        return true;
+      }
+
+      return [
+        booking.name,
+        booking.email,
+        booking.phone,
+        booking.service,
+        booking.clientName,
+        booking.clientEmail,
+        booking.clientBusinessName
+      ].some((value) => searchPattern.test(String(value || "")));
+    });
+
+    return sendSuccess(res, 200, { bookings: enrichedBookings });
   } catch (_error) {
     return sendError(res, 500, "Unable to load bookings right now.");
   }
 }
 
-/**
- * Returns all inquiries across all tenants, newest first.
- *
- * @param {import("express").Request} _req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Inquiry list payload.
- */
-async function getAdminInquiries(_req, res) {
+async function updateAdminBooking(req, res) {
   try {
-    const inquiries = await Inquiry.find({}).sort({ createdAt: -1 }).lean();
-    return sendSuccess(res, 200, { inquiries });
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid booking ID.");
+    }
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return sendError(res, 404, "Booking not found.");
+    }
+
+    if (typeof req.body.status === "string") {
+      const status = String(req.body.status || "").trim();
+      if (!BOOKING_STATUS_OPTIONS.includes(status)) {
+        return sendError(res, 400, "Booking status is invalid.");
+      }
+      booking.status = status;
+    }
+
+    if (typeof req.body.adminNotes === "string") {
+      booking.adminNotes = normalizeAdminNote(req.body.adminNotes);
+    }
+
+    ["name", "email", "phone", "service", "date", "time"].forEach((field) => {
+      if (typeof req.body[field] === "string") {
+        booking[field] = req.body[field].trim();
+      }
+    });
+
+    const validationErrors = validateBookingDateTime(booking.date, booking.time);
+    if (validationErrors.length) {
+      return sendError(res, 400, validationErrors.join(" "));
+    }
+
+    const duplicateBooking = await Booking.findOne({
+      _id: { $ne: booking._id },
+      clientId: booking.clientId,
+      date: booking.date,
+      time: booking.time,
+      status: { $ne: "cancelled" }
+    }).lean();
+
+    if (duplicateBooking) {
+      return sendError(res, 409, "Another booking already uses that client time slot.");
+    }
+
+    await booking.save();
+
+    return sendSuccess(res, 200, {
+      message: "Booking updated successfully.",
+      booking
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update the booking right now.");
+  }
+}
+
+async function getAdminInquiries(req, res) {
+  try {
+    const query = {};
+
+    if (req.query.clientId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.clientId)) {
+        return sendError(res, 400, "Invalid client ID.");
+      }
+      query.clientId = req.query.clientId;
+    }
+
+    if (req.query.status) {
+      if (!INQUIRY_STATUS_OPTIONS.includes(req.query.status)) {
+        return sendError(res, 400, "Invalid inquiry status filter.");
+      }
+      query.status = req.query.status;
+    }
+
+    const sortBy = String(req.query.sortBy || "createdAt");
+    const sortDirection = getSortDirection(req.query.sortDirection);
+    const sortMap = {
+      createdAt: { createdAt: sortDirection },
+      status: { status: sortDirection },
+      name: { name: sortDirection }
+    };
+    const searchPattern = buildSearchRegex(req.query.search);
+
+    const inquiries = await Inquiry.find(query).sort(sortMap[sortBy] || sortMap.createdAt).lean();
+    const clientMap = await buildClientMap([...new Set(inquiries.map((inquiry) => String(inquiry.clientId)).filter(Boolean))]);
+
+    const enrichedInquiries = enrichWithClientMap(inquiries, clientMap).filter((inquiry) => {
+      if (!searchPattern) {
+        return true;
+      }
+
+      return [
+        inquiry.name,
+        inquiry.email,
+        inquiry.message,
+        inquiry.clientName,
+        inquiry.clientBusinessName
+      ].some((value) => searchPattern.test(String(value || "")));
+    });
+
+    return sendSuccess(res, 200, { inquiries: enrichedInquiries });
   } catch (_error) {
     return sendError(res, 500, "Unable to load inquiries right now.");
   }
 }
 
-/**
- * Returns all reviews with pending items sorted to the top.
- *
- * @param {import("express").Request} _req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Review moderation payload.
- */
-async function getAdminReviews(_req, res) {
+async function updateAdminInquiry(req, res) {
   try {
-    const reviews = await Review.find({})
-      .sort({ status: 1, createdAt: -1 })
-      .lean();
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid inquiry ID.");
+    }
 
-    reviews.sort((left, right) => {
-      if (left.status === "pending" && right.status !== "pending") {
-        return -1;
+    const inquiry = await Inquiry.findById(req.params.id);
+    if (!inquiry) {
+      return sendError(res, 404, "Inquiry not found.");
+    }
+
+    if (typeof req.body.status === "string") {
+      const status = String(req.body.status || "").trim();
+      if (!INQUIRY_STATUS_OPTIONS.includes(status)) {
+        return sendError(res, 400, "Inquiry status is invalid.");
+      }
+      inquiry.status = status;
+    }
+
+    if (typeof req.body.adminNotes === "string") {
+      inquiry.adminNotes = normalizeAdminNote(req.body.adminNotes);
+    }
+
+    await inquiry.save();
+
+    return sendSuccess(res, 200, {
+      message: "Inquiry updated successfully.",
+      inquiry
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update the inquiry right now.");
+  }
+}
+
+async function getAdminReviews(req, res) {
+  try {
+    const query = {};
+
+    if (req.query.clientId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.clientId)) {
+        return sendError(res, 400, "Invalid client ID.");
+      }
+      query.clientId = req.query.clientId;
+    }
+
+    if (req.query.rating) {
+      const rating = Number(req.query.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return sendError(res, 400, "Rating filter must be between 1 and 5.");
+      }
+      query.rating = rating;
+    }
+
+    if (req.query.status) {
+      const reviewStatusMap = {
+        pending: "pending",
+        approved: "published",
+        rejected: "hidden",
+        published: "published",
+        hidden: "hidden"
+      };
+      const mappedStatus = reviewStatusMap[String(req.query.status || "").trim()];
+      if (!mappedStatus) {
+        return sendError(res, 400, "Invalid review status filter.");
+      }
+      query.status = mappedStatus;
+    }
+
+    const sortBy = String(req.query.sortBy || "createdAt");
+    const sortDirection = getSortDirection(req.query.sortDirection);
+    const sortMap = {
+      createdAt: { createdAt: sortDirection },
+      rating: { rating: sortDirection },
+      status: { status: sortDirection }
+    };
+    const searchPattern = buildSearchRegex(req.query.search);
+
+    const reviews = await Review.find(query).sort(sortMap[sortBy] || sortMap.createdAt).lean();
+    const clientMap = await buildClientMap([...new Set(reviews.map((review) => String(review.clientId)).filter(Boolean))]);
+
+    const enrichedReviews = enrichWithClientMap(reviews, clientMap).filter((review) => {
+      if (!searchPattern) {
+        return true;
       }
 
-      if (left.status !== "pending" && right.status === "pending") {
-        return 1;
-      }
-
-      return new Date(right.createdAt) - new Date(left.createdAt);
+      return [
+        review.name,
+        review.role,
+        review.text,
+        review.clientName,
+        review.clientBusinessName
+      ].some((value) => searchPattern.test(String(value || "")));
     });
 
-    return sendSuccess(res, 200, { reviews });
+    return sendSuccess(res, 200, { reviews: enrichedReviews });
   } catch (_error) {
     return sendError(res, 500, "Unable to load reviews right now.");
   }
 }
 
-/**
- * Updates a review's moderation status.
- *
- * @param {import("express").Request} req - The incoming admin request.
- * @param {import("express").Response} res - The outgoing response.
- * @returns {Promise<import("express").Response>} Updated review payload.
- */
 async function updateAdminReview(req, res) {
   try {
-    const status = String(req.body.status || "").trim();
-
-    if (!["published", "hidden"].includes(status)) {
-      return sendError(res, 400, "Review status must be either 'published' or 'hidden'.");
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid review ID.");
     }
 
-    const review = await Review.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    ).lean();
-
+    const review = await Review.findById(req.params.id);
     if (!review) {
       return sendError(res, 404, "Review not found.");
     }
+
+    if (typeof req.body.status === "string") {
+      const status = String(req.body.status || "").trim();
+      if (!REVIEW_STATUS_OPTIONS.includes(status)) {
+        return sendError(res, 400, "Review status must be pending, published, or hidden.");
+      }
+      review.status = status;
+    }
+
+    if (typeof req.body.adminNotes === "string") {
+      review.adminNotes = normalizeAdminNote(req.body.adminNotes);
+    }
+
+    await review.save();
 
     return sendSuccess(res, 200, {
       message: "Review updated successfully.",
@@ -545,7 +818,9 @@ module.exports = {
   updateClient,
   softDeleteClient,
   getAdminBookings,
+  updateAdminBooking,
   getAdminInquiries,
+  updateAdminInquiry,
   getAdminReviews,
   updateAdminReview
 };

@@ -3,271 +3,1219 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutomateX Admin Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>AutomateX Admin Console</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020617;
+      --bg-soft: #0f172a;
+      --bg-elevated: #111c34;
+      --panel: rgba(15, 23, 42, 0.88);
+      --panel-strong: #111827;
+      --line: rgba(148, 163, 184, 0.18);
+      --line-strong: rgba(148, 163, 184, 0.28);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --accent-strong: #06b6d4;
+      --accent-soft: rgba(34, 211, 238, 0.14);
+      --success: #34d399;
+      --warning: #f59e0b;
+      --danger: #fb7185;
+      --shadow: 0 22px 50px rgba(2, 6, 23, 0.36);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #eef4fb;
+      --bg-soft: #f8fbff;
+      --bg-elevated: #ffffff;
+      --panel: rgba(255, 255, 255, 0.94);
+      --panel-strong: #ffffff;
+      --line: rgba(148, 163, 184, 0.24);
+      --line-strong: rgba(148, 163, 184, 0.34);
+      --text: #0f172a;
+      --muted: #475569;
+      --accent: #0891b2;
+      --accent-strong: #0e7490;
+      --accent-soft: rgba(8, 145, 178, 0.1);
+      --shadow: 0 22px 50px rgba(15, 23, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Inter", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.12), transparent 30%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .admin-shell {
+      display: grid;
+      min-height: 100vh;
+      grid-template-columns: 290px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      padding: 28px 22px;
+      border-right: 1px solid var(--line);
+      background: rgba(2, 6, 23, 0.68);
+      backdrop-filter: blur(20px);
+    }
+
+    :root[data-theme="light"] .sidebar {
+      background: rgba(248, 250, 252, 0.86);
+    }
+
+    .sidebar-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      color: #082f49;
+      font-weight: 800;
+      box-shadow: var(--shadow);
+    }
+
+    .brand-copy small,
+    .eyebrow {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .brand-copy strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .sidebar-nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sidebar-nav button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 18px;
+      padding: 13px 16px;
+      background: transparent;
+      color: var(--muted);
+      transition: 0.2s ease;
+    }
+
+    .sidebar-nav button:hover,
+    .sidebar-nav button.is-active {
+      border-color: var(--line-strong);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
+    .sidebar-meta {
+      margin-top: auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    .theme-toggle,
+    .sidebar-note {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .theme-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .select,
+    .input,
+    .textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: 14px;
+      background: var(--bg-soft);
+      color: var(--text);
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .select:focus,
+    .input:focus,
+    .textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+    }
+
+    .textarea {
+      min-height: 116px;
+      resize: vertical;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 28px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .topbar-title h1 {
+      margin: 6px 0 0;
+      font-size: clamp(1.8rem, 2.6vw, 2.5rem);
+      letter-spacing: -0.04em;
+    }
+
+    .topbar-title p {
+      margin: 10px 0 0;
+      max-width: 60ch;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--muted);
+    }
+
+    .button,
+    .button-secondary,
+    .button-danger,
+    .button-ghost {
+      border-radius: 14px;
+      border: 1px solid transparent;
+      padding: 11px 16px;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+
+    .button {
+      background: linear-gradient(135deg, var(--accent), #fb923c);
+      color: #082f49;
+      box-shadow: var(--shadow);
+    }
+
+    .button-secondary {
+      border-color: var(--line-strong);
+      background: var(--panel);
+      color: var(--text);
+    }
+
+    .button-ghost {
+      border-color: var(--line);
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .button-danger {
+      border-color: rgba(251, 113, 133, 0.28);
+      background: rgba(251, 113, 133, 0.12);
+      color: #fecdd3;
+    }
+
+    .button:hover,
+    .button-secondary:hover,
+    .button-ghost:hover,
+    .button-danger:hover {
+      transform: translateY(-1px);
+    }
+
+    .mobile-nav-toggle {
+      display: none;
+    }
+
+    .banner {
+      display: none;
+      margin-bottom: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      padding: 14px 16px;
+      background: var(--panel);
+    }
+
+    .banner.is-visible {
+      display: block;
+    }
+
+    .banner[data-tone="error"] {
+      border-color: rgba(251, 113, 133, 0.28);
+      background: rgba(251, 113, 133, 0.12);
+      color: #fecdd3;
+    }
+
+    .banner[data-tone="success"] {
+      border-color: rgba(52, 211, 153, 0.24);
+      background: rgba(52, 211, 153, 0.12);
+      color: #bbf7d0;
+    }
+
+    .section {
+      display: none;
+      gap: 18px;
+    }
+
+    .section.is-active {
+      display: grid;
+    }
+
+    .stats-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .stat-card,
+    .panel,
+    .table-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .stat-card {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .stat-card strong {
+      font-size: 1.95rem;
+      letter-spacing: -0.05em;
+    }
+
+    .stat-label,
+    .subtle {
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel-header h2,
+    .panel-header h3 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+    }
+
+    .panel-header p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .overview-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1.25fr 0.95fr;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .health-list,
+    .summary-list,
+    .package-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .summary-row,
+    .health-row,
+    .package-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--bg-soft);
+    }
+
+    .filters {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-bottom: 16px;
+    }
+
+    .table-card {
+      overflow: hidden;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+    }
+
+    thead {
+      background: rgba(2, 6, 23, 0.52);
+    }
+
+    :root[data-theme="light"] thead {
+      background: rgba(226, 232, 240, 0.66);
+    }
+
+    th,
+    td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    tbody tr:hover {
+      background: rgba(34, 211, 238, 0.04);
+    }
+
+    .cell-title {
+      font-weight: 600;
+    }
+
+    .cell-subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .badge.pending {
+      background: rgba(245, 158, 11, 0.12);
+      color: #fcd34d;
+      border-color: rgba(245, 158, 11, 0.28);
+    }
+
+    .badge.active,
+    .badge.paid,
+    .badge.confirmed,
+    .badge.completed,
+    .badge.approved,
+    .badge.connected,
+    .badge.operational {
+      background: rgba(52, 211, 153, 0.12);
+      color: #bbf7d0;
+      border-color: rgba(52, 211, 153, 0.24);
+    }
+
+    .badge.unpaid,
+    .badge.overdue,
+    .badge.cancelled,
+    .badge.rejected,
+    .badge.hidden,
+    .badge.suspended,
+    .badge.degraded {
+      background: rgba(251, 113, 133, 0.12);
+      color: #fecdd3;
+      border-color: rgba(251, 113, 133, 0.24);
+    }
+
+    .badge.contacted,
+    .badge.converted,
+    .badge.new,
+    .badge.in_progress {
+      background: rgba(34, 211, 238, 0.12);
+      color: #a5f3fc;
+      border-color: rgba(34, 211, 238, 0.24);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .mini-button {
+      border-radius: 12px;
+      border: 1px solid var(--line-strong);
+      background: transparent;
+      color: var(--text);
+      padding: 9px 12px;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    .mini-button:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    .empty-state,
+    .loading-state {
+      padding: 34px 22px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .drawer-shell {
+      position: fixed;
+      inset: 0;
+      display: none;
+      z-index: 30;
+    }
+
+    .drawer-shell.is-open {
+      display: block;
+    }
+
+    .drawer-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.62);
+      backdrop-filter: blur(4px);
+    }
+
+    .drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: min(620px, 100%);
+      height: 100%;
+      padding: 24px;
+      border-left: 1px solid var(--line);
+      background: var(--panel-strong);
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .drawer-header h3 {
+      margin: 8px 0 0;
+      font-size: 1.4rem;
+      letter-spacing: -0.03em;
+    }
+
+    .drawer-section {
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+      padding-top: 18px;
+    }
+
+    .drawer-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field label {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .checkbox-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .feature-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: var(--bg-soft);
+    }
+
+    .drawer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 22px;
+    }
+
+    .toast-stack {
+      position: fixed;
+      right: 22px;
+      bottom: 22px;
+      z-index: 40;
+      display: grid;
+      gap: 10px;
+    }
+
+    .toast {
+      min-width: 260px;
+      max-width: 360px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .toast strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .toast p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .toast.success {
+      border-color: rgba(52, 211, 153, 0.24);
+    }
+
+    .toast.error {
+      border-color: rgba(251, 113, 133, 0.24);
+    }
+
+    @media (max-width: 1220px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .overview-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filters {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 960px) {
+      .admin-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: min(320px, 88vw);
+        z-index: 25;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+      }
+
+      .sidebar.is-open {
+        transform: translateX(0);
+      }
+
+      .mobile-nav-toggle {
+        display: inline-flex;
+      }
+
+      .main {
+        padding: 20px;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+
+      .topbar-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .stats-grid,
+      .filters,
+      .drawer-grid,
+      .checkbox-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .main {
+        padding: 16px;
+      }
+
+      .panel,
+      .stat-card {
+        padding: 16px;
+      }
+
+      .drawer {
+        padding: 18px;
+      }
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-white">
-  <div class="min-h-screen">
-    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <div>
-          <p class="text-xs uppercase tracking-[0.32em] text-cyan-400">AutomateX</p>
-          <h1 class="mt-2 text-2xl font-semibold">Admin Dashboard</h1>
-        </div>
-        <div class="flex items-center gap-3">
-          <span id="adminIdentity" class="hidden rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-300 sm:inline-flex"></span>
-          <button id="logoutButton" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-rose-400 hover:text-rose-300">Logout</button>
+<body>
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">AX</div>
+        <div class="brand-copy">
+          <small>AutomateX</small>
+          <strong>Admin Console</strong>
         </div>
       </div>
-    </header>
 
-    <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Clients</p>
-          <p id="statClients" class="mt-4 text-3xl font-semibold">0</p>
-        </article>
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Active Subs</p>
-          <p id="statSubscriptions" class="mt-4 text-3xl font-semibold">0</p>
-        </article>
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Bookings</p>
-          <p id="statBookings" class="mt-4 text-3xl font-semibold">0</p>
-        </article>
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Inquiries</p>
-          <p id="statInquiries" class="mt-4 text-3xl font-semibold">0</p>
-        </article>
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Pending Reviews</p>
-          <p id="statPendingReviews" class="mt-4 text-3xl font-semibold">0</p>
-        </article>
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Revenue Est.</p>
-          <p id="statRevenue" class="mt-4 text-3xl font-semibold">$0</p>
+      <nav class="sidebar-nav" id="sidebarNav">
+        <button data-section="overview" class="is-active"><span>Overview</span><span>01</span></button>
+        <button data-section="clients"><span>Clients</span><span>02</span></button>
+        <button data-section="bookings"><span>Bookings</span><span>03</span></button>
+        <button data-section="inquiries"><span>Leads</span><span>04</span></button>
+        <button data-section="reviews"><span>Reviews</span><span>05</span></button>
+        <button data-section="billing"><span>Billing</span><span>06</span></button>
+      </nav>
+
+      <div class="sidebar-meta">
+        <div class="theme-toggle">
+          <small class="eyebrow">Appearance</small>
+          <div class="theme-toggle-row">
+            <span class="subtle">Dashboard theme</span>
+            <select id="themePreference" class="select">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+              <option value="system">System</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="sidebar-note">
+          <small class="eyebrow">Platform role</small>
+          <p class="subtle" style="margin: 10px 0 0;">This console manages the AutomateX SaaS platform. It does not represent a subscribed client account.</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-title">
+          <small class="eyebrow">Platform Control</small>
+          <h1 id="pageTitle">Admin Overview</h1>
+          <p id="pageSubtitle">Monitor client growth, package assignments, billing, support demand, and moderation from one SaaS-level control center.</p>
+        </div>
+
+        <div class="topbar-actions">
+          <button id="sidebarToggle" class="button-secondary mobile-nav-toggle" type="button">Menu</button>
+          <span class="pill" id="adminIdentity">Loading admin…</span>
+          <button id="logoutButton" class="button-danger" type="button">Logout</button>
+        </div>
+      </div>
+
+      <div class="banner" id="banner" data-tone="info"></div>
+
+      <section class="section is-active" id="section-overview">
+        <div class="stats-grid" id="statsGrid"></div>
+
+        <div class="overview-grid">
+          <div class="stack">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="eyebrow">Platform Snapshot</small>
+                  <h2>Package distribution and cash flow</h2>
+                  <p>See how active packages, monthly revenue, unpaid fees, and client state are trending across the platform.</p>
+                </div>
+              </div>
+              <div class="package-list" id="packageDistribution"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="eyebrow">Payment Pressure</small>
+                  <h2>Billing watchlist</h2>
+                  <p>Quickly identify overdue clients, unpaid balances, and how many accounts are settled this cycle.</p>
+                </div>
+              </div>
+              <div class="summary-list" id="billingSummary"></div>
+            </article>
+          </div>
+
+          <div class="stack">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="eyebrow">System Health</small>
+                  <h2>Infrastructure status</h2>
+                  <p>Basic runtime health indicators for the API and the database connection powering the platform.</p>
+                </div>
+              </div>
+              <div class="health-list" id="healthSummary"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="eyebrow">Operational Focus</small>
+                  <h2>Work queue</h2>
+                  <p>Keep the most urgent platform tasks visible: pending signups, new leads, unpaid accounts, and moderation backlog.</p>
+                </div>
+              </div>
+              <div class="summary-list" id="operationsSummary"></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="section-clients">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="eyebrow">Client Management</small>
+              <h2>Accounts, package assignment, and feature access</h2>
+              <p>Search businesses, assign packages manually, set monthly fees, manage payment state, and control platform feature access.</p>
+            </div>
+          </div>
+
+          <div class="filters">
+            <input id="clientSearch" class="input" type="text" placeholder="Search name, email, business, phone">
+            <select id="clientPlanFilter" class="select">
+              <option value="">All packages</option>
+              <option value="not_assigned">Not Assigned</option>
+              <option value="starter">Starter</option>
+              <option value="standard">Standard</option>
+              <option value="pro">Pro</option>
+              <option value="custom">Custom</option>
+            </select>
+            <select id="clientStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            <select id="clientSortBy" class="select">
+              <option value="createdAt">Sort: newest</option>
+              <option value="name">Sort: name</option>
+              <option value="monthlyFee">Sort: monthly fee</option>
+            </select>
+            <button id="refreshClientsButton" class="button-secondary" type="button">Refresh clients</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Business</th>
+                    <th>Package</th>
+                    <th>Status</th>
+                    <th>Monthly Fee</th>
+                    <th>Payment</th>
+                    <th>Bookings</th>
+                    <th>Inquiries</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="clientsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="clientsEmptyState">Loading clients…</div>
+          </div>
         </article>
       </section>
 
-      <section class="mt-8 rounded-3xl border border-slate-800 bg-slate-900">
-        <div class="border-b border-slate-800 px-4 py-4 sm:px-6">
-          <nav class="flex flex-wrap gap-2">
-            <button data-tab="clients" class="tab-button rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">Clients</button>
-            <button data-tab="bookings" class="tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Bookings</button>
-            <button data-tab="inquiries" class="tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Inquiries</button>
-            <button data-tab="reviews" class="tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Reviews</button>
-          </nav>
-        </div>
-
-        <div id="globalFeedback" class="hidden border-b border-slate-800 px-4 py-3 text-sm sm:px-6"></div>
-
-        <section id="tab-clients" class="tab-panel px-4 py-6 sm:px-6">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div class="grid gap-4 sm:grid-cols-3">
-              <label class="block">
-                <span class="mb-2 block text-sm text-slate-300">Search</span>
-                <input id="clientSearch" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="Search name or email">
-              </label>
-              <label class="block">
-                <span class="mb-2 block text-sm text-slate-300">Plan</span>
-                <select id="clientPlanFilter" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                  <option value="">All plans</option>
-                  <option value="not_assigned">Not Assigned</option>
-                  <option value="starter">Starter</option>
-                  <option value="standard">Standard</option>
-                  <option value="pro">Pro</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </label>
-              <label class="block">
-                <span class="mb-2 block text-sm text-slate-300">Status</span>
-                <select id="clientStatusFilter" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                  <option value="">All statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </label>
+      <section class="section" id="section-bookings">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="eyebrow">Booking Operations</small>
+              <h2>Schedule management across all tenants</h2>
+              <p>Review customer bookings, filter by status, inspect linked business accounts, and update date, time, status, or admin notes.</p>
             </div>
-            <button id="refreshClientsButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Clients</button>
           </div>
 
-          <div class="mt-6 overflow-hidden rounded-3xl border border-slate-800">
-            <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-slate-800">
-                <thead class="bg-slate-950/70">
-                  <tr class="text-left text-xs uppercase tracking-[0.22em] text-slate-400">
-                    <th class="px-4 py-3">Client</th>
-                    <th class="px-4 py-3">Plan</th>
-                    <th class="px-4 py-3">Status</th>
-                    <th class="px-4 py-3">Bookings</th>
-                    <th class="px-4 py-3">Inquiries</th>
-                    <th class="px-4 py-3">Created</th>
-                    <th class="px-4 py-3">Actions</th>
+          <div class="filters">
+            <input id="bookingSearch" class="input" type="text" placeholder="Search customer, service, business">
+            <select id="bookingStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <input id="bookingDateFilter" class="input" type="text" placeholder="YYYY-MM or YYYY-MM-DD">
+            <select id="bookingSortBy" class="select">
+              <option value="createdAt">Sort: newest</option>
+              <option value="date">Sort: date</option>
+              <option value="status">Sort: status</option>
+            </select>
+            <button id="refreshBookingsButton" class="button-secondary" type="button">Refresh bookings</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Business</th>
+                    <th>Service</th>
+                    <th>Date & Time</th>
+                    <th>Status</th>
+                    <th>Admin Notes</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody id="clientsTableBody" class="divide-y divide-slate-800 bg-slate-900"></tbody>
+                <tbody id="bookingsTableBody"></tbody>
               </table>
             </div>
+            <div class="empty-state" id="bookingsEmptyState">Loading bookings…</div>
           </div>
+        </article>
+      </section>
 
-          <section id="clientDetailPanel" class="mt-6 hidden rounded-3xl border border-slate-800 bg-slate-950/50 p-6">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Client Detail</p>
-                <h2 id="clientDetailName" class="mt-3 text-2xl font-semibold"></h2>
-                <p id="clientDetailMeta" class="mt-2 text-sm text-slate-400"></p>
-              </div>
-              <form id="clientUpdateForm" class="grid gap-3 lg:grid-cols-3">
-                <input type="hidden" id="clientDetailId">
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Package</span>
-                  <select id="clientDetailPlan" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                    <option value="not_assigned">Not Assigned</option>
-                    <option value="starter">Starter</option>
-                    <option value="standard">Standard</option>
-                    <option value="pro">Pro</option>
-                    <option value="custom">Custom</option>
-                  </select>
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Monthly Fee</span>
-                  <input id="clientDetailMonthlyFee" type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="0.00">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Account Status</span>
-                  <select id="clientDetailAccountStatus" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                    <option value="pending">Pending</option>
-                    <option value="active">Active</option>
-                    <option value="suspended">Suspended</option>
-                  </select>
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Payment Status</span>
-                  <select id="clientDetailPaymentStatus" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="unpaid">Unpaid</option>
-                    <option value="overdue">Overdue</option>
-                  </select>
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Next Payment Date</span>
-                  <input id="clientDetailNextPaymentDate" type="date" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Access State</span>
-                  <select id="clientDetailActive" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                    <option value="true">Dashboard Enabled</option>
-                    <option value="false">Deactivated</option>
-                  </select>
-                </label>
-                <div class="lg:col-span-3">
-                  <span class="mb-3 block text-sm text-slate-300">Allowed Features</span>
-                  <div id="clientDetailFeatures" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"></div>
-                </div>
-                <div class="flex items-end gap-3 lg:col-span-3">
-                  <button class="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Save</button>
-                  <button id="deactivateClientButton" class="rounded-2xl border border-rose-500/40 px-4 py-3 text-sm text-rose-300 transition hover:border-rose-400 hover:bg-rose-500/10" type="button">Soft Delete</button>
-                </div>
-              </form>
-            </div>
-
-            <div class="mt-6 grid gap-6 xl:grid-cols-2">
-              <div>
-                <h3 class="text-lg font-semibold">Recent Bookings</h3>
-                <div id="clientRecentBookings" class="mt-3 space-y-3"></div>
-              </div>
-              <div>
-                <h3 class="text-lg font-semibold">Recent Inquiries</h3>
-                <div id="clientRecentInquiries" class="mt-3 space-y-3"></div>
-              </div>
-            </div>
-          </section>
-        </section>
-
-        <section id="tab-bookings" class="tab-panel hidden px-4 py-6 sm:px-6">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div class="grid gap-4 sm:grid-cols-2">
-              <label class="block">
-                <span class="mb-2 block text-sm text-slate-300">Client ID</span>
-                <input id="bookingClientFilter" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="Optional ObjectId">
-              </label>
-              <label class="block">
-                <span class="mb-2 block text-sm text-slate-300">Month</span>
-                <input id="bookingDateFilter" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="YYYY-MM">
-              </label>
-            </div>
-            <button id="refreshBookingsButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Bookings</button>
-          </div>
-          <div id="bookingsList" class="mt-6 grid gap-3"></div>
-        </section>
-
-        <section id="tab-inquiries" class="tab-panel hidden px-4 py-6 sm:px-6">
-          <div class="flex items-center justify-between">
+      <section class="section" id="section-inquiries">
+        <article class="panel">
+          <div class="panel-header">
             <div>
-              <h2 class="text-xl font-semibold">All Inquiries</h2>
-              <p class="mt-1 text-sm text-slate-400">Newest inquiries across all tenants.</p>
+              <small class="eyebrow">Lead Management</small>
+              <h2>Incoming inquiries and follow-up progress</h2>
+              <p>Track new leads, mark contact progress, record conversion outcomes, and keep platform-side notes for sales follow-up.</p>
             </div>
-            <button id="refreshInquiriesButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Inquiries</button>
           </div>
-          <div id="inquiriesList" class="mt-6 grid gap-3"></div>
-        </section>
 
-        <section id="tab-reviews" class="tab-panel hidden px-4 py-6 sm:px-6">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-xl font-semibold">Review Moderation</h2>
-              <p class="mt-1 text-sm text-slate-400">Pending reviews appear first so you can approve or hide them quickly.</p>
-            </div>
-            <button id="refreshReviewsButton" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">Refresh Reviews</button>
+          <div class="filters">
+            <input id="inquirySearch" class="input" type="text" placeholder="Search lead, message, business">
+            <select id="inquiryStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="new">New</option>
+              <option value="contacted">Contacted</option>
+              <option value="converted">Converted</option>
+              <option value="closed">Closed</option>
+              <option value="in_progress">In Progress</option>
+            </select>
+            <select id="inquirySortBy" class="select">
+              <option value="createdAt">Sort: newest</option>
+              <option value="status">Sort: status</option>
+              <option value="name">Sort: name</option>
+            </select>
+            <div></div>
+            <button id="refreshInquiriesButton" class="button-secondary" type="button">Refresh leads</button>
           </div>
-          <div id="reviewsList" class="mt-6 grid gap-4"></div>
-        </section>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Lead</th>
+                    <th>Business</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                    <th>Source</th>
+                    <th>Admin Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="inquiriesTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="inquiriesEmptyState">Loading inquiries…</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="section-reviews">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="eyebrow">Review Moderation</small>
+              <h2>Approve or reject customer reviews safely</h2>
+              <p>Filter by rating and moderation state, then review the linked business before publishing or hiding feedback.</p>
+            </div>
+          </div>
+
+          <div class="filters">
+            <input id="reviewSearch" class="input" type="text" placeholder="Search reviewer, message, business">
+            <select id="reviewStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <select id="reviewRatingFilter" class="select">
+              <option value="">All ratings</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+            <select id="reviewSortBy" class="select">
+              <option value="createdAt">Sort: newest</option>
+              <option value="rating">Sort: rating</option>
+              <option value="status">Sort: status</option>
+            </select>
+            <button id="refreshReviewsButton" class="button-secondary" type="button">Refresh reviews</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Reviewer</th>
+                    <th>Business</th>
+                    <th>Rating</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                    <th>Admin Notes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="reviewsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="reviewsEmptyState">Loading reviews…</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="section-billing">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="eyebrow">Billing Management</small>
+              <h2>Revenue, due dates, and payment follow-up</h2>
+              <p>Review paid and unpaid accounts, highlight overdue balances, and update package fees and due dates from the client drawer.</p>
+            </div>
+          </div>
+
+          <div class="stats-grid" id="billingStatsGrid"></div>
+
+          <div class="table-card" style="margin-top: 18px;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Business</th>
+                    <th>Package</th>
+                    <th>Monthly Fee</th>
+                    <th>Payment Status</th>
+                    <th>Next Payment</th>
+                    <th>Account Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="billingTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="billingEmptyState">Loading billing data…</div>
+          </div>
+        </article>
       </section>
     </main>
   </div>
 
+  <div class="drawer-shell" id="drawerShell">
+    <div class="drawer-backdrop" id="drawerBackdrop"></div>
+    <aside class="drawer">
+      <div class="drawer-header">
+        <div>
+          <small class="eyebrow" id="drawerEyebrow">Details</small>
+          <h3 id="drawerTitle">Record Details</h3>
+          <p class="subtle" id="drawerSubtitle">Manage this record safely using protected admin-only controls.</p>
+        </div>
+        <button class="button-ghost" id="drawerCloseButton" type="button">Close</button>
+      </div>
+      <div id="drawerBody"></div>
+    </aside>
+  </div>
+
+  <div class="toast-stack" id="toastStack"></div>
+
   <script>
     const TOKEN_KEY = "automatex_admin_token";
     const USER_KEY = "automatex_admin_user";
+    const THEME_KEY = "automatex_admin_theme";
     const FEATURE_OPTIONS = [
       { key: "ai-chatbot", label: "AI Chatbot" },
-      { key: "booking-system", label: "Booking System" },
-      { key: "inquiry-management", label: "Inquiry Management" },
+      { key: "booking-system", label: "Booking Management" },
       { key: "review-management", label: "Review Management" },
-      { key: "billing-system", label: "Billing System" },
-      { key: "whatsapp-automation", label: "WhatsApp Automation" },
-      { key: "google-business-support", label: "Google Business Support" },
-      { key: "website-maintenance", label: "Website Maintenance" }
+      { key: "inquiry-management", label: "Inquiry Management" },
+      { key: "billing-system", label: "Billing Tools" },
+      { key: "google-business-support", label: "Analytics / Business Support" },
+      { key: "whatsapp-automation", label: "WhatsApp Feature" },
+      { key: "website-maintenance", label: "Premium Support / Website Integration" }
     ];
+    const SECTION_META = {
+      overview: {
+        title: "Admin Overview",
+        subtitle: "Monitor client growth, package assignments, billing, support demand, and moderation from one SaaS-level control center."
+      },
+      clients: {
+        title: "Client Management",
+        subtitle: "Manage onboarding, package assignment, feature access, and payment readiness for every client business."
+      },
+      bookings: {
+        title: "Booking Management",
+        subtitle: "Review, edit, complete, or cancel bookings across all businesses without touching client-facing workflows."
+      },
+      inquiries: {
+        title: "Lead Management",
+        subtitle: "Track new inquiries, sales follow-up, converted leads, and support queue notes across the whole platform."
+      },
+      reviews: {
+        title: "Review Moderation",
+        subtitle: "Approve or reject customer reviews with clear visibility into the linked business account and moderation history."
+      },
+      billing: {
+        title: "Billing Operations",
+        subtitle: "See recurring revenue, unpaid balances, upcoming due dates, and the clients that need billing follow-up most."
+      }
+    };
     const state = {
-      currentTab: "clients",
-      selectedClientId: null
+      currentSection: "overview",
+      stats: null,
+      clients: [],
+      bookings: [],
+      inquiries: [],
+      reviews: [],
+      drawer: null
     };
 
-    const globalFeedback = document.getElementById("globalFeedback");
+    function getToken() {
+      return localStorage.getItem(TOKEN_KEY) || "";
+    }
 
     function redirectToLogin() {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
-      window.location.href = "/login.html";
+      window.location.href = "/admin-login.html";
     }
 
-    function showFeedback(message, tone = "info") {
-      globalFeedback.textContent = message;
-      globalFeedback.className = "border-b px-4 py-3 text-sm sm:px-6";
-
-      if (tone === "error") {
-        globalFeedback.classList.add("border-rose-500/30", "bg-rose-500/10", "text-rose-200");
-      } else {
-        globalFeedback.classList.add("border-cyan-500/30", "bg-cyan-500/10", "text-cyan-100");
-      }
-    }
-
-    function hideFeedback() {
-      globalFeedback.className = "hidden border-b px-4 py-3 text-sm sm:px-6";
-      globalFeedback.textContent = "";
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }
 
     function formatCurrency(value) {
@@ -275,7 +1223,7 @@
         style: "currency",
         currency: "USD",
         maximumFractionDigits: 0
-      }).format(value || 0);
+      }).format(Number(value || 0));
     }
 
     function formatDate(value) {
@@ -309,30 +1257,69 @@
         return "Not Assigned";
       }
 
-      return plan
+      return String(plan)
         .split("_")
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(" ");
     }
 
     function formatStatusLabel(value) {
-      return String(value || "pending")
+      return String(value || "")
         .replace(/_/g, " ")
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
     }
 
-    function renderFeatureOptions(selectedFeatures = []) {
-      const selected = new Set(selectedFeatures);
-      document.getElementById("clientDetailFeatures").innerHTML = FEATURE_OPTIONS.map((feature) => `
-        <label class="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200">
-          <input type="checkbox" value="${feature.key}" class="client-feature-checkbox mt-1 h-4 w-4 rounded border-slate-600 bg-slate-950 text-cyan-400 focus:ring-cyan-400" ${selected.has(feature.key) ? "checked" : ""}>
-          <span>${feature.label}</span>
-        </label>
-      `).join("");
+    function ratingStars(value) {
+      const count = Number(value || 0);
+      return `${"★".repeat(count)}${"☆".repeat(Math.max(0, 5 - count))}`;
+    }
+
+    function badgeClass(value) {
+      const normalized = String(value || "pending").toLowerCase();
+
+      if (["active", "paid", "confirmed", "completed", "published", "approved", "connected", "operational"].includes(normalized)) {
+        return "badge active";
+      }
+
+      if (["pending"].includes(normalized)) {
+        return "badge pending";
+      }
+
+      if (["contacted", "converted", "new", "in_progress"].includes(normalized)) {
+        return `badge ${normalized}`;
+      }
+
+      return `badge ${normalized}`;
+    }
+
+    function showBanner(message, tone = "info") {
+      const banner = document.getElementById("banner");
+      banner.textContent = message;
+      banner.dataset.tone = tone;
+      banner.classList.add("is-visible");
+    }
+
+    function hideBanner() {
+      const banner = document.getElementById("banner");
+      banner.classList.remove("is-visible");
+      banner.textContent = "";
+      banner.dataset.tone = "info";
+    }
+
+    function showToast(title, message, tone = "success") {
+      const stack = document.getElementById("toastStack");
+      const toast = document.createElement("div");
+      toast.className = `toast ${tone}`;
+      toast.innerHTML = `<strong>${escapeHtml(title)}</strong><p>${escapeHtml(message)}</p>`;
+      stack.appendChild(toast);
+
+      window.setTimeout(() => {
+        toast.remove();
+      }, 4200);
     }
 
     async function apiFetch(path, options = {}) {
-      const token = localStorage.getItem(TOKEN_KEY);
+      const token = getToken();
       if (!token) {
         redirectToLogin();
         throw new Error("Missing admin token.");
@@ -361,6 +1348,992 @@
       return payload;
     }
 
+    function getThemePreference() {
+      return localStorage.getItem(THEME_KEY) || "dark";
+    }
+
+    function resolveTheme(preference) {
+      if (preference === "system") {
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+
+      return preference;
+    }
+
+    function applyTheme(preference) {
+      document.documentElement.dataset.theme = resolveTheme(preference);
+      localStorage.setItem(THEME_KEY, preference);
+      document.getElementById("themePreference").value = preference;
+    }
+
+    function setSection(sectionName) {
+      state.currentSection = sectionName;
+      document.querySelectorAll(".section").forEach((section) => {
+        section.classList.toggle("is-active", section.id === `section-${sectionName}`);
+      });
+
+      document.querySelectorAll("#sidebarNav button").forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.section === sectionName);
+      });
+
+      document.getElementById("pageTitle").textContent = SECTION_META[sectionName].title;
+      document.getElementById("pageSubtitle").textContent = SECTION_META[sectionName].subtitle;
+      closeSidebar();
+    }
+
+    function openSidebar() {
+      document.getElementById("sidebar").classList.add("is-open");
+    }
+
+    function closeSidebar() {
+      document.getElementById("sidebar").classList.remove("is-open");
+    }
+
+    function setTableState(tableBodyId, emptyStateId, items, rowMarkup) {
+      const body = document.getElementById(tableBodyId);
+      const emptyState = document.getElementById(emptyStateId);
+
+      if (!items.length) {
+        body.innerHTML = "";
+        emptyState.textContent = "No records found for the current filters.";
+        emptyState.style.display = "block";
+        return;
+      }
+
+      emptyState.style.display = "none";
+      body.innerHTML = items.map(rowMarkup).join("");
+    }
+
+    function renderStats() {
+      const stats = state.stats;
+      if (!stats) {
+        return;
+      }
+
+      const cards = [
+        ["Total Clients", stats.totalClients, "All client/business accounts on the platform."],
+        ["Active Clients", stats.activeClients, "Accounts that are active and service-ready."],
+        ["Pending Clients", stats.pendingClients, "New signups waiting for admin approval."],
+        ["Monthly Recurring Revenue", formatCurrency(stats.monthlyRevenueEstimate), "Estimated recurring revenue from active client assignments."],
+        ["Unpaid Monthly Fees", formatCurrency(stats.unpaidMonthlyFees), "Total balance not yet marked paid."],
+        ["Total Bookings", stats.totalBookings, "All stored bookings across client accounts."],
+        ["New Inquiries / Leads", stats.newLeadsThisMonth, "Fresh inquiries captured this month."],
+        ["Reviews Waiting Approval", stats.totalReviewsPendingModeration, "Moderation queue needing admin action."],
+        ["Active Packages", Object.values(stats.activePackages || {}).reduce((sum, count) => sum + count, 0), "Clients currently assigned to active package tiers."],
+        ["System Status", formatStatusLabel(stats.systemHealth?.status || "degraded"), "Current API and database connectivity status."]
+      ];
+
+      document.getElementById("statsGrid").innerHTML = cards.map(([label, value, description]) => `
+        <article class="stat-card">
+          <div class="stat-label">${escapeHtml(label)}</div>
+          <strong>${escapeHtml(value)}</strong>
+          <div class="subtle">${escapeHtml(description)}</div>
+        </article>
+      `).join("");
+
+      const packageRows = stats.activePackages || {};
+      document.getElementById("packageDistribution").innerHTML = Object.entries(packageRows).map(([plan, count]) => `
+        <div class="package-row">
+          <div>
+            <div class="cell-title">${escapeHtml(formatPlanLabel(plan))}</div>
+            <div class="cell-subtitle">Assigned active package count</div>
+          </div>
+          <strong>${escapeHtml(count)}</strong>
+        </div>
+      `).join("");
+
+      document.getElementById("billingSummary").innerHTML = [
+        ["Paid Clients", stats.paidClients],
+        ["Unpaid Clients", stats.unpaidClients],
+        ["Overdue Clients", stats.overdueClients],
+        ["Suspended Clients", stats.suspendedClients]
+      ].map(([label, value]) => `
+        <div class="summary-row">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `).join("");
+
+      document.getElementById("healthSummary").innerHTML = [
+        ["API", stats.systemHealth?.api || "offline"],
+        ["Database", stats.systemHealth?.database || "disconnected"],
+        ["Overall", stats.systemHealth?.status || "degraded"]
+      ].map(([label, value]) => `
+        <div class="health-row">
+          <span>${escapeHtml(label)}</span>
+          <span class="${badgeClass(value)}">${escapeHtml(formatStatusLabel(value))}</span>
+        </div>
+      `).join("");
+
+      document.getElementById("operationsSummary").innerHTML = [
+        ["Pending onboarding approvals", stats.pendingClients],
+        ["Reviews waiting moderation", stats.totalReviewsPendingModeration],
+        ["New leads this month", stats.newLeadsThisMonth],
+        ["Unpaid monthly fees", formatCurrency(stats.unpaidMonthlyFees)]
+      ].map(([label, value]) => `
+        <div class="summary-row">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `).join("");
+
+      document.getElementById("billingStatsGrid").innerHTML = [
+        ["Recurring Revenue", formatCurrency(stats.monthlyRevenueEstimate), "Current active-package revenue estimate."],
+        ["Unpaid Balance", formatCurrency(stats.unpaidMonthlyFees), "Outstanding monthly fees still unpaid."],
+        ["Overdue Clients", stats.overdueClients, "Clients currently marked overdue."],
+        ["Paid Clients", stats.paidClients, "Accounts settled successfully."],
+        ["Unpaid Clients", stats.unpaidClients, "Accounts still awaiting payment."],
+        ["Active Packages", Object.values(stats.activePackages || {}).reduce((sum, count) => sum + count, 0), "Total active package assignments."]
+      ].map(([label, value, description]) => `
+        <article class="stat-card">
+          <div class="stat-label">${escapeHtml(label)}</div>
+          <strong>${escapeHtml(value)}</strong>
+          <div class="subtle">${escapeHtml(description)}</div>
+        </article>
+      `).join("");
+    }
+
+    function clientRowMarkup(client) {
+      return `
+        <tr>
+          <td>
+            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.email)}${client.phone ? ` • ${escapeHtml(client.phone)}` : ""}</div>
+          </td>
+          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
+          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
+          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td>${escapeHtml(client.bookingCount || 0)}</td>
+          <td>${escapeHtml(client.inquiryCount || 0)}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}">Manage</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function bookingRowMarkup(booking) {
+      return `
+        <tr>
+          <td>
+            <div class="cell-title">${escapeHtml(booking.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(booking.email)}${booking.phone ? ` • ${escapeHtml(booking.phone)}` : ""}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(booking.clientBusinessName || booking.clientName || "Client")}</div>
+            <div class="cell-subtitle">${escapeHtml(booking.clientEmail || "")}</div>
+          </td>
+          <td>${escapeHtml(booking.service || "General booking")}</td>
+          <td>
+            <div class="cell-title">${escapeHtml(booking.date)}</div>
+            <div class="cell-subtitle">${escapeHtml(booking.time)}</div>
+          </td>
+          <td><span class="${badgeClass(booking.status)}">${escapeHtml(formatStatusLabel(booking.status))}</span></td>
+          <td>${escapeHtml(booking.adminNotes || "—")}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-booking-id="${escapeHtml(booking._id)}">Edit</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function inquiryRowMarkup(inquiry) {
+      return `
+        <tr>
+          <td>
+            <div class="cell-title">${escapeHtml(inquiry.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(inquiry.email)}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || "Client")}</div>
+            <div class="cell-subtitle">${escapeHtml(inquiry.clientEmail || "")}</div>
+          </td>
+          <td>${escapeHtml(inquiry.message)}</td>
+          <td><span class="${badgeClass(inquiry.status)}">${escapeHtml(formatStatusLabel(inquiry.status))}</span></td>
+          <td>${escapeHtml(inquiry.source || "website")}</td>
+          <td>${escapeHtml(inquiry.adminNotes || "—")}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-inquiry-id="${escapeHtml(inquiry._id)}">Edit</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function reviewRowMarkup(review) {
+      const displayStatus = review.status === "published"
+        ? "approved"
+        : review.status === "hidden"
+          ? "rejected"
+          : review.status;
+
+      return `
+        <tr>
+          <td>
+            <div class="cell-title">${escapeHtml(review.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(review.role || "Customer")}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(review.clientBusinessName || review.clientName || "Client")}</div>
+            <div class="cell-subtitle">${escapeHtml(review.clientEmail || "")}</div>
+          </td>
+          <td>${escapeHtml(ratingStars(review.rating))}</td>
+          <td>${escapeHtml(review.text)}</td>
+          <td><span class="${badgeClass(displayStatus)}">${escapeHtml(formatStatusLabel(displayStatus))}</span></td>
+          <td>${escapeHtml(review.adminNotes || "—")}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-review-id="${escapeHtml(review._id)}">Moderate</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderBillingTable() {
+      const billingRows = [...state.clients]
+        .filter((client) => Number(client.monthlyFee || 0) > 0 || client.plan !== "not_assigned")
+        .sort((left, right) => Number(right.monthlyFee || 0) - Number(left.monthlyFee || 0));
+
+      setTableState("billingTableBody", "billingEmptyState", billingRows, (client) => `
+        <tr>
+          <td>
+            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
+          </td>
+          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
+          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
+          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td>${escapeHtml(formatShortDate(client.nextPaymentDate))}</td>
+          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}">Manage billing</button>
+            </div>
+          </td>
+        </tr>
+      `);
+    }
+
+    async function loadStats() {
+      state.stats = await apiFetch("/api/admin/stats");
+      renderStats();
+    }
+
+    async function loadClients() {
+      const params = new URLSearchParams();
+      const search = document.getElementById("clientSearch").value.trim();
+      const plan = document.getElementById("clientPlanFilter").value;
+      const accountStatus = document.getElementById("clientStatusFilter").value;
+      const sortBy = document.getElementById("clientSortBy").value;
+
+      if (search) params.set("search", search);
+      if (plan) params.set("plan", plan);
+      if (accountStatus) params.set("accountStatus", accountStatus);
+      if (sortBy) {
+        params.set("sortBy", sortBy);
+        params.set("sortDirection", sortBy === "name" ? "asc" : "desc");
+      }
+
+      const payload = await apiFetch(`/api/admin/clients${params.toString() ? `?${params}` : ""}`);
+      state.clients = payload.clients || [];
+      setTableState("clientsTableBody", "clientsEmptyState", state.clients, clientRowMarkup);
+      renderBillingTable();
+    }
+
+    async function loadBookings() {
+      const params = new URLSearchParams();
+      const search = document.getElementById("bookingSearch").value.trim();
+      const status = document.getElementById("bookingStatusFilter").value;
+      const date = document.getElementById("bookingDateFilter").value.trim();
+      const sortBy = document.getElementById("bookingSortBy").value;
+
+      if (search) params.set("search", search);
+      if (status) params.set("status", status);
+      if (date) params.set("date", date);
+      if (sortBy) {
+        params.set("sortBy", sortBy);
+        params.set("sortDirection", "desc");
+      }
+
+      const payload = await apiFetch(`/api/admin/bookings${params.toString() ? `?${params}` : ""}`);
+      state.bookings = payload.bookings || [];
+      setTableState("bookingsTableBody", "bookingsEmptyState", state.bookings, bookingRowMarkup);
+    }
+
+    async function loadInquiries() {
+      const params = new URLSearchParams();
+      const search = document.getElementById("inquirySearch").value.trim();
+      const status = document.getElementById("inquiryStatusFilter").value;
+      const sortBy = document.getElementById("inquirySortBy").value;
+
+      if (search) params.set("search", search);
+      if (status) params.set("status", status);
+      if (sortBy) {
+        params.set("sortBy", sortBy);
+        params.set("sortDirection", sortBy === "name" ? "asc" : "desc");
+      }
+
+      const payload = await apiFetch(`/api/admin/inquiries${params.toString() ? `?${params}` : ""}`);
+      state.inquiries = payload.inquiries || [];
+      setTableState("inquiriesTableBody", "inquiriesEmptyState", state.inquiries, inquiryRowMarkup);
+    }
+
+    async function loadReviews() {
+      const params = new URLSearchParams();
+      const search = document.getElementById("reviewSearch").value.trim();
+      const status = document.getElementById("reviewStatusFilter").value;
+      const rating = document.getElementById("reviewRatingFilter").value;
+      const sortBy = document.getElementById("reviewSortBy").value;
+
+      if (search) params.set("search", search);
+      if (status) params.set("status", status);
+      if (rating) params.set("rating", rating);
+      if (sortBy) {
+        params.set("sortBy", sortBy);
+        params.set("sortDirection", "desc");
+      }
+
+      const payload = await apiFetch(`/api/admin/reviews${params.toString() ? `?${params}` : ""}`);
+      state.reviews = payload.reviews || [];
+      setTableState("reviewsTableBody", "reviewsEmptyState", state.reviews, reviewRowMarkup);
+    }
+
+    function openDrawer(config) {
+      state.drawer = config;
+      document.getElementById("drawerEyebrow").textContent = config.eyebrow;
+      document.getElementById("drawerTitle").textContent = config.title;
+      document.getElementById("drawerSubtitle").textContent = config.subtitle;
+      document.getElementById("drawerBody").innerHTML = config.body;
+      document.getElementById("drawerShell").classList.add("is-open");
+      attachDrawerHandlers();
+    }
+
+    function closeDrawer() {
+      state.drawer = null;
+      document.getElementById("drawerShell").classList.remove("is-open");
+      document.getElementById("drawerBody").innerHTML = "";
+    }
+
+    function clientDetailSection(client) {
+      return `
+        <form id="clientDrawerForm">
+          <input type="hidden" name="clientId" value="${escapeHtml(client.id)}">
+
+          <div class="drawer-grid">
+            <div class="field">
+              <label>Owner name</label>
+              <input class="input" name="name" value="${escapeHtml(client.name)}" disabled>
+            </div>
+            <div class="field">
+              <label>Business name</label>
+              <input class="input" name="businessName" value="${escapeHtml(client.businessName)}">
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input class="input" name="email" value="${escapeHtml(client.email)}" disabled>
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <input class="input" name="phone" value="${escapeHtml(client.phone)}">
+            </div>
+            <div class="field">
+              <label>Business type</label>
+              <input class="input" name="businessType" value="${escapeHtml(client.businessType)}">
+            </div>
+            <div class="field">
+              <label>Location</label>
+              <input class="input" name="location" value="${escapeHtml(client.location)}">
+            </div>
+            <div class="field">
+              <label>Package</label>
+              <select class="select" name="plan">
+                ${["not_assigned", "starter", "standard", "pro", "custom"].map((plan) => `<option value="${plan}" ${client.plan === plan ? "selected" : ""}>${escapeHtml(formatPlanLabel(plan))}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Account status</label>
+              <select class="select" name="accountStatus">
+                ${["pending", "active", "suspended"].map((status) => `<option value="${status}" ${client.accountStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Monthly fee</label>
+              <input class="input" name="monthlyFee" type="number" step="0.01" min="0" value="${escapeHtml(client.monthlyFee)}">
+            </div>
+            <div class="field">
+              <label>Payment status</label>
+              <select class="select" name="paymentStatus">
+                ${["pending", "paid", "unpaid", "overdue"].map((status) => `<option value="${status}" ${client.paymentStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Next payment date</label>
+              <input class="input" name="nextPaymentDate" type="date" value="${client.nextPaymentDate ? new Date(client.nextPaymentDate).toISOString().slice(0, 10) : ""}">
+            </div>
+            <div class="field">
+              <label>Account access</label>
+              <select class="select" name="isActive">
+                <option value="true" ${client.isActive ? "selected" : ""}>Enabled</option>
+                <option value="false" ${!client.isActive ? "selected" : ""}>Disabled</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="field">
+              <label>Working hours</label>
+              <input class="input" name="workingHours" value="${escapeHtml(client.workingHours)}">
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Booking URL</label>
+              <input class="input" name="bookingUrl" value="${escapeHtml(client.bookingUrl)}">
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Chatbot language</label>
+              <input class="input" name="chatbotLanguage" value="${escapeHtml(client.chatbotLanguage)}">
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Services (comma separated)</label>
+              <textarea class="textarea" name="services">${escapeHtml((client.services || []).join(", "))}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <small class="eyebrow">Feature Access</small>
+            <div class="checkbox-grid" style="margin-top: 14px;">
+              ${FEATURE_OPTIONS.map((feature) => `
+                <label class="feature-card">
+                  <input type="checkbox" name="allowedFeatures" value="${feature.key}" ${(client.allowedFeatures || []).includes(feature.key) ? "checked" : ""}>
+                  <span>${escapeHtml(feature.label)}</span>
+                </label>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button-danger" id="clientDeactivateButton" type="button">Suspend Client</button>
+            <button class="button" type="submit">Save Client</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function bookingDetailSection(booking) {
+      return `
+        <form id="bookingDrawerForm">
+          <input type="hidden" name="bookingId" value="${escapeHtml(booking._id)}">
+          <div class="drawer-grid">
+            <div class="field">
+              <label>Customer name</label>
+              <input class="input" name="name" value="${escapeHtml(booking.name)}">
+            </div>
+            <div class="field">
+              <label>Customer email</label>
+              <input class="input" name="email" value="${escapeHtml(booking.email)}">
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <input class="input" name="phone" value="${escapeHtml(booking.phone || "")}">
+            </div>
+            <div class="field">
+              <label>Service</label>
+              <input class="input" name="service" value="${escapeHtml(booking.service || "")}">
+            </div>
+            <div class="field">
+              <label>Date</label>
+              <input class="input" name="date" value="${escapeHtml(booking.date)}" placeholder="YYYY-MM-DD">
+            </div>
+            <div class="field">
+              <label>Time</label>
+              <input class="input" name="time" value="${escapeHtml(booking.time)}" placeholder="HH:MM">
+            </div>
+            <div class="field">
+              <label>Status</label>
+              <select class="select" name="status">
+                ${["pending", "confirmed", "completed", "cancelled"].map((status) => `<option value="${status}" ${booking.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Linked business</label>
+              <input class="input" value="${escapeHtml(booking.clientBusinessName || booking.clientName || "Client")}" disabled>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="field">
+              <label>Admin notes</label>
+              <textarea class="textarea" name="adminNotes">${escapeHtml(booking.adminNotes || "")}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button-danger" type="button" id="bookingCancelButton">Mark Cancelled</button>
+            <button class="button" type="submit">Save Booking</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function inquiryDetailSection(inquiry) {
+      return `
+        <form id="inquiryDrawerForm">
+          <input type="hidden" name="inquiryId" value="${escapeHtml(inquiry._id)}">
+          <div class="drawer-grid">
+            <div class="field">
+              <label>Lead name</label>
+              <input class="input" value="${escapeHtml(inquiry.name)}" disabled>
+            </div>
+            <div class="field">
+              <label>Lead email</label>
+              <input class="input" value="${escapeHtml(inquiry.email)}" disabled>
+            </div>
+            <div class="field">
+              <label>Linked business</label>
+              <input class="input" value="${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || "Client")}" disabled>
+            </div>
+            <div class="field">
+              <label>Status</label>
+              <select class="select" name="status">
+                ${["new", "contacted", "converted", "closed", "in_progress"].map((status) => `<option value="${status}" ${inquiry.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="field">
+              <label>Lead message</label>
+              <textarea class="textarea" disabled>${escapeHtml(inquiry.message)}</textarea>
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Admin notes</label>
+              <textarea class="textarea" name="adminNotes">${escapeHtml(inquiry.adminNotes || "")}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button" type="submit">Save Lead</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function reviewDetailSection(review) {
+      return `
+        <form id="reviewDrawerForm">
+          <input type="hidden" name="reviewId" value="${escapeHtml(review._id)}">
+          <div class="drawer-grid">
+            <div class="field">
+              <label>Reviewer</label>
+              <input class="input" value="${escapeHtml(review.name)}" disabled>
+            </div>
+            <div class="field">
+              <label>Linked business</label>
+              <input class="input" value="${escapeHtml(review.clientBusinessName || review.clientName || "Client")}" disabled>
+            </div>
+            <div class="field">
+              <label>Rating</label>
+              <input class="input" value="${escapeHtml(ratingStars(review.rating))}" disabled>
+            </div>
+            <div class="field">
+              <label>Moderation status</label>
+              <select class="select" name="status">
+                <option value="pending" ${review.status === "pending" ? "selected" : ""}>Pending</option>
+                <option value="published" ${review.status === "published" ? "selected" : ""}>Approved</option>
+                <option value="hidden" ${review.status === "hidden" ? "selected" : ""}>Rejected</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="field">
+              <label>Review message</label>
+              <textarea class="textarea" disabled>${escapeHtml(review.text)}</textarea>
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Admin notes</label>
+              <textarea class="textarea" name="adminNotes">${escapeHtml(review.adminNotes || "")}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button-secondary" type="button" id="reviewApproveButton">Approve</button>
+            <button class="button-danger" type="button" id="reviewRejectButton">Reject</button>
+            <button class="button" type="submit">Save Review</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function attachDrawerHandlers() {
+      const clientForm = document.getElementById("clientDrawerForm");
+      if (clientForm) {
+        clientForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(clientForm);
+          const allowedFeatures = Array.from(clientForm.querySelectorAll('input[name="allowedFeatures"]:checked')).map((input) => input.value);
+          const services = String(formData.get("services") || "")
+            .split(",")
+            .map((service) => service.trim())
+            .filter(Boolean);
+
+          try {
+            await apiFetch(`/api/admin/clients/${formData.get("clientId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                plan: formData.get("plan"),
+                accountStatus: formData.get("accountStatus"),
+                monthlyFee: formData.get("monthlyFee"),
+                paymentStatus: formData.get("paymentStatus"),
+                nextPaymentDate: formData.get("nextPaymentDate") || null,
+                isActive: formData.get("isActive") === "true",
+                businessName: formData.get("businessName"),
+                businessType: formData.get("businessType"),
+                phone: formData.get("phone"),
+                location: formData.get("location"),
+                workingHours: formData.get("workingHours"),
+                bookingUrl: formData.get("bookingUrl"),
+                chatbotLanguage: formData.get("chatbotLanguage"),
+                services,
+                allowedFeatures
+              })
+            });
+
+            await Promise.all([loadClients(), loadStats()]);
+            closeDrawer();
+            showToast("Client saved", "Client package, billing, and feature controls were updated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to save the client.", "error");
+          }
+        });
+
+        document.getElementById("clientDeactivateButton").addEventListener("click", async () => {
+          const clientId = new FormData(clientForm).get("clientId");
+
+          try {
+            await apiFetch(`/api/admin/clients/${clientId}`, {
+              method: "DELETE"
+            });
+            await Promise.all([loadClients(), loadStats()]);
+            closeDrawer();
+            showToast("Client suspended", "The client account has been safely deactivated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to suspend the client.", "error");
+          }
+        });
+      }
+
+      const bookingForm = document.getElementById("bookingDrawerForm");
+      if (bookingForm) {
+        bookingForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(bookingForm);
+
+          try {
+            await apiFetch(`/api/admin/bookings/${formData.get("bookingId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                name: formData.get("name"),
+                email: formData.get("email"),
+                phone: formData.get("phone"),
+                service: formData.get("service"),
+                date: formData.get("date"),
+                time: formData.get("time"),
+                status: formData.get("status"),
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+
+            await Promise.all([loadBookings(), loadStats()]);
+            closeDrawer();
+            showToast("Booking saved", "Booking details were updated successfully.");
+          } catch (error) {
+            showBanner(error.message || "Unable to update the booking.", "error");
+          }
+        });
+
+        document.getElementById("bookingCancelButton").addEventListener("click", async () => {
+          const formData = new FormData(bookingForm);
+
+          try {
+            await apiFetch(`/api/admin/bookings/${formData.get("bookingId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: "cancelled",
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+            await Promise.all([loadBookings(), loadStats()]);
+            closeDrawer();
+            showToast("Booking cancelled", "The booking has been marked as cancelled.");
+          } catch (error) {
+            showBanner(error.message || "Unable to cancel the booking.", "error");
+          }
+        });
+      }
+
+      const inquiryForm = document.getElementById("inquiryDrawerForm");
+      if (inquiryForm) {
+        inquiryForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(inquiryForm);
+
+          try {
+            await apiFetch(`/api/admin/inquiries/${formData.get("inquiryId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: formData.get("status"),
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+            await Promise.all([loadInquiries(), loadStats()]);
+            closeDrawer();
+            showToast("Lead saved", "Lead status and admin notes were updated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to update the lead.", "error");
+          }
+        });
+      }
+
+      const reviewForm = document.getElementById("reviewDrawerForm");
+      if (reviewForm) {
+        reviewForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(reviewForm);
+
+          try {
+            await apiFetch(`/api/admin/reviews/${formData.get("reviewId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: formData.get("status"),
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+            await Promise.all([loadReviews(), loadStats()]);
+            closeDrawer();
+            showToast("Review saved", "Review moderation details were updated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to update the review.", "error");
+          }
+        });
+
+        document.getElementById("reviewApproveButton").addEventListener("click", async () => {
+          const formData = new FormData(reviewForm);
+          try {
+            await apiFetch(`/api/admin/reviews/${formData.get("reviewId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: "published",
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+            await Promise.all([loadReviews(), loadStats()]);
+            closeDrawer();
+            showToast("Review approved", "The review is now visible as approved content.");
+          } catch (error) {
+            showBanner(error.message || "Unable to approve the review.", "error");
+          }
+        });
+
+        document.getElementById("reviewRejectButton").addEventListener("click", async () => {
+          const formData = new FormData(reviewForm);
+          try {
+            await apiFetch(`/api/admin/reviews/${formData.get("reviewId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: "hidden",
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+            await Promise.all([loadReviews(), loadStats()]);
+            closeDrawer();
+            showToast("Review rejected", "The review has been hidden from public display.");
+          } catch (error) {
+            showBanner(error.message || "Unable to reject the review.", "error");
+          }
+        });
+      }
+    }
+
+    async function openClientDrawer(clientId) {
+      const payload = await apiFetch(`/api/admin/clients/${clientId}`);
+      const client = payload.client;
+
+      openDrawer({
+        eyebrow: "Client Account",
+        title: client.businessName || client.name,
+        subtitle: "Assign packages, manage billing state, edit business profile fields, and control client feature access.",
+        body: clientDetailSection(client)
+      });
+    }
+
+    function openBookingDrawer(bookingId) {
+      const booking = state.bookings.find((item) => item._id === bookingId);
+      if (!booking) {
+        return;
+      }
+
+      openDrawer({
+        eyebrow: "Booking Record",
+        title: `${booking.name} • ${booking.date} ${booking.time}`,
+        subtitle: "Edit schedule details, move the booking through its lifecycle, and keep internal notes for your team.",
+        body: bookingDetailSection(booking)
+      });
+    }
+
+    function openInquiryDrawer(inquiryId) {
+      const inquiry = state.inquiries.find((item) => item._id === inquiryId);
+      if (!inquiry) {
+        return;
+      }
+
+      openDrawer({
+        eyebrow: "Lead Record",
+        title: inquiry.name,
+        subtitle: "Track contact progress, conversions, and internal follow-up notes for this lead.",
+        body: inquiryDetailSection(inquiry)
+      });
+    }
+
+    function openReviewDrawer(reviewId) {
+      const review = state.reviews.find((item) => item._id === reviewId);
+      if (!review) {
+        return;
+      }
+
+      openDrawer({
+        eyebrow: "Review Moderation",
+        title: review.name,
+        subtitle: "Approve or reject this review and keep moderation notes attached to the record.",
+        body: reviewDetailSection(review)
+      });
+    }
+
+    function attachGlobalEvents() {
+      document.getElementById("sidebarNav").addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-section]");
+        if (!button) {
+          return;
+        }
+        setSection(button.dataset.section);
+      });
+
+      document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
+      document.getElementById("drawerCloseButton").addEventListener("click", closeDrawer);
+      document.getElementById("drawerBackdrop").addEventListener("click", closeDrawer);
+      document.getElementById("themePreference").addEventListener("change", (event) => {
+        applyTheme(event.target.value);
+      });
+
+      document.getElementById("logoutButton").addEventListener("click", async () => {
+        try {
+          await fetch("/api/auth/logout", { method: "POST" });
+        } finally {
+          redirectToLogin();
+        }
+      });
+
+      document.getElementById("clientsTableBody").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-client-id]");
+        if (button) {
+          openClientDrawer(button.dataset.clientId).catch((error) => showBanner(error.message, "error"));
+        }
+      });
+
+      document.getElementById("bookingsTableBody").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-booking-id]");
+        if (button) {
+          openBookingDrawer(button.dataset.bookingId);
+        }
+      });
+
+      document.getElementById("inquiriesTableBody").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-inquiry-id]");
+        if (button) {
+          openInquiryDrawer(button.dataset.inquiryId);
+        }
+      });
+
+      document.getElementById("reviewsTableBody").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-review-id]");
+        if (button) {
+          openReviewDrawer(button.dataset.reviewId);
+        }
+      });
+
+      [
+        ["refreshClientsButton", loadClients],
+        ["refreshBookingsButton", loadBookings],
+        ["refreshInquiriesButton", loadInquiries],
+        ["refreshReviewsButton", loadReviews]
+      ].forEach(([id, handler]) => {
+        document.getElementById(id).addEventListener("click", () => {
+          handler().catch((error) => showBanner(error.message || "Unable to refresh section.", "error"));
+        });
+      });
+
+      [
+        "clientSearch",
+        "clientPlanFilter",
+        "clientStatusFilter",
+        "clientSortBy"
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+          loadClients().catch((error) => showBanner(error.message || "Unable to load clients.", "error"));
+        });
+        document.getElementById(id).addEventListener("change", () => {
+          loadClients().catch((error) => showBanner(error.message || "Unable to load clients.", "error"));
+        });
+      });
+
+      [
+        "bookingSearch",
+        "bookingStatusFilter",
+        "bookingDateFilter",
+        "bookingSortBy"
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+          loadBookings().catch((error) => showBanner(error.message || "Unable to load bookings.", "error"));
+        });
+        document.getElementById(id).addEventListener("change", () => {
+          loadBookings().catch((error) => showBanner(error.message || "Unable to load bookings.", "error"));
+        });
+      });
+
+      [
+        "inquirySearch",
+        "inquiryStatusFilter",
+        "inquirySortBy"
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+          loadInquiries().catch((error) => showBanner(error.message || "Unable to load inquiries.", "error"));
+        });
+        document.getElementById(id).addEventListener("change", () => {
+          loadInquiries().catch((error) => showBanner(error.message || "Unable to load inquiries.", "error"));
+        });
+      });
+
+      [
+        "reviewSearch",
+        "reviewStatusFilter",
+        "reviewRatingFilter",
+        "reviewSortBy"
+      ].forEach((id) => {
+        document.getElementById(id).addEventListener("input", () => {
+          loadReviews().catch((error) => showBanner(error.message || "Unable to load reviews.", "error"));
+        });
+        document.getElementById(id).addEventListener("change", () => {
+          loadReviews().catch((error) => showBanner(error.message || "Unable to load reviews.", "error"));
+        });
+      });
+    }
+
     async function verifyAdminSession() {
       const payload = await apiFetch("/api/auth/me");
       if (!payload.user || payload.user.role !== "admin") {
@@ -370,290 +2343,23 @@
 
       localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
       document.getElementById("adminIdentity").textContent = payload.user.email;
-      document.getElementById("adminIdentity").classList.remove("hidden");
     }
-
-    function setActiveTab(tabName) {
-      state.currentTab = tabName;
-      document.querySelectorAll(".tab-button").forEach((button) => {
-        const active = button.dataset.tab === tabName;
-        button.className = active
-          ? "tab-button rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950"
-          : "tab-button rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300";
-      });
-
-      document.querySelectorAll(".tab-panel").forEach((panel) => {
-        panel.classList.toggle("hidden", panel.id !== `tab-${tabName}`);
-      });
-    }
-
-    async function loadStats() {
-      const stats = await apiFetch("/api/admin/stats");
-      document.getElementById("statClients").textContent = stats.totalClients;
-      document.getElementById("statSubscriptions").textContent = stats.activeSubscriptions;
-      document.getElementById("statBookings").textContent = stats.totalBookingsThisMonth;
-      document.getElementById("statInquiries").textContent = stats.totalInquiriesThisMonth;
-      document.getElementById("statPendingReviews").textContent = stats.totalReviewsPendingModeration;
-      document.getElementById("statRevenue").textContent = formatCurrency(stats.monthlyRevenueEstimate);
-    }
-
-    function clientRowMarkup(client) {
-      const statusTone = client.accountStatus === "active"
-        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
-        : client.accountStatus === "suspended"
-          ? "bg-rose-500/15 text-rose-300 border-rose-500/20"
-          : "bg-amber-500/15 text-amber-300 border-amber-500/20";
-
-      return `
-        <tr class="align-top">
-          <td class="px-4 py-4">
-            <p class="font-medium text-white">${client.name}</p>
-            <p class="mt-1 text-sm text-slate-400">${client.email}</p>
-          </td>
-          <td class="px-4 py-4 text-sm text-slate-300">${formatPlanLabel(client.plan)}</td>
-          <td class="px-4 py-4">
-            <span class="inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusTone}">${formatStatusLabel(client.accountStatus)}</span>
-          </td>
-          <td class="px-4 py-4 text-sm text-slate-300">${client.bookingCount}</td>
-          <td class="px-4 py-4 text-sm text-slate-300">${client.inquiryCount}</td>
-          <td class="px-4 py-4 text-sm text-slate-300">${formatDate(client.createdAt)}</td>
-          <td class="px-4 py-4">
-            <button data-client-view="${client._id || client.id}" class="rounded-2xl border border-slate-700 px-3 py-2 text-xs text-slate-200 transition hover:border-cyan-400 hover:text-cyan-300">View</button>
-          </td>
-        </tr>
-      `;
-    }
-
-    async function loadClients() {
-      const search = document.getElementById("clientSearch").value.trim();
-      const plan = document.getElementById("clientPlanFilter").value;
-      const accountStatus = document.getElementById("clientStatusFilter").value;
-      const params = new URLSearchParams();
-
-      if (search) params.set("search", search);
-      if (plan) params.set("plan", plan);
-      if (accountStatus) params.set("accountStatus", accountStatus);
-
-      const data = await apiFetch(`/api/admin/clients${params.toString() ? `?${params}` : ""}`);
-      const tbody = document.getElementById("clientsTableBody");
-
-      if (!data.clients.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">No clients found.</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = data.clients.map(clientRowMarkup).join("");
-      tbody.querySelectorAll("[data-client-view]").forEach((button) => {
-        button.addEventListener("click", () => loadClientDetail(button.dataset.clientView));
-      });
-    }
-
-    function listCardMarkup(title, subtitle, meta) {
-      return `
-        <article class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h4 class="font-medium text-white">${title}</h4>
-              <p class="mt-1 text-sm text-slate-400">${subtitle}</p>
-            </div>
-            <p class="text-xs uppercase tracking-[0.18em] text-slate-500">${meta}</p>
-          </div>
-        </article>
-      `;
-    }
-
-    async function loadClientDetail(clientId) {
-      const data = await apiFetch(`/api/admin/clients/${clientId}`);
-      state.selectedClientId = clientId;
-
-      document.getElementById("clientDetailPanel").classList.remove("hidden");
-      document.getElementById("clientDetailId").value = clientId;
-      document.getElementById("clientDetailName").textContent = data.client.name;
-      document.getElementById("clientDetailMeta").textContent = `${data.client.email} • ${formatPlanLabel(data.client.plan)} • ${formatStatusLabel(data.client.accountStatus)}`;
-      document.getElementById("clientDetailPlan").value = data.client.plan;
-      document.getElementById("clientDetailMonthlyFee").value = data.client.monthlyFee || 0;
-      document.getElementById("clientDetailAccountStatus").value = data.client.accountStatus || "pending";
-      document.getElementById("clientDetailPaymentStatus").value = data.client.paymentStatus || "pending";
-      document.getElementById("clientDetailNextPaymentDate").value = data.client.nextPaymentDate
-        ? new Date(data.client.nextPaymentDate).toISOString().slice(0, 10)
-        : "";
-      document.getElementById("clientDetailActive").value = String(data.client.isActive);
-      renderFeatureOptions(data.client.allowedFeatures || []);
-
-      document.getElementById("clientRecentBookings").innerHTML = data.bookings.length
-        ? data.bookings.map((booking) => listCardMarkup(
-            `${booking.service || "Discovery Call"} • ${booking.date} ${booking.time}`,
-            `${booking.name} • ${booking.email}`,
-            booking.status
-          )).join("")
-        : `<p class="text-sm text-slate-400">No recent bookings.</p>`;
-
-      document.getElementById("clientRecentInquiries").innerHTML = data.inquiries.length
-        ? data.inquiries.map((inquiry) => listCardMarkup(
-            inquiry.name,
-            inquiry.message,
-            inquiry.status
-          )).join("")
-        : `<p class="text-sm text-slate-400">No recent inquiries.</p>`;
-    }
-
-    async function saveClientDetail(event) {
-      event.preventDefault();
-      const clientId = document.getElementById("clientDetailId").value;
-      if (!clientId) {
-        return;
-      }
-
-      await apiFetch(`/api/admin/clients/${clientId}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          plan: document.getElementById("clientDetailPlan").value,
-          monthlyFee: document.getElementById("clientDetailMonthlyFee").value,
-          accountStatus: document.getElementById("clientDetailAccountStatus").value,
-          paymentStatus: document.getElementById("clientDetailPaymentStatus").value,
-          nextPaymentDate: document.getElementById("clientDetailNextPaymentDate").value || null,
-          allowedFeatures: Array.from(document.querySelectorAll(".client-feature-checkbox:checked")).map((input) => input.value),
-          isActive: document.getElementById("clientDetailActive").value === "true"
-        })
-      });
-
-      showFeedback("Client updated successfully.");
-      await Promise.all([loadClients(), loadClientDetail(clientId), loadStats()]);
-    }
-
-    async function softDeleteClient() {
-      const clientId = document.getElementById("clientDetailId").value;
-      if (!clientId) {
-        return;
-      }
-
-      await apiFetch(`/api/admin/clients/${clientId}`, {
-        method: "DELETE"
-      });
-
-      showFeedback("Client deactivated successfully.");
-      await Promise.all([loadClients(), loadClientDetail(clientId), loadStats()]);
-    }
-
-    async function loadBookings() {
-      const params = new URLSearchParams();
-      const clientId = document.getElementById("bookingClientFilter").value.trim();
-      const date = document.getElementById("bookingDateFilter").value.trim();
-      if (clientId) params.set("clientId", clientId);
-      if (date) params.set("date", date);
-
-      const data = await apiFetch(`/api/admin/bookings${params.toString() ? `?${params}` : ""}`);
-      const list = document.getElementById("bookingsList");
-
-      list.innerHTML = data.bookings.length
-        ? data.bookings.map((booking) => listCardMarkup(
-            `${booking.service || "Discovery Call"} • ${booking.date} ${booking.time}`,
-            `${booking.name} • ${booking.email} • Client ${booking.clientId}`,
-            `${booking.status} • ${formatDate(booking.createdAt)}`
-          )).join("")
-        : `<p class="text-sm text-slate-400">No bookings found for the current filters.</p>`;
-    }
-
-    async function loadInquiries() {
-      const data = await apiFetch("/api/admin/inquiries");
-      const list = document.getElementById("inquiriesList");
-
-      list.innerHTML = data.inquiries.length
-        ? data.inquiries.map((inquiry) => listCardMarkup(
-            inquiry.name,
-            `${inquiry.message} • ${inquiry.email}`,
-            `${inquiry.status} • Client ${inquiry.clientId}`
-          )).join("")
-        : `<p class="text-sm text-slate-400">No inquiries found.</p>`;
-    }
-
-    function reviewCardMarkup(review) {
-      const statusTone = review.status === "pending"
-        ? "text-amber-300"
-        : review.status === "published"
-          ? "text-emerald-300"
-          : "text-slate-400";
-
-      return `
-        <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div class="max-w-3xl">
-              <div class="flex flex-wrap items-center gap-3">
-                <h3 class="text-lg font-semibold">${review.name}</h3>
-                <span class="text-sm text-slate-400">${review.role || "No role"}</span>
-                <span class="text-sm ${statusTone}">${review.status}</span>
-              </div>
-              <p class="mt-3 text-sm text-slate-200">${review.text}</p>
-              <p class="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">Client ${review.clientId} • ${formatDate(review.createdAt)}</p>
-            </div>
-            <div class="flex gap-3">
-              <button data-review-action="published" data-review-id="${review._id}" class="rounded-2xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Approve</button>
-              <button data-review-action="hidden" data-review-id="${review._id}" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-rose-400 hover:text-rose-300">Hide</button>
-            </div>
-          </div>
-        </article>
-      `;
-    }
-
-    async function loadReviews() {
-      const data = await apiFetch("/api/admin/reviews");
-      const list = document.getElementById("reviewsList");
-
-      list.innerHTML = data.reviews.length
-        ? data.reviews.map(reviewCardMarkup).join("")
-        : `<p class="text-sm text-slate-400">No reviews found.</p>`;
-
-      list.querySelectorAll("[data-review-action]").forEach((button) => {
-        button.addEventListener("click", async () => {
-          await apiFetch(`/api/admin/reviews/${button.dataset.reviewId}`, {
-            method: "PATCH",
-            body: JSON.stringify({
-              status: button.dataset.reviewAction
-            })
-          });
-
-          showFeedback(`Review marked as ${button.dataset.reviewAction}.`);
-          await Promise.all([loadReviews(), loadStats()]);
-        });
-      });
-    }
-
-    async function logoutAdmin() {
-      try {
-        await fetch("/api/auth/logout", { method: "POST" });
-      } finally {
-        redirectToLogin();
-      }
-    }
-
-    document.querySelectorAll(".tab-button").forEach((button) => {
-      button.addEventListener("click", () => setActiveTab(button.dataset.tab));
-    });
-
-    document.getElementById("refreshClientsButton").addEventListener("click", () => loadClients().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("refreshBookingsButton").addEventListener("click", () => loadBookings().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("refreshInquiriesButton").addEventListener("click", () => loadInquiries().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("refreshReviewsButton").addEventListener("click", () => loadReviews().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("clientUpdateForm").addEventListener("submit", (event) => saveClientDetail(event).catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("deactivateClientButton").addEventListener("click", () => softDeleteClient().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("logoutButton").addEventListener("click", logoutAdmin);
-    document.getElementById("clientSearch").addEventListener("input", () => loadClients().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("clientPlanFilter").addEventListener("change", () => loadClients().catch((error) => showFeedback(error.message, "error")));
-    document.getElementById("clientStatusFilter").addEventListener("change", () => loadClients().catch((error) => showFeedback(error.message, "error")));
 
     async function initDashboard() {
       try {
-        hideFeedback();
-        if (!localStorage.getItem(TOKEN_KEY)) {
+        applyTheme(getThemePreference());
+        attachGlobalEvents();
+
+        if (!getToken()) {
           redirectToLogin();
           return;
         }
 
         await verifyAdminSession();
-        setActiveTab("clients");
         await Promise.all([loadStats(), loadClients(), loadBookings(), loadInquiries(), loadReviews()]);
+        hideBanner();
       } catch (error) {
-        showFeedback(error.message || "Unable to load the admin dashboard.", "error");
+        showBanner(error.message || "Unable to load the admin console.", "error");
       }
     }
 

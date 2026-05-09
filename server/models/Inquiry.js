@@ -25,12 +25,17 @@ const inquirySchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["new", "in_progress", "closed"],
+      enum: ["new", "in_progress", "contacted", "converted", "closed"],
       default: "new"
     },
     source: {
       type: String,
       default: "website"
+    },
+    adminNotes: {
+      type: String,
+      default: "",
+      trim: true
     }
   },
   {
