@@ -1,6 +1,12 @@
 const jwt = require("jsonwebtoken");
 
 const User = require("../models/User");
+const {
+  normalizePlan,
+  resolveAccountStatus,
+  normalizePaymentStatus,
+  resolveAllowedFeatures
+} = require("../utils/account");
 
 const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
 
@@ -36,7 +42,11 @@ async function verifyToken(req, res, next) {
       id: String(user._id),
       email: user.email,
       role: user.role,
-      plan: user.plan,
+      plan: normalizePlan(user.plan),
+      packageName: normalizePlan(user.plan),
+      accountStatus: resolveAccountStatus(user),
+      paymentStatus: normalizePaymentStatus(user.paymentStatus),
+      allowedFeatures: resolveAllowedFeatures(user),
       stripeCustomerId: user.stripeCustomerId,
       stripeSubscriptionId: user.stripeSubscriptionId,
       isActive: user.isActive

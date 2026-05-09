@@ -72,17 +72,20 @@
                 <span class="mb-2 block text-sm text-slate-300">Plan</span>
                 <select id="clientPlanFilter" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
                   <option value="">All plans</option>
+                  <option value="not_assigned">Not Assigned</option>
                   <option value="starter">Starter</option>
                   <option value="standard">Standard</option>
                   <option value="pro">Pro</option>
+                  <option value="custom">Custom</option>
                 </select>
               </label>
               <label class="block">
                 <span class="mb-2 block text-sm text-slate-300">Status</span>
                 <select id="clientStatusFilter" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
                   <option value="">All statuses</option>
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
+                  <option value="pending">Pending</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
                 </select>
               </label>
             </div>
@@ -115,24 +118,55 @@
                 <h2 id="clientDetailName" class="mt-3 text-2xl font-semibold"></h2>
                 <p id="clientDetailMeta" class="mt-2 text-sm text-slate-400"></p>
               </div>
-              <form id="clientUpdateForm" class="grid gap-3 sm:grid-cols-3">
+              <form id="clientUpdateForm" class="grid gap-3 lg:grid-cols-3">
                 <input type="hidden" id="clientDetailId">
                 <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Plan</span>
+                  <span class="mb-2 block text-sm text-slate-300">Package</span>
                   <select id="clientDetailPlan" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                    <option value="not_assigned">Not Assigned</option>
                     <option value="starter">Starter</option>
                     <option value="standard">Standard</option>
                     <option value="pro">Pro</option>
+                    <option value="custom">Custom</option>
                   </select>
                 </label>
                 <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Active</span>
-                  <select id="clientDetailActive" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
+                  <span class="mb-2 block text-sm text-slate-300">Monthly Fee</span>
+                  <input id="clientDetailMonthlyFee" type="number" min="0" step="0.01" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400" placeholder="0.00">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Account Status</span>
+                  <select id="clientDetailAccountStatus" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                    <option value="pending">Pending</option>
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
                   </select>
                 </label>
-                <div class="flex items-end gap-3">
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Payment Status</span>
+                  <select id="clientDetailPaymentStatus" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="unpaid">Unpaid</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Next Payment Date</span>
+                  <input id="clientDetailNextPaymentDate" type="date" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Access State</span>
+                  <select id="clientDetailActive" class="w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm outline-none transition focus:border-cyan-400">
+                    <option value="true">Dashboard Enabled</option>
+                    <option value="false">Deactivated</option>
+                  </select>
+                </label>
+                <div class="lg:col-span-3">
+                  <span class="mb-3 block text-sm text-slate-300">Allowed Features</span>
+                  <div id="clientDetailFeatures" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"></div>
+                </div>
+                <div class="flex items-end gap-3 lg:col-span-3">
                   <button class="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300" type="submit">Save</button>
                   <button id="deactivateClientButton" class="rounded-2xl border border-rose-500/40 px-4 py-3 text-sm text-rose-300 transition hover:border-rose-400 hover:bg-rose-500/10" type="button">Soft Delete</button>
                 </div>
@@ -197,6 +231,16 @@
   <script>
     const TOKEN_KEY = "automatex_admin_token";
     const USER_KEY = "automatex_admin_user";
+    const FEATURE_OPTIONS = [
+      { key: "ai-chatbot", label: "AI Chatbot" },
+      { key: "booking-system", label: "Booking System" },
+      { key: "inquiry-management", label: "Inquiry Management" },
+      { key: "review-management", label: "Review Management" },
+      { key: "billing-system", label: "Billing System" },
+      { key: "whatsapp-automation", label: "WhatsApp Automation" },
+      { key: "google-business-support", label: "Google Business Support" },
+      { key: "website-maintenance", label: "Website Maintenance" }
+    ];
     const state = {
       currentTab: "clients",
       selectedClientId: null
@@ -246,6 +290,45 @@
         hour: "numeric",
         minute: "2-digit"
       });
+    }
+
+    function formatShortDate(value) {
+      if (!value) {
+        return "—";
+      }
+
+      return new Date(value).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    }
+
+    function formatPlanLabel(plan) {
+      if (!plan || plan === "not_assigned") {
+        return "Not Assigned";
+      }
+
+      return plan
+        .split("_")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+
+    function formatStatusLabel(value) {
+      return String(value || "pending")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function renderFeatureOptions(selectedFeatures = []) {
+      const selected = new Set(selectedFeatures);
+      document.getElementById("clientDetailFeatures").innerHTML = FEATURE_OPTIONS.map((feature) => `
+        <label class="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200">
+          <input type="checkbox" value="${feature.key}" class="client-feature-checkbox mt-1 h-4 w-4 rounded border-slate-600 bg-slate-950 text-cyan-400 focus:ring-cyan-400" ${selected.has(feature.key) ? "checked" : ""}>
+          <span>${feature.label}</span>
+        </label>
+      `).join("");
     }
 
     async function apiFetch(path, options = {}) {
@@ -315,9 +398,11 @@
     }
 
     function clientRowMarkup(client) {
-      const statusTone = client.isActive
+      const statusTone = client.accountStatus === "active"
         ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/20"
-        : "bg-rose-500/15 text-rose-300 border-rose-500/20";
+        : client.accountStatus === "suspended"
+          ? "bg-rose-500/15 text-rose-300 border-rose-500/20"
+          : "bg-amber-500/15 text-amber-300 border-amber-500/20";
 
       return `
         <tr class="align-top">
@@ -325,9 +410,9 @@
             <p class="font-medium text-white">${client.name}</p>
             <p class="mt-1 text-sm text-slate-400">${client.email}</p>
           </td>
-          <td class="px-4 py-4 text-sm text-slate-300">${client.plan}</td>
+          <td class="px-4 py-4 text-sm text-slate-300">${formatPlanLabel(client.plan)}</td>
           <td class="px-4 py-4">
-            <span class="inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusTone}">${client.isActive ? "Active" : "Inactive"}</span>
+            <span class="inline-flex rounded-full border px-3 py-1 text-xs font-medium ${statusTone}">${formatStatusLabel(client.accountStatus)}</span>
           </td>
           <td class="px-4 py-4 text-sm text-slate-300">${client.bookingCount}</td>
           <td class="px-4 py-4 text-sm text-slate-300">${client.inquiryCount}</td>
@@ -342,12 +427,12 @@
     async function loadClients() {
       const search = document.getElementById("clientSearch").value.trim();
       const plan = document.getElementById("clientPlanFilter").value;
-      const isActive = document.getElementById("clientStatusFilter").value;
+      const accountStatus = document.getElementById("clientStatusFilter").value;
       const params = new URLSearchParams();
 
       if (search) params.set("search", search);
       if (plan) params.set("plan", plan);
-      if (isActive) params.set("isActive", isActive);
+      if (accountStatus) params.set("accountStatus", accountStatus);
 
       const data = await apiFetch(`/api/admin/clients${params.toString() ? `?${params}` : ""}`);
       const tbody = document.getElementById("clientsTableBody");
@@ -384,9 +469,16 @@
       document.getElementById("clientDetailPanel").classList.remove("hidden");
       document.getElementById("clientDetailId").value = clientId;
       document.getElementById("clientDetailName").textContent = data.client.name;
-      document.getElementById("clientDetailMeta").textContent = `${data.client.email} • ${data.client.plan} • ${data.client.isActive ? "Active" : "Inactive"}`;
+      document.getElementById("clientDetailMeta").textContent = `${data.client.email} • ${formatPlanLabel(data.client.plan)} • ${formatStatusLabel(data.client.accountStatus)}`;
       document.getElementById("clientDetailPlan").value = data.client.plan;
+      document.getElementById("clientDetailMonthlyFee").value = data.client.monthlyFee || 0;
+      document.getElementById("clientDetailAccountStatus").value = data.client.accountStatus || "pending";
+      document.getElementById("clientDetailPaymentStatus").value = data.client.paymentStatus || "pending";
+      document.getElementById("clientDetailNextPaymentDate").value = data.client.nextPaymentDate
+        ? new Date(data.client.nextPaymentDate).toISOString().slice(0, 10)
+        : "";
       document.getElementById("clientDetailActive").value = String(data.client.isActive);
+      renderFeatureOptions(data.client.allowedFeatures || []);
 
       document.getElementById("clientRecentBookings").innerHTML = data.bookings.length
         ? data.bookings.map((booking) => listCardMarkup(
@@ -416,6 +508,11 @@
         method: "PATCH",
         body: JSON.stringify({
           plan: document.getElementById("clientDetailPlan").value,
+          monthlyFee: document.getElementById("clientDetailMonthlyFee").value,
+          accountStatus: document.getElementById("clientDetailAccountStatus").value,
+          paymentStatus: document.getElementById("clientDetailPaymentStatus").value,
+          nextPaymentDate: document.getElementById("clientDetailNextPaymentDate").value || null,
+          allowedFeatures: Array.from(document.querySelectorAll(".client-feature-checkbox:checked")).map((input) => input.value),
           isActive: document.getElementById("clientDetailActive").value === "true"
         })
       });

@@ -3,6 +3,16 @@ const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 
 const User = require("../models/User");
+const {
+  normalizePlan,
+  resolveAccountStatus,
+  normalizePaymentStatus,
+  resolveAllowedFeatures,
+  normalizeMonthlyFee,
+  resolveOnboardingStatus,
+  hasCompletedBusinessProfile,
+  buildFeatureAccess
+} = require("../utils/account");
 const { sendWelcomeEmail } = require("../utils/email");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
 
@@ -57,12 +67,37 @@ function signToken(user) {
  * @returns {{id: string, name: string, email: string, role: string, plan: string, isActive: boolean, stripeCustomerId: string, stripeSubscriptionId: string, businessName: string, businessType: string, location: string, services: string[], workingHours: string, bookingUrl: string, chatbotLanguage: string, planExpiresAt: Date|null, createdAt: Date}} Safe user data.
  */
 function serializeUser(user) {
+  const accountStatus = resolveAccountStatus(user);
+  const paymentStatus = normalizePaymentStatus(user.paymentStatus);
+  const normalizedPlan = normalizePlan(user.plan);
+  const allowedFeatures = resolveAllowedFeatures(user);
+  const monthlyFee = normalizeMonthlyFee(user.monthlyFee);
+  const onboardingStatus = user.onboardingStatus || resolveOnboardingStatus({
+    ...user,
+    accountStatus,
+    paymentStatus,
+    allowedFeatures
+  });
+
   return {
     id: String(user._id),
     name: user.name,
     email: user.email,
     role: user.role,
-    plan: user.plan,
+    plan: normalizedPlan,
+    packageName: normalizedPlan,
+    monthlyFee,
+    accountStatus,
+    paymentStatus,
+    nextPaymentDate: user.nextPaymentDate || null,
+    allowedFeatures,
+    onboardingStatus,
+    featureAccess: buildFeatureAccess({
+      ...user,
+      accountStatus,
+      allowedFeatures
+    }),
+    profileCompleted: hasCompletedBusinessProfile(user),
     isActive: user.isActive,
     stripeCustomerId: user.stripeCustomerId,
     stripeSubscriptionId: user.stripeSubscriptionId,
@@ -188,7 +223,13 @@ async function signup(req, res) {
     const user = await User.create({
       name: String(req.body.name || "").trim(),
       email,
-      passwordHash
+      passwordHash,
+      plan: "not_assigned",
+      monthlyFee: 0,
+      accountStatus: "pending",
+      paymentStatus: "pending",
+      allowedFeatures: [],
+      onboardingStatus: "pending"
     });
 
     const token = signToken(user);
@@ -357,6 +398,8 @@ async function updateMe(req, res) {
         .filter(Boolean)
         .slice(0, 30);
     }
+
+    user.onboardingStatus = resolveOnboardingStatus(user);
 
     await user.save();
 

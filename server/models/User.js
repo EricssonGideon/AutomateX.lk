@@ -1,4 +1,10 @@
 const mongoose = require("mongoose");
+const {
+  PLAN_OPTIONS,
+  ACCOUNT_STATUS_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  ONBOARDING_STATUS_OPTIONS
+} = require("../utils/account");
 
 const userSchema = new mongoose.Schema(
   {
@@ -27,11 +33,39 @@ const userSchema = new mongoose.Schema(
       type: String,
       validate: {
         validator(value) {
-          return value === null || ["starter", "standard", "pro"].includes(value);
+          return value === null || PLAN_OPTIONS.includes(value);
         },
-        message: "Plan must be starter, standard, pro, or null."
+        message: "Plan must match a supported package value or be null."
       },
-      default: "starter"
+      default: "not_assigned"
+    },
+    monthlyFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    accountStatus: {
+      type: String,
+      enum: ACCOUNT_STATUS_OPTIONS,
+      default: "pending"
+    },
+    paymentStatus: {
+      type: String,
+      enum: PAYMENT_STATUS_OPTIONS,
+      default: "pending"
+    },
+    nextPaymentDate: {
+      type: Date,
+      default: null
+    },
+    allowedFeatures: {
+      type: [String],
+      default: []
+    },
+    onboardingStatus: {
+      type: String,
+      enum: ONBOARDING_STATUS_OPTIONS,
+      default: "pending"
     },
     isActive: {
       type: Boolean,

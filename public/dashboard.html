@@ -4,17 +4,114 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AutomateX Client Dashboard</title>
+  <script>
+    (() => {
+      const storedTheme = localStorage.getItem("automatex_dashboard_theme") || "system";
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const effectiveTheme = storedTheme === "system" ? (prefersDark ? "dark" : "light") : storedTheme;
+      document.documentElement.dataset.theme = effectiveTheme;
+      document.documentElement.dataset.themePreference = storedTheme;
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --dashboard-bg: #020617;
+      --dashboard-surface: rgba(15, 23, 42, 0.92);
+      --dashboard-surface-soft: rgba(15, 23, 42, 0.72);
+      --dashboard-border: rgba(51, 65, 85, 0.85);
+      --dashboard-panel: #0f172a;
+      --dashboard-panel-soft: rgba(2, 6, 23, 0.52);
+      --dashboard-text: #f8fafc;
+      --dashboard-muted: #94a3b8;
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --dashboard-bg: #f8fafc;
+      --dashboard-surface: rgba(255, 255, 255, 0.94);
+      --dashboard-surface-soft: rgba(255, 255, 255, 0.78);
+      --dashboard-border: rgba(203, 213, 225, 0.95);
+      --dashboard-panel: #ffffff;
+      --dashboard-panel-soft: rgba(248, 250, 252, 0.96);
+      --dashboard-text: #0f172a;
+      --dashboard-muted: #475569;
+    }
+
+    body.dashboard-theme {
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.12), transparent 28%),
+        var(--dashboard-bg);
+      color: var(--dashboard-text);
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .dashboard-surface {
+      background: var(--dashboard-surface);
+      border-color: var(--dashboard-border);
+    }
+
+    .dashboard-panel-surface {
+      background: var(--dashboard-panel);
+      border-color: var(--dashboard-border);
+    }
+
+    .dashboard-soft-surface {
+      background: var(--dashboard-panel-soft);
+      border-color: var(--dashboard-border);
+    }
+
+    .dashboard-muted {
+      color: var(--dashboard-muted);
+    }
+
+    .theme-select {
+      background: var(--dashboard-surface-soft);
+    }
+
+    :root[data-theme="light"] .text-white,
+    :root[data-theme="light"] .text-slate-200,
+    :root[data-theme="light"] .text-slate-300 {
+      color: #0f172a !important;
+    }
+
+    :root[data-theme="light"] .text-slate-400,
+    :root[data-theme="light"] .text-slate-500 {
+      color: #475569 !important;
+    }
+
+    :root[data-theme="light"] .bg-slate-900,
+    :root[data-theme="light"] .bg-slate-900\/70,
+    :root[data-theme="light"] .bg-slate-900\/80,
+    :root[data-theme="light"] .bg-slate-900\/90,
+    :root[data-theme="light"] .bg-slate-950,
+    :root[data-theme="light"] .bg-slate-950\/50,
+    :root[data-theme="light"] .bg-slate-950\/60,
+    :root[data-theme="light"] .bg-slate-950\/70 {
+      background-color: rgba(255, 255, 255, 0.92) !important;
+    }
+
+    :root[data-theme="light"] .border-slate-700,
+    :root[data-theme="light"] .border-slate-800 {
+      border-color: #cbd5e1 !important;
+    }
+
+    :root[data-theme="light"] thead.bg-slate-950\/70 {
+      background-color: rgba(241, 245, 249, 0.95) !important;
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-white">
+<body class="dashboard-theme min-h-screen">
   <div class="min-h-screen lg:flex">
-    <aside class="border-b border-slate-800 bg-slate-900/90 lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
+    <aside class="dashboard-surface border-b lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
       <div class="flex items-center justify-between px-5 py-5 lg:block">
         <div>
           <p class="text-xs uppercase tracking-[0.3em] text-cyan-400">AutomateX</p>
           <h1 class="mt-2 text-xl font-semibold">Client Dashboard</h1>
         </div>
-        <button id="logoutButtonMobile" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 lg:hidden">Logout</button>
+        <button id="logoutButtonMobile" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm lg:hidden">Logout</button>
       </div>
 
       <nav class="px-4 pb-5">
@@ -30,15 +127,23 @@
     </aside>
 
     <main class="flex-1">
-      <header class="border-b border-slate-800 bg-slate-900/70 px-5 py-4 backdrop-blur sm:px-8">
+      <header class="dashboard-surface border-b px-5 py-4 backdrop-blur sm:px-8">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 id="pageTitle" class="text-2xl font-semibold">Overview</h2>
-            <p id="pageSubtitle" class="mt-1 text-sm text-slate-400">Manage your AutomateX workspace.</p>
+            <p id="pageSubtitle" class="dashboard-muted mt-1 text-sm">Manage your AutomateX workspace.</p>
           </div>
-          <div class="flex items-center gap-3">
-            <span id="planBadge" class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Starter</span>
-            <button id="logoutButtonDesktop" class="hidden rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 lg:inline-flex">Logout</button>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="theme-select inline-flex items-center gap-2 rounded-2xl border border-slate-700 px-3 py-2 text-sm">
+              <span class="dashboard-muted text-xs uppercase tracking-[0.18em]">Theme</span>
+              <select id="themePreference" class="bg-transparent text-sm outline-none">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+              </select>
+            </label>
+            <span id="planBadge" class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Pending</span>
+            <button id="logoutButtonDesktop" class="hidden rounded-2xl border border-slate-700 px-4 py-2 text-sm lg:inline-flex">Logout</button>
           </div>
         </div>
       </header>
@@ -47,61 +152,114 @@
 
       <section id="loadingShell" class="px-5 py-8 sm:px-8">
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
-          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
-          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
-          <div class="h-32 animate-pulse rounded-3xl bg-slate-900"></div>
+          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
+          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
+          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
+          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
         </div>
-        <div class="mt-6 h-72 animate-pulse rounded-3xl bg-slate-900"></div>
+        <div class="dashboard-panel-surface mt-6 h-72 animate-pulse rounded-3xl"></div>
       </section>
 
       <section id="dashboardContent" class="hidden px-5 py-8 sm:px-8">
         <div id="tab-overview" class="dashboard-panel">
+          <div id="accountNotice" class="hidden rounded-3xl border px-5 py-4 text-sm"></div>
+
           <section class="grid gap-4 xl:grid-cols-4">
-            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5 xl:col-span-2">
+            <article class="dashboard-panel-surface rounded-3xl border p-5 xl:col-span-2">
               <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Welcome</p>
               <h3 id="welcomeBusinessName" class="mt-3 text-3xl font-semibold">Your business</h3>
-              <p id="welcomeCopy" class="mt-3 text-sm leading-7 text-slate-400">Here's what's happening in your workspace right now.</p>
+              <p id="welcomeCopy" class="dashboard-muted mt-3 text-sm leading-7">Here's what's happening in your workspace right now.</p>
             </article>
-            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Bookings This Month</p>
+            <article class="dashboard-panel-surface rounded-3xl border p-5">
+              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Bookings This Month</p>
               <p id="overviewBookingsCount" class="mt-4 text-3xl font-semibold">0</p>
             </article>
-            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">New Inquiries</p>
+            <article class="dashboard-panel-surface rounded-3xl border p-5">
+              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">New Inquiries</p>
               <p id="overviewInquiriesCount" class="mt-4 text-3xl font-semibold">0</p>
             </article>
-            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Pending Reviews</p>
+            <article class="dashboard-panel-surface rounded-3xl border p-5">
+              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Pending Reviews</p>
               <p id="overviewPendingReviewsCount" class="mt-4 text-3xl font-semibold">0</p>
             </article>
-            <article class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-              <p class="text-xs uppercase tracking-[0.24em] text-slate-400">Current Plan</p>
-              <p id="overviewPlanBadge" class="mt-4 text-2xl font-semibold capitalize">starter</p>
+            <article class="dashboard-panel-surface rounded-3xl border p-5">
+              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Current Plan</p>
+              <p id="overviewPlanBadge" class="mt-4 text-2xl font-semibold capitalize">Not Assigned</p>
             </article>
           </section>
 
-          <section class="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-5">
+          <section class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+            <article class="dashboard-panel-surface rounded-3xl border p-5">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Account & Package</p>
+                  <h3 class="mt-3 text-xl font-semibold">Current service status</h3>
+                  <p class="dashboard-muted mt-2 text-sm leading-7">Your package details are controlled by the AutomateX admin team and update here automatically.</p>
+                </div>
+                <span id="overviewAccountStatusBadge" class="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Pending</span>
+              </div>
+              <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                <div class="dashboard-soft-surface rounded-2xl border p-4">
+                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Current Package</p>
+                  <p id="accountPlanValue" class="mt-3 text-lg font-semibold">Not Assigned</p>
+                </div>
+                <div class="dashboard-soft-surface rounded-2xl border p-4">
+                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Monthly Service Fee</p>
+                  <p id="accountMonthlyFeeValue" class="mt-3 text-lg font-semibold">Waiting for admin</p>
+                </div>
+                <div class="dashboard-soft-surface rounded-2xl border p-4">
+                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Payment Status</p>
+                  <p id="accountPaymentStatusValue" class="mt-3 text-lg font-semibold">Pending</p>
+                </div>
+                <div class="dashboard-soft-surface rounded-2xl border p-4">
+                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Next Payment Date</p>
+                  <p id="accountNextPaymentDateValue" class="mt-3 text-lg font-semibold">Not scheduled</p>
+                </div>
+              </div>
+              <div class="dashboard-soft-surface mt-4 rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Allowed Features</p>
+                <div id="allowedFeaturesList" class="mt-4 flex flex-wrap gap-2"></div>
+              </div>
+              <p id="accountStatusMessage" class="dashboard-muted mt-4 text-sm leading-7">Your AutomateX account is being reviewed. We will activate your package soon.</p>
+            </article>
+
+            <article class="dashboard-panel-surface rounded-3xl border p-5">
+              <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Onboarding</p>
+              <h3 class="mt-3 text-xl font-semibold">Activation checklist</h3>
+              <p class="dashboard-muted mt-2 text-sm leading-7">Complete the essentials while our team prepares your workspace.</p>
+              <div id="onboardingChecklist" class="mt-6 grid gap-3"></div>
+            </article>
+          </section>
+
+          <section class="dashboard-panel-surface mt-6 rounded-3xl border p-5">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 class="text-lg font-semibold">Quick Actions</h3>
-                <p class="mt-1 text-sm text-slate-400">Useful shortcuts for your day-to-day workflow.</p>
+                <p class="dashboard-muted mt-1 text-sm">Useful shortcuts for your day-to-day workflow.</p>
               </div>
             </div>
             <div class="mt-5 grid gap-3 md:grid-cols-3">
-              <button id="copyBookingLinkButton" class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-left text-sm text-slate-200">
+              <button id="copyBookingLinkButton" class="dashboard-soft-surface rounded-2xl border px-4 py-4 text-left text-sm">
                 <span class="block font-semibold">Copy booking link</span>
-                <span class="mt-1 block text-slate-400">Share your booking page with customers.</span>
+                <span class="dashboard-muted mt-1 block">Share your booking page with customers.</span>
               </button>
-              <button id="viewPublicPageButton" class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-left text-sm text-slate-200">
+              <button id="viewPublicPageButton" class="dashboard-soft-surface rounded-2xl border px-4 py-4 text-left text-sm">
                 <span class="block font-semibold">View public page</span>
-                <span class="mt-1 block text-slate-400">Open your public client page in a new tab.</span>
+                <span class="dashboard-muted mt-1 block">Open your public client page in a new tab.</span>
               </button>
-              <button id="whatsAppSupportButton" class="rounded-2xl border border-slate-700 bg-slate-950 px-4 py-4 text-left text-sm text-slate-200">
+              <button id="whatsAppSupportButton" class="dashboard-soft-surface rounded-2xl border px-4 py-4 text-left text-sm">
                 <span class="block font-semibold">WhatsApp support</span>
-                <span class="mt-1 block text-slate-400">Chat with the AutomateX support team.</span>
+                <span class="dashboard-muted mt-1 block">Chat with the AutomateX support team.</span>
               </button>
             </div>
+          </section>
+
+          <section class="dashboard-panel-surface mt-6 rounded-3xl border p-5">
+            <div>
+              <h3 class="text-lg font-semibold">Service Access</h3>
+              <p class="dashboard-muted mt-1 text-sm">Each workspace area remains visible so you can see what is active and what still needs approval.</p>
+            </div>
+            <div id="featureAccessGrid" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4"></div>
           </section>
         </div>
 
@@ -161,9 +319,9 @@
 
         <div id="tab-settings" class="dashboard-panel hidden">
           <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-            <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <section class="dashboard-panel-surface rounded-3xl border p-5">
               <h3 class="text-lg font-semibold">Business Settings</h3>
-              <p class="mt-1 text-sm text-slate-400">Update the details AutomateX uses across your workspace and AI chatbot.</p>
+              <p class="dashboard-muted mt-1 text-sm">Update the details AutomateX uses across your workspace and AI chatbot.</p>
 
               <form id="settingsForm" class="mt-6 grid gap-4 sm:grid-cols-2">
                 <label class="block">
@@ -212,11 +370,26 @@
               </form>
             </section>
 
-            <section class="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5">
-              <h3 class="text-lg font-semibold text-rose-200">Danger Zone</h3>
-              <p class="mt-2 text-sm leading-7 text-rose-100/80">Cancel your subscription or manage billing details from the Stripe billing portal.</p>
-              <button id="cancelSubscriptionButton" class="mt-5 rounded-2xl border border-rose-400/40 px-4 py-3 text-sm text-rose-100">Cancel subscription</button>
-            </section>
+            <div class="grid gap-6">
+              <section class="dashboard-panel-surface rounded-3xl border p-5">
+                <h3 class="text-lg font-semibold">Appearance</h3>
+                <p class="dashboard-muted mt-2 text-sm leading-7">Choose how the client portal looks on this device. Your preference is saved locally.</p>
+                <label class="mt-5 block">
+                  <span class="mb-2 block text-sm dashboard-muted">Theme preference</span>
+                  <select id="themePreferenceSettings" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="system">System</option>
+                  </select>
+                </label>
+              </section>
+
+              <section class="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5">
+                <h3 class="text-lg font-semibold text-rose-200">Danger Zone</h3>
+                <p class="mt-2 text-sm leading-7 text-rose-100/80">Cancel your subscription or manage billing details from the Stripe billing portal.</p>
+                <button id="cancelSubscriptionButton" class="mt-5 rounded-2xl border border-rose-400/40 px-4 py-3 text-sm text-rose-100">Cancel subscription</button>
+              </section>
+            </div>
           </div>
         </div>
 
@@ -238,6 +411,17 @@
     const TOKEN_KEYS = ["automatex_client_token", "automatex_token"];
     const USER_KEY = "automatex_client_user";
     const LOGIN_URL = "/login.html";
+    const THEME_KEY = "automatex_dashboard_theme";
+    const FEATURE_LABELS = {
+      "ai-chatbot": "AI Chatbot",
+      "booking-system": "Booking System",
+      "inquiry-management": "Inquiry Management",
+      "review-management": "Review Management",
+      "billing-system": "Billing System",
+      "whatsapp-automation": "WhatsApp Automation",
+      "google-business-support": "Google Business Support",
+      "website-maintenance": "Website Maintenance"
+    };
     const state = {
       token: "",
       currentTab: "overview",
@@ -296,6 +480,10 @@
     }
 
     function formatDate(value) {
+      if (!value) {
+        return "—";
+      }
+
       return new Date(value).toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
@@ -304,6 +492,10 @@
     }
 
     function formatDateTime(value) {
+      if (!value) {
+        return "—";
+      }
+
       return new Date(value).toLocaleString("en-GB", {
         day: "numeric",
         month: "short",
@@ -311,6 +503,95 @@
         hour: "numeric",
         minute: "2-digit"
       });
+    }
+
+    function formatMoney(value) {
+      const number = Number(value || 0);
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(number);
+    }
+
+    function formatPlanLabel(plan) {
+      if (!plan || plan === "not_assigned") {
+        return "Not Assigned";
+      }
+
+      return String(plan)
+        .split("_")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    }
+
+    function formatStatusLabel(value) {
+      return String(value || "pending")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function getThemePreference() {
+      return localStorage.getItem(THEME_KEY) || "system";
+    }
+
+    function resolveTheme(preference) {
+      if (preference === "system") {
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+
+      return preference;
+    }
+
+    function applyTheme(preference) {
+      const resolvedTheme = resolveTheme(preference);
+      document.documentElement.dataset.themePreference = preference;
+      document.documentElement.dataset.theme = resolvedTheme;
+      localStorage.setItem(THEME_KEY, preference);
+
+      ["themePreference", "themePreferenceSettings"].forEach((id) => {
+        const field = document.getElementById(id);
+        if (field) {
+          field.value = preference;
+        }
+      });
+    }
+
+    function getFeatureAccess() {
+      return Array.isArray(state.user?.featureAccess) ? state.user.featureAccess : [];
+    }
+
+    function hasFeature(featureKey) {
+      return getFeatureAccess().some((feature) => feature.key === featureKey && feature.enabled);
+    }
+
+    function isPendingAccount() {
+      return state.user?.accountStatus === "pending";
+    }
+
+    function isSuspendedAccount() {
+      return state.user?.accountStatus === "suspended";
+    }
+
+    function isRestrictedAccount() {
+      return isPendingAccount() || isSuspendedAccount();
+    }
+
+    function canManageWorkspace() {
+      return state.user?.accountStatus === "active" && state.user?.isActive !== false;
+    }
+
+    function getRestrictionMessage() {
+      if (isSuspendedAccount()) {
+        return "Your account is currently suspended. Please contact AutomateX support to restore access.";
+      }
+
+      if (isPendingAccount()) {
+        return "Your AutomateX account is being reviewed. We will activate your package soon.";
+      }
+
+      return "";
     }
 
     async function apiRequest(path, options = {}) {
@@ -428,18 +709,166 @@
       const monthlyBookings = state.bookings.filter((booking) => isThisMonth(`${booking.date}T00:00:00`)).length;
       const newInquiries = state.inquiries.filter((inquiry) => inquiry.status === "new").length;
       const pendingReviews = state.reviews.filter((review) => review.status === "pending").length;
+      const hasAssignedPlan = state.user.plan && state.user.plan !== "not_assigned";
+      const allowedFeatures = Array.isArray(state.user.allowedFeatures) ? state.user.allowedFeatures : [];
 
       document.getElementById("welcomeBusinessName").textContent = businessName;
-      document.getElementById("welcomeCopy").textContent = `Welcome back. ${businessName} is currently on the ${state.user.plan || "starter"} plan.`;
+      document.getElementById("welcomeCopy").textContent = canManageWorkspace()
+        ? `Welcome back. ${businessName} is currently on the ${formatPlanLabel(state.user.plan)} package.`
+        : getRestrictionMessage();
       document.getElementById("overviewBookingsCount").textContent = monthlyBookings;
       document.getElementById("overviewInquiriesCount").textContent = newInquiries;
       document.getElementById("overviewPendingReviewsCount").textContent = pendingReviews;
-      document.getElementById("overviewPlanBadge").textContent = state.user.plan || "starter";
+      document.getElementById("overviewPlanBadge").textContent = formatPlanLabel(state.user.plan);
+      document.getElementById("accountPlanValue").textContent = formatPlanLabel(state.user.plan);
+      document.getElementById("accountMonthlyFeeValue").textContent = hasAssignedPlan && Number(state.user.monthlyFee || 0) > 0
+        ? formatMoney(state.user.monthlyFee)
+        : "Waiting for admin";
+      document.getElementById("accountPaymentStatusValue").textContent = formatStatusLabel(state.user.paymentStatus);
+      document.getElementById("accountNextPaymentDateValue").textContent = state.user.nextPaymentDate
+        ? formatDate(state.user.nextPaymentDate)
+        : "Not scheduled";
+      document.getElementById("accountStatusMessage").textContent = canManageWorkspace()
+        ? "Your package and service access are active. Contact AutomateX support if you need any package changes."
+        : getRestrictionMessage();
+
+      const featuresList = document.getElementById("allowedFeaturesList");
+      featuresList.innerHTML = allowedFeatures.length
+        ? allowedFeatures.map((featureKey) => `
+            <span class="inline-flex rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200">${escapeHtml(FEATURE_LABELS[featureKey] || featureKey)}</span>
+          `).join("")
+        : `<span class="dashboard-muted text-sm">No features assigned yet.</span>`;
+
+      renderAccountNotice();
+      renderAccountStatusBadge();
+      renderOnboardingChecklist();
+      renderFeatureAccess();
+      syncDashboardActionState();
+    }
+
+    function renderAccountStatusBadge() {
+      const badge = document.getElementById("overviewAccountStatusBadge");
+      const status = state.user.accountStatus || "pending";
+      badge.textContent = formatStatusLabel(status);
+      badge.className = "inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]";
+
+      if (status === "active") {
+        badge.classList.add("border-emerald-500/30", "bg-emerald-500/10", "text-emerald-300");
+      } else if (status === "suspended") {
+        badge.classList.add("border-rose-500/30", "bg-rose-500/10", "text-rose-300");
+      } else {
+        badge.classList.add("border-amber-500/30", "bg-amber-500/10", "text-amber-300");
+      }
+    }
+
+    function renderAccountNotice() {
+      const notice = document.getElementById("accountNotice");
+
+      if (!isRestrictedAccount()) {
+        notice.className = "hidden rounded-3xl border px-5 py-4 text-sm";
+        notice.textContent = "";
+        return;
+      }
+
+      notice.textContent = getRestrictionMessage();
+      notice.className = "rounded-3xl border px-5 py-4 text-sm";
+
+      if (isSuspendedAccount()) {
+        notice.classList.add("border-rose-500/30", "bg-rose-500/10", "text-rose-200");
+      } else {
+        notice.classList.add("border-amber-500/30", "bg-amber-500/10", "text-amber-100");
+      }
+    }
+
+    function renderOnboardingChecklist() {
+      const items = [
+        {
+          label: "Complete business profile",
+          done: Boolean(state.user.profileCompleted),
+          hint: state.user.profileCompleted ? "Profile details are saved." : "Add your business name, type, and services in Settings."
+        },
+        {
+          label: "Wait for admin approval",
+          done: !isPendingAccount(),
+          hint: isPendingAccount() ? "Your account is still under review." : "Admin review completed."
+        },
+        {
+          label: "Package assigned",
+          done: state.user.plan && state.user.plan !== "not_assigned",
+          hint: state.user.plan && state.user.plan !== "not_assigned" ? `Assigned to ${formatPlanLabel(state.user.plan)}.` : "Your package will appear here once assigned."
+        },
+        {
+          label: "First payment confirmed",
+          done: state.user.paymentStatus === "paid",
+          hint: state.user.paymentStatus === "paid" ? "Payment marked as paid by admin." : "Payment will be confirmed manually by admin."
+        },
+        {
+          label: "Services activated",
+          done: canManageWorkspace(),
+          hint: canManageWorkspace() ? "Workspace access is fully active." : "Services unlock after approval and activation."
+        }
+      ];
+
+      document.getElementById("onboardingChecklist").innerHTML = items.map((item) => `
+        <article class="dashboard-soft-surface rounded-2xl border p-4">
+          <div class="flex items-start gap-3">
+            <span class="${item.done ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300"} inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold">${item.done ? "✓" : "•"}</span>
+            <div>
+              <p class="font-semibold">${escapeHtml(item.label)}</p>
+              <p class="dashboard-muted mt-1 text-sm">${escapeHtml(item.hint)}</p>
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderFeatureAccess() {
+      const features = getFeatureAccess();
+      const grid = document.getElementById("featureAccessGrid");
+
+      if (!features.length) {
+        grid.innerHTML = `<div class="dashboard-soft-surface rounded-3xl border p-5 text-sm dashboard-muted md:col-span-2 xl:col-span-4">No features have been assigned to this account yet.</div>`;
+        return;
+      }
+
+      grid.innerHTML = features.map((feature) => `
+        <article class="dashboard-soft-surface rounded-3xl border p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-semibold">${escapeHtml(feature.label)}</p>
+              <p class="dashboard-muted mt-2 text-sm leading-6">${escapeHtml(feature.enabled ? "Included in your active package." : (feature.lockedReason || "Not included in your current package"))}</p>
+            </div>
+            <span class="${feature.enabled ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800 text-slate-300"} inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]">${feature.enabled ? "Active" : "Locked"}</span>
+          </div>
+          ${feature.enabled ? "" : '<p class="mt-3 text-xs text-amber-300">Not included in your current package</p>'}
+        </article>
+      `).join("");
+    }
+
+    function syncDashboardActionState() {
+      const lockedButtons = [
+        "copyBookingLinkButton",
+        "viewPublicPageButton",
+        "cancelSubscriptionButton",
+        "openBillingPortalButton"
+      ];
+
+      lockedButtons.forEach((id) => {
+        const button = document.getElementById(id);
+        if (!button) {
+          return;
+        }
+
+        button.disabled = isRestrictedAccount();
+        button.classList.toggle("opacity-50", isRestrictedAccount());
+        button.classList.toggle("cursor-not-allowed", isRestrictedAccount());
+      });
     }
 
     function renderBookings() {
       const tbody = document.getElementById("bookingsTableBody");
       const bookings = getFilteredBookings();
+      const bookingFeatureEnabled = hasFeature("booking-system");
 
       if (!bookings.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">No bookings found for this filter.</td></tr>`;
@@ -454,7 +883,11 @@
           <td class="px-4 py-4 text-sm text-slate-300">${escapeHtml(booking.email)}</td>
           <td class="px-4 py-4"><span class="${statusBadge(booking.status)}">${escapeHtml(booking.status)}</span></td>
           <td class="px-4 py-4">
-            ${booking.status === "confirmed" ? `<button data-cancel-booking="${booking._id || booking.id}" class="rounded-2xl border border-rose-500/40 px-3 py-2 text-xs text-rose-300">Cancel</button>` : `<span class="text-xs text-slate-500">No action</span>`}
+            ${!bookingFeatureEnabled
+              ? `<span class="text-xs text-amber-300">Not included in your current package</span>`
+              : booking.status === "confirmed" && canManageWorkspace()
+                ? `<button data-cancel-booking="${booking._id || booking.id}" class="rounded-2xl border border-rose-500/40 px-3 py-2 text-xs text-rose-300">Cancel</button>`
+                : `<span class="text-xs text-slate-500">${isRestrictedAccount() ? "Awaiting activation" : "No action"}</span>`}
           </td>
         </tr>
       `).join("");
@@ -477,6 +910,7 @@
 
     function renderInquiries() {
       const list = document.getElementById("inquiriesList");
+      const inquiryFeatureEnabled = hasFeature("inquiry-management");
 
       if (!state.inquiries.length) {
         list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No inquiries found yet.</div>`;
@@ -500,8 +934,12 @@
               </details>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button data-inquiry-status="${inquiry._id || inquiry.id}" data-status-value="in_progress" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200">Mark as read</button>
-              <button data-inquiry-status="${inquiry._id || inquiry.id}" data-status-value="closed" class="rounded-2xl border border-cyan-500/30 px-4 py-2 text-sm text-cyan-200">Marked replied</button>
+              ${inquiryFeatureEnabled
+                ? `
+                  <button ${canManageWorkspace() ? "" : "disabled"} data-inquiry-status="${inquiry._id || inquiry.id}" data-status-value="in_progress" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-200 ${canManageWorkspace() ? "" : "cursor-not-allowed opacity-50"}">Mark as read</button>
+                  <button ${canManageWorkspace() ? "" : "disabled"} data-inquiry-status="${inquiry._id || inquiry.id}" data-status-value="closed" class="rounded-2xl border border-cyan-500/30 px-4 py-2 text-sm text-cyan-200 ${canManageWorkspace() ? "" : "cursor-not-allowed opacity-50"}">Marked replied</button>
+                `
+                : `<p class="text-xs text-amber-300">Not included in your current package</p>`}
             </div>
           </div>
         </article>
@@ -532,6 +970,7 @@
 
     function renderReviews() {
       const grid = document.getElementById("reviewsGrid");
+      const reviewFeatureEnabled = hasFeature("review-management");
 
       if (!state.reviews.length) {
         grid.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No reviews found yet.</div>`;
@@ -550,6 +989,7 @@
           <p class="mt-4 text-sm tracking-[0.2em] text-amber-300">${renderStars(Number(review.rating || 0))}</p>
           <p class="mt-3 text-sm leading-7 text-slate-300">${escapeHtml(review.text)}</p>
           <p class="mt-4 text-xs uppercase tracking-[0.18em] text-slate-500">${formatDateTime(review.createdAt)}</p>
+          ${reviewFeatureEnabled ? "" : `<p class="mt-3 text-xs text-amber-300">Not included in your current package</p>`}
         </article>
       `).join("");
     }
@@ -566,24 +1006,37 @@
       document.getElementById("settingsServices").value = Array.isArray(user.services) ? user.services.join(", ") : "";
       document.getElementById("settingsCurrentPassword").value = "";
       document.getElementById("settingsNewPassword").value = "";
+      applyTheme(getThemePreference());
+
+      const saveButton = document.querySelector("#settingsForm button[type='submit']");
+      saveButton.disabled = isSuspendedAccount();
+      saveButton.classList.toggle("opacity-50", isSuspendedAccount());
+      saveButton.classList.toggle("cursor-not-allowed", isSuspendedAccount());
     }
 
     function updatePlanBadge() {
-      const plan = state.user.plan || "starter";
+      const plan = state.user.plan || "not_assigned";
+      const accountStatus = state.user.accountStatus || "pending";
       const badge = document.getElementById("planBadge");
-      badge.textContent = plan;
+      badge.textContent = accountStatus === "active" ? formatPlanLabel(plan) : formatStatusLabel(accountStatus);
       badge.className = "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]";
 
-      if (plan === "starter") {
+      if (accountStatus === "suspended") {
+        badge.classList.add("border", "border-rose-500/30", "bg-rose-500/10", "text-rose-200");
+      } else if (accountStatus === "pending") {
+        badge.classList.add("border", "border-amber-500/30", "bg-amber-500/10", "text-amber-200");
+      } else if (plan === "starter") {
         badge.classList.add("border", "border-amber-500/30", "bg-amber-500/10", "text-amber-200");
       } else if (plan === "standard") {
         badge.classList.add("border", "border-cyan-500/30", "bg-cyan-500/10", "text-cyan-200");
+      } else if (plan === "not_assigned") {
+        badge.classList.add("border", "border-slate-600", "bg-slate-800", "text-slate-200");
       } else {
         badge.classList.add("border", "border-emerald-500/30", "bg-emerald-500/10", "text-emerald-200");
       }
 
       const upgradeButton = document.getElementById("upgradePlanButton");
-      if (plan === "starter") {
+      if (plan === "starter" && accountStatus === "active") {
         upgradeButton.classList.add("ring-2", "ring-amber-300/30");
       } else {
         upgradeButton.classList.remove("ring-2", "ring-amber-300/30");
@@ -618,6 +1071,11 @@
 
     function handleQuickActions() {
       document.getElementById("copyBookingLinkButton").addEventListener("click", async () => {
+        if (isRestrictedAccount()) {
+          setFeedback(getRestrictionMessage(), "error");
+          return;
+        }
+
         try {
           const bookingUrl = state.user.bookingUrl || `${window.location.origin}/#booking`;
           await navigator.clipboard.writeText(bookingUrl);
@@ -628,6 +1086,11 @@
       });
 
       document.getElementById("viewPublicPageButton").addEventListener("click", () => {
+        if (isRestrictedAccount()) {
+          setFeedback(getRestrictionMessage(), "error");
+          return;
+        }
+
         const publicUrl = state.user.bookingUrl || `${window.location.origin}/#booking`;
         window.open(publicUrl, "_blank", "noopener,noreferrer");
       });
@@ -641,6 +1104,11 @@
       document.getElementById("settingsForm").addEventListener("submit", async (event) => {
         event.preventDefault();
         clearFeedback();
+
+        if (isSuspendedAccount()) {
+          setFeedback(getRestrictionMessage(), "error");
+          return;
+        }
 
         try {
           const payload = await apiRequest("/api/auth/me", {
@@ -676,6 +1144,11 @@
 
     function handleBillingButtons() {
       const openPortal = async () => {
+        if (isRestrictedAccount()) {
+          setFeedback(getRestrictionMessage(), "error");
+          return;
+        }
+
         try {
           const payload = await apiRequest("/api/billing/portal");
           window.location.href = payload.portalUrl;
@@ -686,6 +1159,21 @@
 
       document.getElementById("cancelSubscriptionButton").addEventListener("click", openPortal);
       document.getElementById("openBillingPortalButton").addEventListener("click", openPortal);
+    }
+
+    function handleThemeControls() {
+      ["themePreference", "themePreferenceSettings"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("change", () => {
+          applyTheme(field.value);
+        });
+      });
+
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        if (getThemePreference() === "system") {
+          applyTheme("system");
+        }
+      });
     }
 
     function handleBookingFilters() {
@@ -721,6 +1209,7 @@
       handleQuickActions();
       handleSettingsSubmit();
       handleBillingButtons();
+      handleThemeControls();
       handleBookingFilters();
       handleTabNavigation();
     }
@@ -732,6 +1221,7 @@
         return;
       }
 
+      applyTheme(getThemePreference());
       attachStaticActions();
 
       try {

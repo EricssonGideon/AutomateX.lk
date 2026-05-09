@@ -4,6 +4,20 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Inquiry = require("../models/Inquiry");
 const Review = require("../models/Review");
+const {
+  PLAN_OPTIONS,
+  ACCOUNT_STATUS_OPTIONS,
+  PAYMENT_STATUS_OPTIONS,
+  normalizePlan,
+  resolveAccountStatus,
+  normalizePaymentStatus,
+  normalizeAllowedFeatures,
+  resolveAllowedFeatures,
+  normalizeMonthlyFee,
+  normalizeNextPaymentDate,
+  resolveOnboardingStatus,
+  buildFeatureAccess
+} = require("../utils/account");
 const { sendSuccess, sendError } = require("../utils/response");
 
 const PLAN_PRICES = {
@@ -65,12 +79,58 @@ function parseBooleanFilter(value) {
  * @param {{starter: number, standard: number, pro: number}} planCounts - Active plan totals.
  * @returns {number} Estimated monthly recurring revenue.
  */
-function estimateMonthlyRevenue(planCounts) {
-  return (
-    planCounts.starter * PLAN_PRICES.starter +
-    planCounts.standard * PLAN_PRICES.standard +
-    planCounts.pro * PLAN_PRICES.pro
-  );
+function estimateMonthlyRevenue(clients) {
+  return clients.reduce((total, client) => {
+    const monthlyFee = normalizeMonthlyFee(client.monthlyFee);
+
+    if (monthlyFee > 0) {
+      return total + monthlyFee;
+    }
+
+    return total + (PLAN_PRICES[normalizePlan(client.plan)] || 0);
+  }, 0);
+}
+
+function serializeAdminClient(client) {
+  const plan = normalizePlan(client.plan);
+  const accountStatus = resolveAccountStatus(client);
+  const paymentStatus = normalizePaymentStatus(client.paymentStatus);
+  const allowedFeatures = resolveAllowedFeatures(client);
+  const monthlyFee = normalizeMonthlyFee(client.monthlyFee);
+  const onboardingStatus = client.onboardingStatus || resolveOnboardingStatus({
+    ...client,
+    plan,
+    accountStatus,
+    paymentStatus,
+    allowedFeatures
+  });
+
+  return {
+    id: String(client._id || client.id),
+    name: client.name,
+    email: client.email,
+    role: client.role,
+    plan,
+    packageName: plan,
+    monthlyFee,
+    accountStatus,
+    paymentStatus,
+    nextPaymentDate: client.nextPaymentDate || null,
+    allowedFeatures,
+    onboardingStatus,
+    isActive: client.isActive,
+    stripeCustomerId: client.stripeCustomerId || "",
+    stripeSubscriptionId: client.stripeSubscriptionId || "",
+    planExpiresAt: client.planExpiresAt || null,
+    createdAt: client.createdAt,
+    bookingCount: typeof client.bookingCount === "number" ? client.bookingCount : undefined,
+    inquiryCount: typeof client.inquiryCount === "number" ? client.inquiryCount : undefined,
+    featureAccess: buildFeatureAccess({
+      ...client,
+      accountStatus,
+      allowedFeatures
+    })
+  };
 }
 
 /**
@@ -83,6 +143,17 @@ function estimateMonthlyRevenue(planCounts) {
 async function getStats(_req, res) {
   try {
     const { start, end } = getCurrentMonthRange();
+    const activeAccountQuery = {
+      role: "client",
+      isActive: true,
+      $or: [
+        { accountStatus: "active" },
+        {
+          accountStatus: { $exists: false },
+          plan: { $in: ["starter", "standard", "pro", "custom"] }
+        }
+      ]
+    };
 
     const [
       totalClients,
@@ -90,27 +161,17 @@ async function getStats(_req, res) {
       bookingsThisMonth,
       inquiriesThisMonth,
       pendingReviews,
-      activePlanCounts
+      activeClients
     ] = await Promise.all([
       User.countDocuments({ role: "client" }),
-      User.countDocuments({ role: "client", isActive: true }),
+      User.countDocuments(activeAccountQuery),
       Booking.countDocuments({ createdAt: { $gte: start, $lt: end } }),
       Inquiry.countDocuments({ createdAt: { $gte: start, $lt: end } }),
       Review.countDocuments({ status: "pending" }),
-      User.aggregate([
-        {
-          $match: {
-            role: "client",
-            isActive: true
-          }
-        },
-        {
-          $group: {
-            _id: "$plan",
-            count: { $sum: 1 }
-          }
-        }
-      ])
+      User.find(
+        activeAccountQuery,
+        { plan: 1, monthlyFee: 1, accountStatus: 1 }
+      ).lean()
     ]);
 
     const planCounts = {
@@ -119,9 +180,10 @@ async function getStats(_req, res) {
       pro: 0
     };
 
-    activePlanCounts.forEach((row) => {
-      if (row._id in planCounts) {
-        planCounts[row._id] = row.count;
+    activeClients.forEach((client) => {
+      const plan = normalizePlan(client.plan);
+      if (plan in planCounts) {
+        planCounts[plan] += 1;
       }
     });
 
@@ -131,7 +193,7 @@ async function getStats(_req, res) {
       totalBookingsThisMonth: bookingsThisMonth,
       totalInquiriesThisMonth: inquiriesThisMonth,
       totalReviewsPendingModeration: pendingReviews,
-      monthlyRevenueEstimate: estimateMonthlyRevenue(planCounts),
+      monthlyRevenueEstimate: estimateMonthlyRevenue(activeClients),
       planCounts
     });
   } catch (_error) {
@@ -150,7 +212,7 @@ async function getClients(req, res) {
   try {
     const match = { role: "client" };
 
-    if (req.query.plan && ["starter", "standard", "pro"].includes(req.query.plan)) {
+    if (req.query.plan && PLAN_OPTIONS.includes(req.query.plan)) {
       match.plan = req.query.plan;
     }
 
@@ -158,6 +220,10 @@ async function getClients(req, res) {
     if (typeof isActive === "boolean") {
       match.isActive = isActive;
     }
+
+    const requestedAccountStatus = req.query.accountStatus && ACCOUNT_STATUS_OPTIONS.includes(req.query.accountStatus)
+      ? req.query.accountStatus
+      : "";
 
     if (req.query.search) {
       const searchPattern = new RegExp(req.query.search, "i");
@@ -190,6 +256,12 @@ async function getClients(req, res) {
           name: 1,
           email: 1,
           plan: 1,
+          monthlyFee: 1,
+          accountStatus: 1,
+          paymentStatus: 1,
+          nextPaymentDate: 1,
+          allowedFeatures: 1,
+          onboardingStatus: 1,
           isActive: 1,
           createdAt: 1,
           bookingCount: { $size: "$bookings" },
@@ -199,7 +271,13 @@ async function getClients(req, res) {
       { $sort: { createdAt: -1 } }
     ]);
 
-    return sendSuccess(res, 200, { clients });
+    const serializedClients = clients
+      .map(serializeAdminClient)
+      .filter((client) => !requestedAccountStatus || client.accountStatus === requestedAccountStatus);
+
+    return sendSuccess(res, 200, {
+      clients: serializedClients
+    });
   } catch (_error) {
     return sendError(res, 500, "Unable to load clients right now.");
   }
@@ -234,16 +312,7 @@ async function getClientById(req, res) {
 
     return sendSuccess(res, 200, {
       client: {
-        id: client._id,
-        name: client.name,
-        email: client.email,
-        role: client.role,
-        plan: client.plan,
-        isActive: client.isActive,
-        stripeCustomerId: client.stripeCustomerId,
-        stripeSubscriptionId: client.stripeSubscriptionId,
-        planExpiresAt: client.planExpiresAt,
-        createdAt: client.createdAt
+        ...serializeAdminClient(client)
       },
       bookings,
       inquiries
@@ -268,30 +337,56 @@ async function updateClient(req, res) {
 
     const updates = {};
 
-    if (req.body.plan) {
-      if (!["starter", "standard", "pro"].includes(req.body.plan)) {
-        return sendError(res, 400, "Plan must be starter, standard, or pro.");
+    if (typeof req.body.plan === "string") {
+      const normalizedPlan = normalizePlan(req.body.plan);
+      if (!PLAN_OPTIONS.includes(normalizedPlan)) {
+        return sendError(res, 400, "Plan must match a supported package.");
       }
-      updates.plan = req.body.plan;
+      updates.plan = normalizedPlan;
     }
 
     if (typeof req.body.isActive === "boolean") {
       updates.isActive = req.body.isActive;
     }
 
-    const client = await User.findOneAndUpdate(
-      { _id: req.params.id, role: "client" },
-      updates,
-      { new: true }
-    ).lean();
+    if (typeof req.body.monthlyFee !== "undefined") {
+      updates.monthlyFee = normalizeMonthlyFee(req.body.monthlyFee);
+    }
 
-    if (!client) {
+    if (typeof req.body.accountStatus === "string") {
+      if (!ACCOUNT_STATUS_OPTIONS.includes(req.body.accountStatus)) {
+        return sendError(res, 400, "Account status must be pending, active, or suspended.");
+      }
+      updates.accountStatus = req.body.accountStatus;
+    }
+
+    if (typeof req.body.paymentStatus === "string") {
+      if (!PAYMENT_STATUS_OPTIONS.includes(req.body.paymentStatus)) {
+        return sendError(res, 400, "Payment status must be pending, paid, unpaid, or overdue.");
+      }
+      updates.paymentStatus = req.body.paymentStatus;
+    }
+
+    if (typeof req.body.nextPaymentDate !== "undefined") {
+      updates.nextPaymentDate = normalizeNextPaymentDate(req.body.nextPaymentDate);
+    }
+
+    if (typeof req.body.allowedFeatures !== "undefined") {
+      updates.allowedFeatures = normalizeAllowedFeatures(req.body.allowedFeatures);
+    }
+
+    const clientBeforeUpdate = await User.findOne({ _id: req.params.id, role: "client" });
+    if (!clientBeforeUpdate) {
       return sendError(res, 404, "Client not found.");
     }
 
+    Object.assign(clientBeforeUpdate, updates);
+    clientBeforeUpdate.onboardingStatus = resolveOnboardingStatus(clientBeforeUpdate);
+    await clientBeforeUpdate.save();
+
     return sendSuccess(res, 200, {
       message: "Client updated successfully.",
-      client
+      client: serializeAdminClient(clientBeforeUpdate.toObject())
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to update the client right now.");
@@ -313,7 +408,7 @@ async function softDeleteClient(req, res) {
 
     const client = await User.findOneAndUpdate(
       { _id: req.params.id, role: "client" },
-      { isActive: false },
+      { isActive: false, accountStatus: "suspended" },
       { new: true }
     ).lean();
 
