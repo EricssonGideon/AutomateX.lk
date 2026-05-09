@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutomateX Client Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-white">
+  <main class="flex min-h-screen items-center justify-center px-4 py-10">
+    <section class="w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/40 backdrop-blur">
+      <div class="mb-8">
+        <p class="text-sm uppercase tracking-[0.28em] text-cyan-400">AutomateX</p>
+        <h1 class="mt-3 text-3xl font-semibold">Client Login</h1>
+        <p class="mt-2 text-sm text-slate-400">Sign in to manage your AutomateX workspace, bookings, inquiries, and billing.</p>
+      </div>
+
+      <form id="clientLoginForm" class="space-y-4">
+        <label class="block">
+          <span class="mb-2 block text-sm text-slate-300">Email</span>
+          <input
+            id="email"
+            type="email"
+            required
+            class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+            placeholder="you@example.com"
+          >
+        </label>
+
+        <label class="block">
+          <span class="mb-2 block text-sm text-slate-300">Password</span>
+          <input
+            id="password"
+            type="password"
+            required
+            class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+            placeholder="Enter your password"
+          >
+        </label>
+
+        <button
+          id="submitButton"
+          type="submit"
+          class="w-full rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300"
+        >
+          Sign In
+        </button>
+      </form>
+
+      <p id="feedback" class="mt-4 hidden rounded-2xl border px-4 py-3 text-sm"></p>
+
+      <div class="mt-6 flex flex-col gap-3 text-sm text-slate-400">
+        <a href="/index.html" class="text-cyan-300 transition hover:text-cyan-200">Back to homepage</a>
+        <p>Need an account? Contact AutomateX to get your client access set up.</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const PRIMARY_TOKEN_KEY = "automatex_client_token";
+    const FALLBACK_TOKEN_KEY = "automatex_token";
+    const USER_KEY = "automatex_client_user";
+    const feedback = document.getElementById("feedback");
+    const submitButton = document.getElementById("submitButton");
+
+    function showMessage(message, tone = "error") {
+      feedback.textContent = message;
+      feedback.className = "mt-4 rounded-2xl border px-4 py-3 text-sm";
+
+      if (tone === "success") {
+        feedback.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-200");
+      } else {
+        feedback.classList.add("border-rose-500/40", "bg-rose-500/10", "text-rose-200");
+      }
+    }
+
+    function clearClientSession() {
+      localStorage.removeItem(PRIMARY_TOKEN_KEY);
+      localStorage.removeItem(FALLBACK_TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
+
+    function saveClientSession(token, user) {
+      localStorage.setItem(PRIMARY_TOKEN_KEY, token);
+      localStorage.setItem(FALLBACK_TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+
+    async function verifyExistingClientSession() {
+      const token = localStorage.getItem(PRIMARY_TOKEN_KEY) || localStorage.getItem(FALLBACK_TOKEN_KEY);
+      if (!token) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/auth/me", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("Session invalid");
+        }
+
+        const payload = await response.json();
+        if (!payload.user || payload.user.role !== "client") {
+          throw new Error("Client access required");
+        }
+
+        saveClientSession(token, payload.user);
+        window.location.href = "/dashboard.html";
+      } catch (_error) {
+        clearClientSession();
+      }
+    }
+
+    document.getElementById("clientLoginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      feedback.classList.add("hidden");
+      submitButton.disabled = true;
+      submitButton.textContent = "Signing In...";
+
+      try {
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email: document.getElementById("email").value.trim(),
+            password: document.getElementById("password").value
+          })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || "Unable to sign in right now.");
+        }
+
+        if (!payload.user || !payload.token) {
+          throw new Error("Login response was incomplete. Please try again.");
+        }
+
+        if (payload.user.role === "admin") {
+          clearClientSession();
+          showMessage("Please use the admin login page.");
+          return;
+        }
+
+        if (payload.user.role !== "client") {
+          clearClientSession();
+          throw new Error("This account cannot access the client dashboard.");
+        }
+
+        saveClientSession(payload.token, payload.user);
+        showMessage("Login successful. Redirecting...", "success");
+        window.location.href = "/dashboard.html";
+      } catch (error) {
+        clearClientSession();
+        showMessage(error.message || "Unable to sign in right now.");
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = "Sign In";
+      }
+    });
+
+    verifyExistingClientSession();
+  </script>
+</body>
+</html>
