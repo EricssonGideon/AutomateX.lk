@@ -108,7 +108,7 @@ function requireActiveAccount(req, res, next) {
       error: accountStatus === "suspended" ? "Account suspended" : "Pending admin approval",
       message: accountStatus === "suspended"
         ? "Your account is suspended. Please contact AutomateX support."
-        : "Your account is pending admin approval.",
+        : "Your account is pending admin approval. AutomateX will review your business details and activate your package soon.",
       accountStatus
     });
   }

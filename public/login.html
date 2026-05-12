@@ -395,7 +395,12 @@
         }
 
         saveClientSession(payload.token, payload.user);
-        showMessage("Login successful. Redirecting to your dashboard...", "success");
+        showMessage(
+          payload.user.accountStatus === "pending"
+            ? "Login successful. Redirecting to your approval status..."
+            : "Login successful. Redirecting to your dashboard...",
+          "success"
+        );
         window.location.href = "/dashboard.html";
       } catch (error) {
         clearSession();
@@ -465,7 +470,7 @@
         }
 
         saveClientSession(payload.token, payload.user);
-        showMessage("Account created successfully. Redirecting to your dashboard...", "success");
+        showMessage("Account created successfully. Your account is pending admin approval. Redirecting...", "success");
         window.location.href = "/dashboard.html";
       } catch (error) {
         clearSession();

@@ -154,7 +154,12 @@
         }
 
         saveClientSession(payload.token, payload.user);
-        showMessage("Login successful. Redirecting...", "success");
+        showMessage(
+          payload.user.accountStatus === "pending"
+            ? "Login successful. Redirecting to your approval status..."
+            : "Login successful. Redirecting...",
+          "success"
+        );
         window.location.href = "/dashboard.html";
       } catch (error) {
         clearClientSession();

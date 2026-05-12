@@ -19,6 +19,16 @@ const { sendSuccess, sendValidationError, sendError } = require("../utils/respon
 const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 const SALT_ROUNDS = 12;
+const CLIENT_PROFILE_FIELDS = new Set([
+  "name",
+  "businessName",
+  "businessType",
+  "phone",
+  "location",
+  "services",
+  "workingHours",
+  "chatbotLanguage"
+]);
 
 /**
  * Builds the JWT payload from a persisted user record.
@@ -166,6 +176,11 @@ const loginValidators = [
 ];
 
 const updateProfileValidators = [
+  body("name")
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage("Name must be 100 characters or fewer."),
   body("businessName")
     .optional()
     .trim()
@@ -191,11 +206,6 @@ const updateProfileValidators = [
     .trim()
     .isLength({ max: 200 })
     .withMessage("Working hours must be 200 characters or fewer."),
-  body("bookingUrl")
-    .optional({ checkFalsy: true })
-    .trim()
-    .isURL()
-    .withMessage("Booking URL must be a valid URL."),
   body("chatbotLanguage")
     .optional()
     .trim()
@@ -204,21 +214,7 @@ const updateProfileValidators = [
   body("services")
     .optional()
     .isArray({ max: 30 })
-    .withMessage("Services must be an array with at most 30 entries."),
-  body("email")
-    .optional()
-    .trim()
-    .isEmail()
-    .withMessage("Enter a valid email address.")
-    .normalizeEmail(),
-  body("currentPassword")
-    .optional()
-    .isLength({ min: 8, max: 128 })
-    .withMessage("Current password must be between 8 and 128 characters."),
-  body("newPassword")
-    .optional()
-    .isLength({ min: 8, max: 128 })
-    .withMessage("New password must be between 8 and 128 characters.")
+    .withMessage("Services must be an array with at most 30 entries.")
 ];
 
 /**
@@ -248,6 +244,7 @@ async function signup(req, res) {
       name: String(req.body.name || "").trim(),
       email,
       passwordHash,
+      role: "client",
       businessName: String(req.body.businessName || "").trim(),
       businessType: String(req.body.businessType || "").trim(),
       phone: String(req.body.phone || "").trim(),
@@ -351,7 +348,7 @@ async function me(req, res) {
 }
 
 /**
- * Updates the authenticated client's profile, credentials, and business settings.
+ * Updates the authenticated client's business profile using a safe field allowlist.
  *
  * @param {import("express").Request} req - The incoming authenticated request.
  * @param {import("express").Response} res - The outgoing response.
@@ -359,6 +356,15 @@ async function me(req, res) {
  */
 async function updateMe(req, res) {
   try {
+    const unsupportedFields = Object.keys(req.body || {}).filter((field) => !CLIENT_PROFILE_FIELDS.has(field));
+    if (unsupportedFields.length) {
+      return sendError(
+        res,
+        400,
+        "Only business profile fields can be updated here."
+      );
+    }
+
     const details = validationMessages(req);
     if (details.length) {
       return sendValidationError(res, "Please fix the settings form and try again.", details);
@@ -369,30 +375,8 @@ async function updateMe(req, res) {
       return sendError(res, 404, "User not found.");
     }
 
-    if (req.body.email && req.body.email !== user.email) {
-      const existingUser = await User.findOne({
-        email: req.body.email,
-        _id: { $ne: user._id }
-      }).lean();
-
-      if (existingUser) {
-        return sendError(res, 409, "Another account already uses that email address.");
-      }
-
-      user.email = req.body.email;
-    }
-
-    if (req.body.newPassword) {
-      if (!req.body.currentPassword) {
-        return sendError(res, 400, "Current password is required to set a new password.");
-      }
-
-      const passwordMatches = await bcrypt.compare(req.body.currentPassword, user.passwordHash);
-      if (!passwordMatches) {
-        return sendError(res, 401, "Current password is incorrect.");
-      }
-
-      user.passwordHash = await bcrypt.hash(req.body.newPassword, SALT_ROUNDS);
+    if (typeof req.body.name === "string") {
+      user.name = req.body.name.trim();
     }
 
     if (typeof req.body.businessName === "string") {
@@ -413,10 +397,6 @@ async function updateMe(req, res) {
 
     if (typeof req.body.workingHours === "string") {
       user.workingHours = req.body.workingHours.trim();
-    }
-
-    if (typeof req.body.bookingUrl === "string") {
-      user.bookingUrl = req.body.bookingUrl.trim();
     }
 
     if (typeof req.body.chatbotLanguage === "string") {
