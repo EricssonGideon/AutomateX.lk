@@ -62,6 +62,8 @@ const BOOKING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CLIENT_BASE_QUERY = {
   email: { $ne: OFFICIAL_ADMIN_EMAIL }
 };
+const REPORT_ACTIVITY_LIMIT = 5;
+const REPORT_PACKAGE_KEYS = ["starter", "standard", "pro", "custom", "not_assigned"];
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -97,6 +99,85 @@ function buildSearchRegex(value) {
 
 function normalizeAdminNote(value) {
   return String(value || "").trim().slice(0, 2000);
+}
+
+function toTimestamp(value) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+}
+
+function isDateWithinRange(value, start, end) {
+  const timestamp = toTimestamp(value);
+  return timestamp >= start.getTime() && timestamp < end.getTime();
+}
+
+function createPackageAccumulator() {
+  return REPORT_PACKAGE_KEYS.reduce((accumulator, plan) => {
+    accumulator[plan] = 0;
+    return accumulator;
+  }, {});
+}
+
+function resolveClientMonthlyValue(client) {
+  const monthlyFee = normalizeMonthlyFee(client && client.monthlyFee);
+
+  if (monthlyFee > 0) {
+    return monthlyFee;
+  }
+
+  return roundMoney(PLAN_PRICES[normalizePlan(client && client.plan)] || 0);
+}
+
+function formatCsvDate(value) {
+  const timestamp = toTimestamp(value);
+
+  if (!timestamp) {
+    return "";
+  }
+
+  return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+function formatCsvDateTime(value) {
+  const timestamp = toTimestamp(value);
+
+  if (!timestamp) {
+    return "";
+  }
+
+  return new Date(timestamp).toISOString();
+}
+
+function escapeCsvCell(value) {
+  if (value === null || typeof value === "undefined") {
+    return "";
+  }
+
+  const cellValue = Array.isArray(value)
+    ? value.join("; ")
+    : String(value);
+
+  if (/[",\n]/.test(cellValue)) {
+    return `"${cellValue.replace(/"/g, "\"\"")}"`;
+  }
+
+  return cellValue;
+}
+
+function buildCsv(columns, rows) {
+  const header = columns.map(escapeCsvCell).join(",");
+  const body = rows.map((row) => columns.map((column) => escapeCsvCell(row[column])).join(","));
+  return [header, ...body].join("\n");
+}
+
+function sendCsvResponse(res, filename, columns, rows) {
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  return res.status(200).send(`\uFEFF${buildCsv(columns, rows)}`);
+}
+
+function buildReportFilename(slug) {
+  return `automatex-${slug}-report-${formatCsvDate(new Date())}.csv`;
 }
 
 async function generateInvoiceNumber() {
@@ -162,6 +243,192 @@ function buildInvoiceAnalytics(invoices) {
     totalPaid: 0,
     totalBalance: 0
   });
+}
+
+function buildReportSummaryPayload({
+  clients,
+  invoices,
+  requests,
+  recentBookings,
+  recentInquiries,
+  recentReviews
+}) {
+  const { start, end } = getCurrentMonthRange();
+  const packageCounts = createPackageAccumulator();
+  const expectedMonthlyRevenueByPackage = createPackageAccumulator();
+  let activeClients = 0;
+  let pendingClients = 0;
+  let suspendedClients = 0;
+  let rejectedClients = 0;
+  let newClientsThisMonth = 0;
+
+  clients.forEach((client) => {
+    const plan = normalizePlan(client.plan);
+    const accountStatus = resolveAccountStatus(client);
+
+    packageCounts[plan] += 1;
+
+    if (accountStatus === "active") {
+      activeClients += 1;
+      expectedMonthlyRevenueByPackage[plan] = roundMoney(
+        expectedMonthlyRevenueByPackage[plan] + resolveClientMonthlyValue(client)
+      );
+    } else if (accountStatus === "pending") {
+      pendingClients += 1;
+    } else if (accountStatus === "suspended") {
+      suspendedClients += 1;
+    } else if (accountStatus === "rejected") {
+      rejectedClients += 1;
+    }
+
+    if (isDateWithinRange(client.createdAt, start, end)) {
+      newClientsThisMonth += 1;
+    }
+  });
+
+  const invoiceAnalytics = buildInvoiceAnalytics(invoices);
+  const revenue = invoices.reduce((totals, invoice) => {
+    if (invoice.status === "cancelled") {
+      return totals;
+    }
+
+    if (invoice.status === "overdue") {
+      totals.overdueAmount = roundMoney(totals.overdueAmount + normalizeMoney(invoice.balance));
+    }
+
+    if (["draft", "sent", "partial"].includes(invoice.status)) {
+      totals.pendingAmount = roundMoney(totals.pendingAmount + normalizeMoney(invoice.balance));
+    }
+
+    if (invoice.status === "paid" && isDateWithinRange(invoice.paidDate, start, end)) {
+      totals.paidThisMonth = roundMoney(totals.paidThisMonth + normalizeMoney(invoice.paidAmount));
+    }
+
+    return totals;
+  }, {
+    totalInvoiceValue: roundMoney(invoiceAnalytics.totalValue),
+    totalPaid: roundMoney(invoiceAnalytics.totalPaid),
+    totalBalance: roundMoney(invoiceAnalytics.totalBalance),
+    overdueAmount: 0,
+    paidThisMonth: 0,
+    pendingAmount: 0,
+    totalInvoices: invoiceAnalytics.totalInvoices,
+    paidInvoices: invoiceAnalytics.paidInvoices,
+    pendingInvoices: invoiceAnalytics.pendingInvoices,
+    overdueInvoices: invoiceAnalytics.overdueInvoices
+  });
+
+  const requestsSummary = requests.reduce((totals, request) => {
+    totals.totalRequests += 1;
+
+    if (request.status === "open") {
+      totals.openRequests += 1;
+    } else if (request.status === "in_progress") {
+      totals.inProgressRequests += 1;
+    } else if (request.status === "resolved") {
+      totals.resolvedRequests += 1;
+    }
+
+    if (request.type === "upgrade") {
+      totals.upgradeRequests += 1;
+    }
+
+    if (request.type === "bug") {
+      totals.bugReports += 1;
+    }
+
+    if (["high", "urgent"].includes(request.priority)) {
+      totals.urgentHighPriorityRequests += 1;
+    }
+
+    return totals;
+  }, {
+    totalRequests: 0,
+    openRequests: 0,
+    inProgressRequests: 0,
+    resolvedRequests: 0,
+    upgradeRequests: 0,
+    bugReports: 0,
+    urgentHighPriorityRequests: 0
+  });
+
+  const recentClients = [...clients]
+    .sort((left, right) => toTimestamp(right.createdAt) - toTimestamp(left.createdAt))
+    .slice(0, REPORT_ACTIVITY_LIMIT)
+    .map((client) => ({
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      businessName: client.businessName,
+      plan: client.plan,
+      accountStatus: client.accountStatus,
+      createdAt: client.createdAt
+    }));
+
+  const recentInvoicesSummary = [...invoices]
+    .sort((left, right) => toTimestamp(right.createdAt) - toTimestamp(left.createdAt))
+    .slice(0, REPORT_ACTIVITY_LIMIT)
+    .map((invoice) => ({
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      clientName: invoice.clientName,
+      businessName: invoice.businessName,
+      title: invoice.title,
+      totalAmount: invoice.totalAmount,
+      paidAmount: invoice.paidAmount,
+      balance: invoice.balance,
+      currency: invoice.currency,
+      status: invoice.status,
+      dueDate: invoice.dueDate,
+      createdAt: invoice.createdAt
+    }));
+
+  const recentRequestsSummary = [...requests]
+    .sort((left, right) => toTimestamp(right.createdAt) - toTimestamp(left.createdAt))
+    .slice(0, REPORT_ACTIVITY_LIMIT)
+    .map((request) => ({
+      id: request.id,
+      clientName: request.clientName,
+      clientEmail: request.clientEmail,
+      businessName: request.businessName,
+      type: request.type,
+      requestedPackage: request.requestedPackage,
+      subject: request.subject,
+      priority: request.priority,
+      status: request.status,
+      createdAt: request.createdAt
+    }));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    revenue,
+    clients: {
+      totalClients: clients.length,
+      activeClients,
+      pendingClients,
+      suspendedClients,
+      rejectedClients,
+      newClientsThisMonth
+    },
+    packages: {
+      counts: packageCounts,
+      expectedMonthlyRevenue: {
+        ...expectedMonthlyRevenueByPackage,
+        total: roundMoney(
+          Object.values(expectedMonthlyRevenueByPackage).reduce((sum, value) => sum + value, 0)
+        )
+      }
+    },
+    requests: requestsSummary,
+    activity: {
+      recentClients,
+      recentInvoices: recentInvoicesSummary,
+      recentRequests: recentRequestsSummary,
+      recentBookings,
+      recentInquiries,
+      recentReviews
+    }
+  };
 }
 
 function buildInvoiceMutationPayload(body, currentInvoice = null) {
@@ -448,6 +715,207 @@ async function getStats(_req, res) {
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to load admin stats right now.");
+  }
+}
+
+async function getReportsSummary(_req, res) {
+  try {
+    const [
+      clientRecords,
+      invoiceRecords,
+      requestRecords,
+      bookingRecords,
+      inquiryRecords,
+      reviewRecords
+    ] = await Promise.all([
+      User.find(CLIENT_BASE_QUERY).lean(),
+      Invoice.find({}).lean(),
+      SupportRequest.find({}).lean(),
+      Booking.find({}).sort({ createdAt: -1 }).limit(REPORT_ACTIVITY_LIMIT).lean(),
+      Inquiry.find({}).sort({ createdAt: -1 }).limit(REPORT_ACTIVITY_LIMIT).lean(),
+      Review.find({}).sort({ createdAt: -1 }).limit(REPORT_ACTIVITY_LIMIT).lean()
+    ]);
+
+    const clients = clientRecords
+      .map(serializeAdminClient)
+      .filter((client) => client.role === "client");
+    const invoices = invoiceRecords.map(serializeInvoice);
+    const requests = requestRecords.map((request) => serializeSupportRequest(request, { includeAdminFields: true }));
+    const activityClientIds = [...new Set(
+      [...bookingRecords, ...inquiryRecords, ...reviewRecords]
+        .map((record) => String(record.clientId || ""))
+        .filter(Boolean)
+    )];
+    const clientMap = await buildClientMap(activityClientIds);
+    const recentBookings = enrichWithClientMap(bookingRecords, clientMap).map((booking) => ({
+      id: String(booking._id || booking.id || ""),
+      name: booking.name || "",
+      service: booking.service || "",
+      status: booking.status || "pending",
+      date: booking.date || "",
+      time: booking.time || "",
+      clientName: booking.clientName || "",
+      clientBusinessName: booking.clientBusinessName || "",
+      createdAt: booking.createdAt || null
+    }));
+    const recentInquiries = enrichWithClientMap(inquiryRecords, clientMap).map((inquiry) => ({
+      id: String(inquiry._id || inquiry.id || ""),
+      name: inquiry.name || "",
+      email: inquiry.email || "",
+      message: inquiry.message || "",
+      status: inquiry.status || "new",
+      clientName: inquiry.clientName || "",
+      clientBusinessName: inquiry.clientBusinessName || "",
+      createdAt: inquiry.createdAt || null
+    }));
+    const recentReviews = enrichWithClientMap(reviewRecords, clientMap).map((review) => ({
+      id: String(review._id || review.id || ""),
+      name: review.name || "",
+      rating: review.rating || 0,
+      text: review.text || "",
+      status: review.status || "pending",
+      clientName: review.clientName || "",
+      clientBusinessName: review.clientBusinessName || "",
+      createdAt: review.createdAt || null
+    }));
+
+    return sendSuccess(res, 200, buildReportSummaryPayload({
+      clients,
+      invoices,
+      requests,
+      recentBookings,
+      recentInquiries,
+      recentReviews
+    }));
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load admin reports right now.");
+  }
+}
+
+async function exportClientsReport(_req, res) {
+  try {
+    const clients = (await User.find(CLIENT_BASE_QUERY).sort({ createdAt: -1 }).lean())
+      .map(serializeAdminClient)
+      .filter((client) => client.role === "client");
+
+    const rows = clients.map((client) => ({
+      businessName: client.businessName || "",
+      ownerName: client.name || "",
+      email: client.email || "",
+      phone: client.phone || "",
+      businessType: client.businessType || "",
+      location: client.location || "",
+      package: normalizePlan(client.plan),
+      monthlyFee: normalizeMonthlyFee(client.monthlyFee),
+      paymentStatus: client.paymentStatus || "",
+      accountStatus: client.accountStatus || "",
+      nextPaymentDate: formatCsvDate(client.nextPaymentDate),
+      allowedFeatures: Array.isArray(client.allowedFeatures) ? client.allowedFeatures.join("; ") : "",
+      createdAt: formatCsvDateTime(client.createdAt)
+    }));
+
+    return sendCsvResponse(res, buildReportFilename("clients"), [
+      "businessName",
+      "ownerName",
+      "email",
+      "phone",
+      "businessType",
+      "location",
+      "package",
+      "monthlyFee",
+      "paymentStatus",
+      "accountStatus",
+      "nextPaymentDate",
+      "allowedFeatures",
+      "createdAt"
+    ], rows);
+  } catch (_error) {
+    return sendError(res, 500, "Unable to export the client report right now.");
+  }
+}
+
+async function exportInvoicesReport(_req, res) {
+  try {
+    const invoices = (await Invoice.find({}).sort({ createdAt: -1 }).lean()).map(serializeInvoice);
+    const rows = invoices.map((invoice) => ({
+      invoiceNumber: invoice.invoiceNumber || "",
+      businessName: invoice.businessName || "",
+      clientName: invoice.clientName || "",
+      clientEmail: invoice.clientEmail || "",
+      title: invoice.title || "",
+      status: invoice.status || "",
+      currency: invoice.currency || DEFAULT_INVOICE_CURRENCY,
+      totalAmount: normalizeMoney(invoice.totalAmount),
+      paidAmount: normalizeMoney(invoice.paidAmount),
+      balance: normalizeMoney(invoice.balance),
+      issueDate: formatCsvDate(invoice.issueDate),
+      dueDate: formatCsvDate(invoice.dueDate),
+      paidDate: formatCsvDate(invoice.paidDate),
+      notes: invoice.notes || "",
+      adminNotes: invoice.adminNotes || "",
+      createdAt: formatCsvDateTime(invoice.createdAt)
+    }));
+
+    return sendCsvResponse(res, buildReportFilename("invoices"), [
+      "invoiceNumber",
+      "businessName",
+      "clientName",
+      "clientEmail",
+      "title",
+      "status",
+      "currency",
+      "totalAmount",
+      "paidAmount",
+      "balance",
+      "issueDate",
+      "dueDate",
+      "paidDate",
+      "notes",
+      "adminNotes",
+      "createdAt"
+    ], rows);
+  } catch (_error) {
+    return sendError(res, 500, "Unable to export the invoice report right now.");
+  }
+}
+
+async function exportRequestsReport(_req, res) {
+  try {
+    const requests = (await SupportRequest.find({}).sort({ createdAt: -1 }).lean())
+      .map((request) => serializeSupportRequest(request, { includeAdminFields: true }));
+    const rows = requests.map((request) => ({
+      businessName: request.businessName || "",
+      clientName: request.clientName || "",
+      clientEmail: request.clientEmail || "",
+      type: request.type || "",
+      requestedPackage: request.requestedPackage || "",
+      subject: request.subject || "",
+      message: request.message || "",
+      priority: request.priority || "",
+      status: request.status || "",
+      adminNote: request.adminNote || "",
+      createdAt: formatCsvDateTime(request.createdAt),
+      updatedAt: formatCsvDateTime(request.updatedAt),
+      resolvedAt: formatCsvDateTime(request.resolvedAt)
+    }));
+
+    return sendCsvResponse(res, buildReportFilename("requests"), [
+      "businessName",
+      "clientName",
+      "clientEmail",
+      "type",
+      "requestedPackage",
+      "subject",
+      "message",
+      "priority",
+      "status",
+      "adminNote",
+      "createdAt",
+      "updatedAt",
+      "resolvedAt"
+    ], rows);
+  } catch (_error) {
+    return sendError(res, 500, "Unable to export the support request report right now.");
   }
 }
 
@@ -1468,6 +1936,10 @@ async function deleteAdminRequest(req, res) {
 
 module.exports = {
   getStats,
+  getReportsSummary,
+  exportClientsReport,
+  exportInvoicesReport,
+  exportRequestsReport,
   getClients,
   getClientById,
   updateClient,

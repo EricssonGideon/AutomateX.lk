@@ -2,6 +2,10 @@ const express = require("express");
 
 const {
   getStats,
+  getReportsSummary,
+  exportClientsReport,
+  exportInvoicesReport,
+  exportRequestsReport,
   getClients,
   getClientById,
   updateClient,
@@ -31,6 +35,10 @@ const router = express.Router();
 router.use(verifyToken, requireAdmin);
 
 router.get("/stats", getStats);
+router.get("/reports/summary", getReportsSummary);
+router.get("/reports/export/clients", exportClientsReport);
+router.get("/reports/export/invoices", exportInvoicesReport);
+router.get("/reports/export/requests", exportRequestsReport);
 router.get("/clients", getClients);
 router.get("/clients/:id", getClientById);
 router.patch("/clients/:id", updateClient);

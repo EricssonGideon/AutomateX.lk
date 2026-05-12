@@ -1998,24 +1998,95 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <small class="kicker">Operational Digest</small>
-                <h2>High-level platform reporting</h2>
-                <p>Use available admin metrics to understand client growth, demand, moderation pressure, and platform health.</p>
+                <small class="kicker">Revenue Report</small>
+                <h2>Invoice and collections summary</h2>
+                <p>Review current invoice value, collected revenue, outstanding balances, and overdue exposure without changing the existing manual billing workflow.</p>
               </div>
             </div>
-            <div class="metric-list" id="reportsSummaryList"></div>
+            <div class="metric-list" id="reportsRevenueList"></div>
           </article>
 
-          <article class="placeholder-panel">
-            <small class="kicker">Exports & Scheduled Reports</small>
-            <h3>Coming in next update</h3>
-            <p>CSV exports, downloadable executive reports, and scheduled summaries are not implemented yet. This placeholder keeps the reporting section visible without faking unavailable tools.</p>
-            <div class="placeholder-list">
-              <article>No data available yet for export history.</article>
-              <article>Automated reporting and downloadable summaries will appear here in the next step.</article>
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Client Report</small>
+                <h2>Account status overview</h2>
+                <p>Track live client distribution across active, pending, suspended, and rejected states, plus month-to-date signup movement.</p>
+              </div>
             </div>
+            <div class="metric-list" id="reportsClientList"></div>
           </article>
         </div>
+
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Package Report</small>
+                <h2>Service tier distribution</h2>
+                <p>See how each AutomateX package is distributed and which active package groups are driving expected monthly revenue.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="reportsPackageList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Request Report</small>
+                <h2>Support and upgrade workload</h2>
+                <p>Measure operational request load across open, in-progress, resolved, upgrade, bug, and urgent support demand.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="reportsRequestList"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Recent Activity</small>
+              <h2>Latest platform activity across operations</h2>
+              <p>Review the most recent client signups, invoices, support tickets, bookings, inquiries, and reviews in one operational feed.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="refreshReportsButton" class="button button-secondary" type="button">Refresh Reports</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Activity</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="reportsActivityTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="reportsActivityEmptyState">Loading reports…</div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">CSV Export</small>
+              <h2>Download operational report data</h2>
+              <p>Export current client, invoice, and support request records as clean CSV files for offline review or external analysis.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="exportClientsReportButton" class="button button-secondary" type="button">Export Clients</button>
+              <button id="exportInvoicesReportButton" class="button button-secondary" type="button">Export Invoices</button>
+              <button id="exportRequestsReportButton" class="button button-secondary" type="button">Export Requests</button>
+            </div>
+          </div>
+          <div class="metric-list" id="reportsExportList"></div>
+        </article>
       </section>
 
       <section class="section" id="section-settings">
@@ -2188,7 +2259,7 @@
       },
       reports: {
         title: "Reports",
-        subtitle: "Use available metrics for a platform digest while advanced reporting exports wait for the next update."
+        subtitle: "Review revenue, client, package, and support performance, then export clean CSV snapshots from the owner control center."
       },
       settings: {
         title: "Settings",
@@ -2199,6 +2270,7 @@
       currentSection: "dashboard",
       admin: null,
       stats: null,
+      reportsSummary: null,
       allClients: [],
       allInvoices: [],
       allRequests: [],
@@ -2405,6 +2477,99 @@
       }
 
       return "badge in_progress";
+    }
+
+    function buildReportsActivityFeed() {
+      const activity = state.reportsSummary && state.reportsSummary.activity
+        ? state.reportsSummary.activity
+        : {};
+      const items = [];
+      const pushItem = (item) => {
+        if (item && item.date) {
+          items.push(item);
+        }
+      };
+
+      (activity.recentClients || []).forEach((client) => {
+        pushItem({
+          type: "Client",
+          title: client.businessName || client.name || client.email || "New client",
+          details: [client.name, client.email, formatPlanLabel(client.plan)].filter(Boolean).join(" • "),
+          status: client.accountStatus || "pending",
+          date: client.createdAt
+        });
+      });
+
+      (activity.recentInvoices || []).forEach((invoice) => {
+        pushItem({
+          type: "Invoice",
+          title: invoice.invoiceNumber || "Invoice",
+          details: [
+            invoice.businessName || invoice.clientName || "Client",
+            invoice.title || "Manual invoice",
+            formatInvoiceCurrency(invoice.totalAmount, invoice.currency)
+          ].filter(Boolean).join(" • "),
+          status: invoice.status || "draft",
+          date: invoice.createdAt
+        });
+      });
+
+      (activity.recentRequests || []).forEach((request) => {
+        pushItem({
+          type: "Request",
+          title: formatRequestTypeLabel(request.type),
+          details: [
+            request.businessName || request.clientName || "Client",
+            request.subject || "Support request",
+            formatStatusLabel(request.priority || "normal")
+          ].filter(Boolean).join(" • "),
+          status: request.status || "open",
+          date: request.createdAt
+        });
+      });
+
+      (activity.recentBookings || []).forEach((booking) => {
+        pushItem({
+          type: "Booking",
+          title: booking.service || booking.name || "Booking",
+          details: [
+            booking.clientBusinessName || booking.clientName || "Client",
+            [booking.date, booking.time].filter(Boolean).join(" ")
+          ].filter(Boolean).join(" • "),
+          status: booking.status || "pending",
+          date: booking.createdAt
+        });
+      });
+
+      (activity.recentInquiries || []).forEach((inquiry) => {
+        pushItem({
+          type: "Inquiry",
+          title: inquiry.name || "Inquiry",
+          details: [
+            inquiry.clientBusinessName || inquiry.clientName || "Client",
+            (inquiry.message || "").slice(0, 72)
+          ].filter(Boolean).join(" • "),
+          status: inquiry.status || "new",
+          date: inquiry.createdAt
+        });
+      });
+
+      (activity.recentReviews || []).forEach((review) => {
+        pushItem({
+          type: "Review",
+          title: review.name || "Review",
+          details: [
+            review.clientBusinessName || review.clientName || "Client",
+            `${toNumber(review.rating)} stars`
+          ].filter(Boolean).join(" • "),
+          status: review.status || "pending",
+          date: review.createdAt
+        });
+      });
+
+      return items
+        .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
+        .slice(0, 12);
     }
 
     function normalizeDisplayReviewStatus(review) {
@@ -2911,6 +3076,51 @@
       }
 
       return payload;
+    }
+
+    async function downloadAdminFile(path, fallbackFileName) {
+      const token = getToken();
+      if (!token) {
+        redirectToLogin();
+        throw new Error("Missing admin token.");
+      }
+
+      const response = await fetch(path, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.status === 401) {
+        redirectToLogin();
+        throw new Error("Authentication failed.");
+      }
+
+      if (response.status === 403) {
+        redirectToLogin();
+        throw new Error("Admin access is required.");
+      }
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || "Unable to download the report.");
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i);
+      const fileName = fileNameMatch && fileNameMatch[1]
+        ? fileNameMatch[1]
+        : fallbackFileName;
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
     }
 
     function getThemePreference() {
@@ -3764,59 +3974,232 @@
     }
 
     function renderReportsSection() {
-      const stats = state.stats || {};
+      const reports = state.reportsSummary || {};
+      const revenue = reports.revenue || {};
+      const clients = reports.clients || {};
+      const packages = reports.packages || {};
+      const requests = reports.requests || {};
+      const packageCounts = packages.counts || {};
+      const packageRevenue = packages.expectedMonthlyRevenue || {};
+      const activityFeed = buildReportsActivityFeed();
 
       document.getElementById("reportsKpiGrid").innerHTML = [
         {
-          label: "Bookings This Month",
-          value: String(stats.totalBookingsThisMonth ?? 0),
-          copy: "Current-month bookings returned by the existing admin stats endpoint."
+          label: "Total Invoice Value",
+          value: formatInvoiceCurrency(revenue.totalInvoiceValue || 0),
+          copy: "Combined value of non-cancelled invoices currently tracked in the billing system."
         },
         {
-          label: "Inquiries This Month",
-          value: String(stats.totalInquiriesThisMonth ?? stats.newLeadsThisMonth ?? 0),
-          copy: "Current-month inquiry volume across client and platform lead sources."
+          label: "Total Paid",
+          value: formatInvoiceCurrency(revenue.totalPaid || 0),
+          copy: "Current collected value recorded across manual invoices."
         },
         {
-          label: "Pending Reviews",
-          value: String(stats.totalReviewsPendingModeration ?? 0),
-          copy: "Moderation items waiting for admin review."
+          label: "Total Balance",
+          value: formatInvoiceCurrency(revenue.totalBalance || 0),
+          copy: "Outstanding invoice balance still open across sent, partial, and overdue invoices."
         },
         {
-          label: "System Status",
-          value: formatStatusLabel(stats.systemHealth ? stats.systemHealth.status : "Not available"),
-          copy: "Current platform health snapshot from the backend."
+          label: "Overdue Amount",
+          value: formatInvoiceCurrency(revenue.overdueAmount || 0),
+          copy: "Open overdue balances requiring direct payment follow-up."
+        },
+        {
+          label: "Total Clients",
+          value: String(clients.totalClients ?? 0),
+          copy: "All AutomateX client records excluding the trusted owner account."
+        },
+        {
+          label: "Active Clients",
+          value: String(clients.activeClients ?? 0),
+          copy: "Client accounts currently approved and active on the platform."
+        },
+        {
+          label: "Open Requests",
+          value: String(requests.openRequests ?? 0),
+          copy: "Support and upgrade tickets currently open for admin action."
+        },
+        {
+          label: "New This Month",
+          value: String(clients.newClientsThisMonth ?? 0),
+          copy: "New client signups created during the current calendar month."
         }
       ].map((card) => `
-        <article class="kpi-card is-wide">
+        <article class="kpi-card">
           <div class="kpi-label">${escapeHtml(card.label)}</div>
-          <strong class="${card.value === "Not Available" ? "is-muted" : ""}">${escapeHtml(card.value)}</strong>
+          <strong>${escapeHtml(card.value)}</strong>
           <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
 
-      renderMetricList("reportsSummaryList", [
+      renderMetricList("reportsRevenueList", [
+        {
+          label: "Total invoice value",
+          value: formatInvoiceCurrency(revenue.totalInvoiceValue || 0),
+          hint: "All active invoice totals combined, excluding cancelled records."
+        },
+        {
+          label: "Total paid",
+          value: formatInvoiceCurrency(revenue.totalPaid || 0),
+          hint: "Current paid amounts recorded on manual invoices."
+        },
+        {
+          label: "Total balance",
+          value: formatInvoiceCurrency(revenue.totalBalance || 0),
+          hint: "Remaining balances still outstanding across the invoice ledger."
+        },
+        {
+          label: "Overdue amount",
+          value: formatInvoiceCurrency(revenue.overdueAmount || 0),
+          hint: "Invoice balances already past due and still unpaid."
+        },
+        {
+          label: "Paid this month",
+          value: formatInvoiceCurrency(revenue.paidThisMonth || 0),
+          hint: "Invoices recorded as paid during the current month."
+        },
+        {
+          label: "Pending amount",
+          value: formatInvoiceCurrency(revenue.pendingAmount || 0),
+          hint: "Open balances still in draft, sent, or partial payment states."
+        }
+      ], "No revenue reporting data is available yet.");
+
+      renderMetricList("reportsClientList", [
         {
           label: "Total clients",
-          value: String(stats.totalClients ?? state.allClients.length),
-          hint: "Current tenant count across the AutomateX platform."
+          value: String(clients.totalClients ?? 0),
+          hint: "All client records excluding the trusted AutomateX owner account."
         },
         {
           label: "Active clients",
-          value: String(stats.activeClients ?? 0),
-          hint: "Accounts currently live and service-ready."
+          value: String(clients.activeClients ?? 0),
+          hint: "Clients currently approved and able to use their dashboards normally."
         },
         {
-          label: "Pending approvals",
-          value: String(stats.pendingClients ?? getPendingApprovals().length),
-          hint: "New signups waiting for an admin package decision."
+          label: "Pending clients",
+          value: String(clients.pendingClients ?? 0),
+          hint: "Signups still waiting on package assignment or approval."
         },
         {
-          label: "Unpaid monthly fees",
-          value: formatCurrency(stats.unpaidMonthlyFees ?? 0),
-          hint: "Outstanding value currently visible from the stats endpoint."
+          label: "Suspended clients",
+          value: String(clients.suspendedClients ?? 0),
+          hint: "Accounts currently paused from full client access."
+        },
+        {
+          label: "Rejected clients",
+          value: String(clients.rejectedClients ?? 0),
+          hint: "Accounts declined through the client-management approval process."
+        },
+        {
+          label: "New clients this month",
+          value: String(clients.newClientsThisMonth ?? 0),
+          hint: "Fresh signups created in the current month."
         }
-      ]);
+      ], "No client reporting data is available yet.");
+
+      renderMetricList("reportsPackageList", [
+        {
+          label: "Starter clients",
+          value: `${String(packageCounts.starter ?? 0)} • ${formatInvoiceCurrency(packageRevenue.starter || 0)}`,
+          hint: "Client count and expected monthly revenue from active Starter accounts."
+        },
+        {
+          label: "Standard clients",
+          value: `${String(packageCounts.standard ?? 0)} • ${formatInvoiceCurrency(packageRevenue.standard || 0)}`,
+          hint: "Client count and expected monthly revenue from active Standard accounts."
+        },
+        {
+          label: "Pro clients",
+          value: `${String(packageCounts.pro ?? 0)} • ${formatInvoiceCurrency(packageRevenue.pro || 0)}`,
+          hint: "Client count and expected monthly revenue from active Pro accounts."
+        },
+        {
+          label: "Custom clients",
+          value: `${String(packageCounts.custom ?? 0)} • ${formatInvoiceCurrency(packageRevenue.custom || 0)}`,
+          hint: "Client count and expected monthly revenue from active Custom accounts."
+        },
+        {
+          label: "Not assigned clients",
+          value: `${String(packageCounts.not_assigned ?? 0)} • ${formatInvoiceCurrency(packageRevenue.not_assigned || 0)}`,
+          hint: "Clients without an assigned service package yet."
+        },
+        {
+          label: "Expected monthly revenue",
+          value: formatInvoiceCurrency(packageRevenue.total || 0),
+          hint: "Combined active package revenue expectation based on current client fees."
+        }
+      ], "No package reporting data is available yet.");
+
+      renderMetricList("reportsRequestList", [
+        {
+          label: "Total requests",
+          value: String(requests.totalRequests ?? 0),
+          hint: "All support, upgrade, bug, feature, payment, and general requests on record."
+        },
+        {
+          label: "Open requests",
+          value: String(requests.openRequests ?? 0),
+          hint: "Tickets that still need first response or follow-up."
+        },
+        {
+          label: "In progress",
+          value: String(requests.inProgressRequests ?? 0),
+          hint: "Requests currently being worked through by the admin."
+        },
+        {
+          label: "Resolved requests",
+          value: String(requests.resolvedRequests ?? 0),
+          hint: "Requests already resolved and closed out operationally."
+        },
+        {
+          label: "Upgrade requests",
+          value: String(requests.upgradeRequests ?? 0),
+          hint: "Manual package-change requests that still require admin action in client management."
+        },
+        {
+          label: "Bug / urgent-high priority",
+          value: `${String(requests.bugReports ?? 0)} • ${String(requests.urgentHighPriorityRequests ?? 0)}`,
+          hint: "Bug reports alongside tickets marked high or urgent priority."
+        }
+      ], "No request reporting data is available yet.");
+
+      renderMetricList("reportsExportList", [
+        {
+          label: "Clients CSV",
+          value: `${String(clients.totalClients ?? 0)} rows`,
+          hint: "Exports business, owner, package, billing, and account-status fields only."
+        },
+        {
+          label: "Invoices CSV",
+          value: `${String(revenue.totalInvoices ?? 0)} rows`,
+          hint: "Exports safe invoice, balance, due-date, and notes fields for manual reporting."
+        },
+        {
+          label: "Requests CSV",
+          value: `${String(requests.totalRequests ?? 0)} rows`,
+          hint: "Exports client support and upgrade request history, including admin notes."
+        },
+        {
+          label: "Security scope",
+          value: "Sensitive auth fields excluded",
+          hint: "Password hashes, tokens, and private authentication data are never exported."
+        }
+      ], "No export metadata is available yet.");
+
+      setTableState("reportsActivityTableBody", "reportsActivityEmptyState", activityFeed, (entry) => `
+        <tr>
+          <td>
+            <div class="cell-title">${escapeHtml(entry.type)}</div>
+            <div class="cell-subtitle">${escapeHtml(entry.title || "Activity")}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(entry.details || "No additional details available.")}</div>
+          </td>
+          <td><span class="${badgeClass(entry.status)}">${escapeHtml(formatStatusLabel(entry.status))}</span></td>
+          <td>${escapeHtml(formatDate(entry.date))}</td>
+        </tr>
+      `, "No recent activity is available for the current reporting window.");
     }
 
     function renderSettingsSection() {
@@ -3910,6 +4293,10 @@
       state.stats = await apiFetch("/api/admin/stats");
     }
 
+    async function loadReportsSummary() {
+      state.reportsSummary = await apiFetch("/api/admin/reports/summary");
+    }
+
     async function loadClients() {
       const payload = await apiFetch("/api/admin/clients");
       state.allClients = payload.clients || [];
@@ -3941,7 +4328,16 @@
     }
 
     async function refreshAllData() {
-      await Promise.all([loadStats(), loadClients(), loadInvoices(), loadRequests(), loadBookings(), loadInquiries(), loadReviews()]);
+      await Promise.all([
+        loadStats(),
+        loadReportsSummary(),
+        loadClients(),
+        loadInvoices(),
+        loadRequests(),
+        loadBookings(),
+        loadInquiries(),
+        loadReviews()
+      ]);
       renderAll();
     }
 
@@ -5533,6 +5929,24 @@
       });
       document.getElementById("refreshSupportButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh support requests.", "error"));
+      });
+      document.getElementById("refreshReportsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reports.", "error"));
+      });
+      document.getElementById("exportClientsReportButton").addEventListener("click", () => {
+        downloadAdminFile("/api/admin/reports/export/clients", "automatex-clients-report.csv")
+          .then(() => showToast("Clients CSV ready", "The client report export has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to export the client report.", "error"));
+      });
+      document.getElementById("exportInvoicesReportButton").addEventListener("click", () => {
+        downloadAdminFile("/api/admin/reports/export/invoices", "automatex-invoices-report.csv")
+          .then(() => showToast("Invoices CSV ready", "The invoice report export has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to export the invoice report.", "error"));
+      });
+      document.getElementById("exportRequestsReportButton").addEventListener("click", () => {
+        downloadAdminFile("/api/admin/reports/export/requests", "automatex-requests-report.csv")
+          .then(() => showToast("Requests CSV ready", "The support request report export has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to export the support request report.", "error"));
       });
 
       ["clientSearch", "clientPlanFilter", "clientStatusFilter", "clientPaymentFilter", "clientSortBy"].forEach((id) => {
