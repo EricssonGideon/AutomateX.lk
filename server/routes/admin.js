@@ -6,6 +6,13 @@ const {
   getClientById,
   updateClient,
   softDeleteClient,
+  getInvoices,
+  createInvoice,
+  getInvoiceById,
+  updateInvoice,
+  deleteInvoice,
+  markInvoicePaid,
+  addInvoicePayment,
   getAdminBookings,
   updateAdminBooking,
   getAdminInquiries,
@@ -24,6 +31,13 @@ router.get("/clients", getClients);
 router.get("/clients/:id", getClientById);
 router.patch("/clients/:id", updateClient);
 router.delete("/clients/:id", softDeleteClient);
+router.get("/invoices", getInvoices);
+router.post("/invoices", createInvoice);
+router.get("/invoices/:id", getInvoiceById);
+router.patch("/invoices/:id", updateInvoice);
+router.delete("/invoices/:id", deleteInvoice);
+router.patch("/invoices/:id/mark-paid", markInvoicePaid);
+router.patch("/invoices/:id/add-payment", addInvoicePayment);
 router.get("/bookings", getAdminBookings);
 router.patch("/bookings/:id", updateAdminBooking);
 router.get("/inquiries", getAdminInquiries);

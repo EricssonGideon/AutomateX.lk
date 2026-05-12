@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Inquiry = require("../models/Inquiry");
+const Invoice = require("../models/Invoice");
 const Review = require("../models/Review");
 const { OFFICIAL_ADMIN_EMAIL, resolveTrustedRole } = require("../utils/authRole");
 const {
@@ -20,6 +21,18 @@ const {
   buildFeatureAccess,
   getPlanDefaultFeatures
 } = require("../utils/account");
+const {
+  INVOICE_STATUS_OPTIONS,
+  DEFAULT_INVOICE_CURRENCY,
+  roundMoney,
+  normalizeMoney,
+  normalizeInvoiceText,
+  normalizeInvoiceDate,
+  normalizeInvoiceStatus,
+  calculateInvoiceTotals,
+  resolveInvoiceStatus,
+  serializeInvoice
+} = require("../utils/invoice");
 const { sendSuccess, sendError } = require("../utils/response");
 
 const PLAN_PRICES = {
@@ -72,6 +85,151 @@ function buildSearchRegex(value) {
 
 function normalizeAdminNote(value) {
   return String(value || "").trim().slice(0, 2000);
+}
+
+async function generateInvoiceNumber() {
+  let sequence = await Invoice.countDocuments({});
+
+  while (true) {
+    sequence += 1;
+    const invoiceNumber = `AX-INV-${String(sequence).padStart(4, "0")}`;
+    const exists = await Invoice.exists({ invoiceNumber });
+
+    if (!exists) {
+      return invoiceNumber;
+    }
+  }
+}
+
+async function findInvoiceClient(clientId) {
+  if (!mongoose.Types.ObjectId.isValid(clientId)) {
+    return null;
+  }
+
+  const client = await User.findOne({
+    _id: clientId,
+    ...CLIENT_BASE_QUERY
+  });
+
+  if (!client || resolveTrustedRole(client) !== "client") {
+    return null;
+  }
+
+  return client;
+}
+
+function applyInvoiceClientSnapshot(invoice, client) {
+  invoice.clientId = client._id;
+  invoice.clientName = client.name || client.businessName || "Client";
+  invoice.clientEmail = client.email || "";
+  invoice.businessName = client.businessName || client.name || "Client";
+}
+
+function buildInvoiceAnalytics(invoices) {
+  return invoices.reduce((totals, invoice) => {
+    totals.totalInvoices += 1;
+    totals.totalValue = roundMoney(totals.totalValue + normalizeMoney(invoice.totalAmount));
+    totals.totalPaid = roundMoney(totals.totalPaid + normalizeMoney(invoice.paidAmount));
+    totals.totalBalance = roundMoney(totals.totalBalance + normalizeMoney(invoice.balance));
+
+    if (invoice.status === "paid") {
+      totals.paidInvoices += 1;
+    } else if (invoice.status === "overdue") {
+      totals.overdueInvoices += 1;
+    } else if (invoice.status !== "cancelled") {
+      totals.pendingInvoices += 1;
+    }
+
+    return totals;
+  }, {
+    totalInvoices: 0,
+    paidInvoices: 0,
+    pendingInvoices: 0,
+    overdueInvoices: 0,
+    totalValue: 0,
+    totalPaid: 0,
+    totalBalance: 0
+  });
+}
+
+function buildInvoiceMutationPayload(body, currentInvoice = null) {
+  const hasOwn = (key) => Object.prototype.hasOwnProperty.call(body || {}, key);
+  const title = normalizeInvoiceText(
+    hasOwn("title") ? body.title : currentInvoice && currentInvoice.title,
+    200
+  );
+  const description = normalizeInvoiceText(
+    hasOwn("description") ? body.description : currentInvoice && currentInvoice.description,
+    4000
+  );
+  const notes = normalizeInvoiceText(
+    hasOwn("notes") ? body.notes : currentInvoice && currentInvoice.notes,
+    5000
+  );
+  const adminNotes = normalizeInvoiceText(
+    hasOwn("adminNotes") ? body.adminNotes : currentInvoice && currentInvoice.adminNotes,
+    5000
+  );
+  const dueDate = normalizeInvoiceDate(
+    hasOwn("dueDate") ? body.dueDate : currentInvoice && currentInvoice.dueDate
+  );
+  const issueDate = normalizeInvoiceDate(
+    hasOwn("issueDate") ? body.issueDate : currentInvoice && currentInvoice.issueDate
+  ) || (currentInvoice && currentInvoice.issueDate) || new Date();
+  const totals = calculateInvoiceTotals({
+    items: hasOwn("items") ? body.items : currentInvoice && currentInvoice.items,
+    discount: hasOwn("discount") ? body.discount : currentInvoice && currentInvoice.discount,
+    tax: hasOwn("tax") ? body.tax : currentInvoice && currentInvoice.tax,
+    paidAmount: hasOwn("paidAmount") ? body.paidAmount : currentInvoice && currentInvoice.paidAmount
+  });
+
+  if (!title) {
+    return { error: "Invoice title is required." };
+  }
+
+  if (!totals.items.length) {
+    return { error: "Add at least one invoice item before saving." };
+  }
+
+  if (totals.paidAmount > totals.totalAmount) {
+    return { error: "Paid amount cannot exceed the invoice total." };
+  }
+
+  const status = resolveInvoiceStatus({
+    requestedStatus: hasOwn("status") ? body.status : currentInvoice && currentInvoice.status,
+    currentStatus: currentInvoice && currentInvoice.status,
+    dueDate,
+    totalAmount: totals.totalAmount,
+    paidAmount: totals.paidAmount,
+    balance: totals.balance
+  });
+  let paidDate = null;
+
+  if (status === "paid") {
+    paidDate = normalizeInvoiceDate(
+      hasOwn("paidDate") ? body.paidDate : currentInvoice && currentInvoice.paidDate
+    ) || (currentInvoice && currentInvoice.paidDate) || new Date();
+  } else if (status === "cancelled" && currentInvoice && currentInvoice.paidDate) {
+    paidDate = currentInvoice.paidDate;
+  }
+
+  return {
+    title,
+    description,
+    items: totals.items,
+    subtotal: totals.subtotal,
+    discount: totals.discount,
+    tax: totals.tax,
+    totalAmount: totals.totalAmount,
+    paidAmount: totals.paidAmount,
+    balance: totals.balance,
+    issueDate,
+    dueDate,
+    paidDate,
+    notes,
+    adminNotes,
+    status
+  };
 }
 
 function estimateMonthlyRevenue(clients) {
@@ -865,6 +1023,277 @@ async function updateAdminReview(req, res) {
   }
 }
 
+async function getInvoices(req, res) {
+  try {
+    const query = {};
+
+    if (req.query.clientId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.clientId)) {
+        return sendError(res, 400, "Invalid client ID.");
+      }
+      query.clientId = req.query.clientId;
+    }
+
+    const issueDateRange = {};
+    const fromDate = normalizeInvoiceDate(req.query.from);
+    const toDate = normalizeInvoiceDate(req.query.to);
+
+    if (fromDate) {
+      issueDateRange.$gte = fromDate;
+    }
+
+    if (toDate) {
+      issueDateRange.$lte = toDate;
+    }
+
+    if (Object.keys(issueDateRange).length) {
+      query.issueDate = issueDateRange;
+    }
+
+    const sortBy = String(req.query.sortBy || "createdAt");
+    const sortDirection = getSortDirection(req.query.sortDirection);
+    const sortMap = {
+      createdAt: { createdAt: sortDirection },
+      dueDate: { dueDate: sortDirection, createdAt: -1 },
+      totalAmount: { totalAmount: sortDirection, createdAt: -1 },
+      invoiceNumber: { invoiceNumber: sortDirection }
+    };
+    const searchPattern = buildSearchRegex(req.query.search);
+    const requestedStatus = req.query.status && INVOICE_STATUS_OPTIONS.includes(String(req.query.status).trim().toLowerCase())
+      ? normalizeInvoiceStatus(req.query.status)
+      : "";
+
+    const invoices = await Invoice.find(query).sort(sortMap[sortBy] || sortMap.createdAt).lean();
+    const serializedInvoices = invoices
+      .map(serializeInvoice)
+      .filter((invoice) => !requestedStatus || invoice.status === requestedStatus)
+      .filter((invoice) => {
+        if (!searchPattern) {
+          return true;
+        }
+
+        return [
+          invoice.invoiceNumber,
+          invoice.clientName,
+          invoice.clientEmail,
+          invoice.businessName,
+          invoice.title
+        ].some((value) => searchPattern.test(String(value || "")));
+      });
+
+    return sendSuccess(res, 200, {
+      invoices: serializedInvoices,
+      analytics: buildInvoiceAnalytics(serializedInvoices)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load invoices right now.");
+  }
+}
+
+async function createInvoice(req, res) {
+  try {
+    const client = await findInvoiceClient(req.body.clientId);
+    if (!client) {
+      return sendError(res, 404, "Select a valid client before creating an invoice.");
+    }
+
+    const payload = buildInvoiceMutationPayload(req.body);
+    if (payload.error) {
+      return sendError(res, 400, payload.error);
+    }
+
+    const invoice = new Invoice({
+      invoiceNumber: await generateInvoiceNumber(),
+      currency: DEFAULT_INVOICE_CURRENCY,
+      ...payload
+    });
+    applyInvoiceClientSnapshot(invoice, client);
+    await invoice.save();
+
+    return sendSuccess(res, 201, {
+      message: "Invoice created successfully.",
+      invoice: serializeInvoice(invoice)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to create the invoice right now.");
+  }
+}
+
+async function getInvoiceById(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoice = await Invoice.findById(req.params.id).lean();
+    if (!invoice) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    return sendSuccess(res, 200, {
+      invoice: serializeInvoice(invoice)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load the invoice right now.");
+  }
+}
+
+async function updateInvoice(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    if (typeof req.body.clientId !== "undefined" && String(req.body.clientId) !== String(invoice.clientId)) {
+      const client = await findInvoiceClient(req.body.clientId);
+      if (!client) {
+        return sendError(res, 404, "Select a valid client before updating this invoice.");
+      }
+      applyInvoiceClientSnapshot(invoice, client);
+    }
+
+    const payload = buildInvoiceMutationPayload(req.body, invoice);
+    if (payload.error) {
+      return sendError(res, 400, payload.error);
+    }
+
+    Object.assign(invoice, payload);
+    await invoice.save();
+
+    return sendSuccess(res, 200, {
+      message: "Invoice updated successfully.",
+      invoice: serializeInvoice(invoice)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update the invoice right now.");
+  }
+}
+
+async function deleteInvoice(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    invoice.status = "cancelled";
+    if (typeof req.body.adminNotes === "string") {
+      invoice.adminNotes = normalizeInvoiceText(req.body.adminNotes, 5000);
+    }
+    await invoice.save();
+
+    return sendSuccess(res, 200, {
+      message: "Invoice cancelled successfully.",
+      invoice: serializeInvoice(invoice)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to cancel the invoice right now.");
+  }
+}
+
+async function markInvoicePaid(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    if (invoice.status === "cancelled") {
+      return sendError(res, 400, "Cancelled invoices cannot be marked as paid.");
+    }
+
+    invoice.paidAmount = roundMoney(invoice.totalAmount);
+    invoice.balance = 0;
+    invoice.status = "paid";
+    invoice.paidDate = normalizeInvoiceDate(req.body.paidDate) || new Date();
+    await invoice.save();
+
+    return sendSuccess(res, 200, {
+      message: "Invoice marked as paid.",
+      invoice: serializeInvoice(invoice)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to mark the invoice as paid right now.");
+  }
+}
+
+async function addInvoicePayment(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    if (invoice.status === "cancelled") {
+      return sendError(res, 400, "Cancelled invoices cannot receive payments.");
+    }
+
+    const paymentAmount = normalizeMoney(req.body.amount);
+    if (paymentAmount <= 0) {
+      return sendError(res, 400, "Enter a valid payment amount.");
+    }
+
+    const nextPaidAmount = roundMoney(normalizeMoney(invoice.paidAmount) + paymentAmount);
+    if (nextPaidAmount > normalizeMoney(invoice.totalAmount)) {
+      return sendError(res, 400, "Payment amount cannot exceed the remaining invoice balance.");
+    }
+
+    const totals = calculateInvoiceTotals({
+      items: invoice.items,
+      discount: invoice.discount,
+      tax: invoice.tax,
+      paidAmount: nextPaidAmount
+    });
+    const status = resolveInvoiceStatus({
+      requestedStatus: invoice.status === "draft" ? "sent" : invoice.status,
+      currentStatus: invoice.status,
+      dueDate: invoice.dueDate,
+      totalAmount: totals.totalAmount,
+      paidAmount: totals.paidAmount,
+      balance: totals.balance
+    });
+
+    invoice.paidAmount = totals.paidAmount;
+    invoice.balance = totals.balance;
+    invoice.status = status;
+    invoice.paidDate = status === "paid"
+      ? normalizeInvoiceDate(req.body.paidDate) || new Date()
+      : null;
+
+    if (typeof req.body.adminNotes === "string") {
+      invoice.adminNotes = normalizeInvoiceText(req.body.adminNotes, 5000);
+    }
+
+    await invoice.save();
+
+    return sendSuccess(res, 200, {
+      message: status === "paid"
+        ? "Payment recorded and invoice marked as paid."
+        : "Payment recorded successfully.",
+      invoice: serializeInvoice(invoice)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to record the payment right now.");
+  }
+}
+
 module.exports = {
   getStats,
   getClients,
@@ -876,5 +1305,12 @@ module.exports = {
   getAdminInquiries,
   updateAdminInquiry,
   getAdminReviews,
-  updateAdminReview
+  updateAdminReview,
+  getInvoices,
+  createInvoice,
+  getInvoiceById,
+  updateInvoice,
+  deleteInvoice,
+  markInvoicePaid,
+  addInvoicePayment
 };

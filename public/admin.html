@@ -795,7 +795,8 @@
       white-space: nowrap;
     }
 
-    .badge.pending {
+    .badge.pending,
+    .badge.sent {
       border-color: rgba(245, 158, 11, 0.28);
       background: rgba(245, 158, 11, 0.12);
       color: #fcd34d;
@@ -818,10 +819,17 @@
     .badge.contacted,
     .badge.converted,
     .badge.in_progress,
-    .badge.trial {
+    .badge.trial,
+    .badge.partial {
       border-color: rgba(34, 211, 238, 0.24);
       background: rgba(34, 211, 238, 0.12);
       color: #a5f3fc;
+    }
+
+    .badge.draft {
+      border-color: var(--line-strong);
+      background: var(--surface-muted);
+      color: var(--muted);
     }
 
     .badge.suspended,
@@ -1227,9 +1235,9 @@
         <button class="nav-button" data-section="invoices" type="button">
           <span>
             <strong>Invoices</strong>
-            <small>Coming next</small>
+            <small>Manual billing</small>
           </span>
-          <span class="nav-counter">Soon</span>
+          <span class="nav-counter" id="navCountInvoices">0</span>
         </button>
         <button class="nav-button" data-section="payments" type="button">
           <span>
@@ -1353,9 +1361,9 @@
                 <strong>Add / Manage Client</strong>
                 <span>Review live client records, packages, and feature access.</span>
               </button>
-              <button class="quick-action" type="button" data-section-target="invoices" data-notice="Invoice tools are coming in the next update." data-notice-tone="warning">
+              <button class="quick-action" type="button" data-section-target="invoices">
                 <strong>Create Invoice</strong>
-                <span>Prepare the billing workspace placeholder for invoice operations.</span>
+                <span>Open manual invoice management for drafts, sent invoices, and collections.</span>
               </button>
               <button class="quick-action" type="button" data-section-target="payments">
                 <strong>View Payments</strong>
@@ -1613,13 +1621,80 @@
       </section>
 
       <section class="section" id="section-invoices">
-        <article class="placeholder-panel">
-          <small class="kicker">Invoices</small>
-          <h3>Coming in next update</h3>
-          <p>Invoice creation, invoice history, and automated invoice delivery are not wired to backend data yet in this step. This section is reserved so the admin navigation and control-center structure are ready.</p>
-          <div class="placeholder-list">
-            <article>No data available yet for invoice records.</article>
-            <article>Invoice generation and tracking will connect here in the next update.</article>
+        <div class="kpi-grid" id="invoicesKpiGrid"></div>
+
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Invoice Overview</small>
+                <h2>Manual billing visibility</h2>
+                <p>Track invoice value, collected amounts, and outstanding balances without introducing online payment gateway changes in this step.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="invoiceCollectionsSummaryList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Status Breakdown</small>
+                <h2>Drafts, sent invoices, and follow-up</h2>
+                <p>Monitor invoice lifecycle status so overdue balances, partial collections, and unsent drafts stay visible to the owner.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="invoiceStatusSummaryList"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Invoice Management</small>
+              <h2>Create, update, and track client invoices</h2>
+              <p>Manage invoice drafts, sent invoices, partial collections, and cancelled records inside the existing AutomateX admin control center.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="createInvoiceButton" class="button button-primary" type="button">Create Invoice</button>
+              <button id="refreshInvoicesButton" class="button button-secondary" type="button">Refresh Invoices</button>
+            </div>
+          </div>
+
+          <div class="filters is-compact">
+            <input id="invoiceSearch" class="input" type="text" placeholder="Search invoice number, client, business">
+            <select id="invoiceStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="partial">Partial</option>
+              <option value="paid">Paid</option>
+              <option value="overdue">Overdue</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <input id="invoiceMonthFilter" class="input" type="month">
+            <button class="button button-secondary" type="button" data-clear-invoice-filters="true">Clear Filters</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Invoice Number</th>
+                    <th>Client / Business</th>
+                    <th>Title</th>
+                    <th>Total Amount</th>
+                    <th>Paid Amount</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="invoicesTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="invoicesEmptyState">Loading invoices…</div>
           </div>
         </article>
       </section>
@@ -2011,6 +2086,7 @@
     };
     const CLIENT_ACCOUNT_STATUS_OPTIONS = ["pending", "active", "suspended", "rejected"];
     const CLIENT_PAYMENT_STATUS_OPTIONS = ["pending", "paid", "overdue", "trial"];
+    const INVOICE_STATUS_OPTIONS = ["draft", "sent", "partial", "paid", "overdue", "cancelled"];
     const SECTION_META = {
       dashboard: {
         title: "Dashboard",
@@ -2030,7 +2106,7 @@
       },
       invoices: {
         title: "Invoices",
-        subtitle: "Invoice controls are reserved here and will connect in the next backend update."
+        subtitle: "Create manual invoices, track balances, and follow payment progress without changing the current payment-gateway setup."
       },
       payments: {
         title: "Payments",
@@ -2066,6 +2142,7 @@
       admin: null,
       stats: null,
       allClients: [],
+      allInvoices: [],
       allBookings: [],
       allInquiries: [],
       allReviews: [],
@@ -2121,6 +2198,15 @@
       }).format(toNumber(value));
     }
 
+    function formatInvoiceCurrency(value, currency = "LKR") {
+      return new Intl.NumberFormat("en-LK", {
+        style: "currency",
+        currency: currency || "LKR",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(toNumber(value));
+    }
+
     function formatDate(value) {
       if (!value) {
         return "—";
@@ -2155,6 +2241,19 @@
         month: "short",
         day: "numeric"
       });
+    }
+
+    function toDateInputValue(value) {
+      if (!value) {
+        return "";
+      }
+
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return "";
+      }
+
+      return parsed.toISOString().slice(0, 10);
     }
 
     function formatPlanLabel(plan) {
@@ -2309,6 +2408,90 @@
         active: 0,
         suspended: 0,
         rejected: 0
+      });
+    }
+
+    function getInvoiceClients() {
+      return [...state.allClients]
+        .filter((client) => client.accountStatus !== "rejected")
+        .sort((left, right) => compareStrings(left.businessName || left.name, right.businessName || right.name));
+    }
+
+    function getInvoiceFilters() {
+      return {
+        search: String(document.getElementById("invoiceSearch").value || "").trim().toLowerCase(),
+        status: document.getElementById("invoiceStatusFilter").value,
+        month: String(document.getElementById("invoiceMonthFilter").value || "").trim()
+      };
+    }
+
+    function getFilteredInvoices() {
+      const { search, status, month } = getInvoiceFilters();
+      const invoices = state.allInvoices.filter((invoice) => {
+        if (status && invoice.status !== status) {
+          return false;
+        }
+
+        if (month) {
+          const issueMonth = invoice.issueDate ? new Date(invoice.issueDate).toISOString().slice(0, 7) : "";
+          const dueMonth = invoice.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 7) : "";
+
+          if (issueMonth !== month && dueMonth !== month) {
+            return false;
+          }
+        }
+
+        return matchesSearch(
+          [invoice.invoiceNumber, invoice.clientName, invoice.clientEmail, invoice.businessName, invoice.title],
+          search
+        );
+      });
+
+      invoices.sort((left, right) => {
+        const dueDateDelta = parseDateNumber(right.dueDate) - parseDateNumber(left.dueDate);
+        if (dueDateDelta !== 0) {
+          return dueDateDelta;
+        }
+
+        return parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt);
+      });
+
+      return invoices;
+    }
+
+    function getInvoiceAnalytics(items = state.allInvoices) {
+      return items.reduce((totals, invoice) => {
+        totals.totalInvoices += 1;
+        totals.totalValue += toNumber(invoice.totalAmount);
+        totals.totalPaid += toNumber(invoice.paidAmount);
+        totals.totalBalance += toNumber(invoice.balance);
+
+        if (invoice.status === "paid") {
+          totals.paidInvoices += 1;
+        } else if (invoice.status === "overdue") {
+          totals.overdueInvoices += 1;
+        } else if (invoice.status !== "cancelled") {
+          totals.pendingInvoices += 1;
+        }
+
+        totals.statusCounts[invoice.status] = (totals.statusCounts[invoice.status] || 0) + 1;
+        return totals;
+      }, {
+        totalInvoices: 0,
+        paidInvoices: 0,
+        pendingInvoices: 0,
+        overdueInvoices: 0,
+        totalValue: 0,
+        totalPaid: 0,
+        totalBalance: 0,
+        statusCounts: {
+          draft: 0,
+          sent: 0,
+          partial: 0,
+          paid: 0,
+          overdue: 0,
+          cancelled: 0
+        }
       });
     }
 
@@ -3044,6 +3227,133 @@
       `);
     }
 
+    function renderInvoicesSection() {
+      const analytics = getInvoiceAnalytics();
+      const invoices = getFilteredInvoices();
+
+      document.getElementById("invoicesKpiGrid").innerHTML = [
+        {
+          label: "Total Invoices",
+          value: String(analytics.totalInvoices),
+          copy: "Every manual invoice currently stored inside AutomateX."
+        },
+        {
+          label: "Paid Invoices",
+          value: String(analytics.paidInvoices),
+          copy: "Invoices whose balances are fully cleared."
+        },
+        {
+          label: "Pending Invoices",
+          value: String(analytics.pendingInvoices),
+          copy: "Draft, sent, or partial invoices still waiting for full collection."
+        },
+        {
+          label: "Overdue Invoices",
+          value: String(analytics.overdueInvoices),
+          copy: "Invoices with unpaid balances whose due dates have already passed."
+        },
+        {
+          label: "Total Invoice Value",
+          value: formatInvoiceCurrency(analytics.totalValue),
+          copy: "Combined face value of all invoice records."
+        },
+        {
+          label: "Total Paid",
+          value: formatInvoiceCurrency(analytics.totalPaid),
+          copy: "Collected value recorded across manual invoice payments."
+        },
+        {
+          label: "Total Balance",
+          value: formatInvoiceCurrency(analytics.totalBalance),
+          copy: "Outstanding balance that still remains to be collected."
+        }
+      ].map((card) => `
+        <article class="kpi-card">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong>${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
+        </article>
+      `).join("");
+
+      renderMetricList("invoiceCollectionsSummaryList", [
+        {
+          label: "Outstanding balance",
+          value: formatInvoiceCurrency(analytics.totalBalance),
+          hint: "The remaining value not yet collected from all invoice records."
+        },
+        {
+          label: "Collected value",
+          value: formatInvoiceCurrency(analytics.totalPaid),
+          hint: "Manual invoice payments recorded so far."
+        },
+        {
+          label: "Invoices awaiting collection",
+          value: String(analytics.pendingInvoices + analytics.overdueInvoices),
+          hint: "Invoices still open and not fully paid."
+        }
+      ]);
+
+      renderMetricList("invoiceStatusSummaryList", [
+        {
+          label: "Draft invoices",
+          value: String(analytics.statusCounts.draft || 0),
+          hint: "Created but not yet sent to the client."
+        },
+        {
+          label: "Sent invoices",
+          value: String(analytics.statusCounts.sent || 0),
+          hint: "Waiting for payment with no partial payment recorded yet."
+        },
+        {
+          label: "Partial payments",
+          value: String(analytics.statusCounts.partial || 0),
+          hint: "Invoices that have received some payment but still have balance left."
+        },
+        {
+          label: "Cancelled invoices",
+          value: String(analytics.statusCounts.cancelled || 0),
+          hint: "Invoices that were cancelled instead of collected."
+        }
+      ]);
+
+      setTableState("invoicesTableBody", "invoicesEmptyState", invoices, (invoice) => `
+        <tr class="${invoice.status === "overdue" ? "pending-row" : ""}">
+          <td>
+            <div class="cell-title">${escapeHtml(invoice.invoiceNumber)}</div>
+            <div class="cell-subtitle">Issued ${escapeHtml(formatShortDate(invoice.issueDate))}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(invoice.businessName || invoice.clientName || "Client")}</div>
+            <div class="cell-subtitle">${escapeHtml(invoice.clientName || "—")} • ${escapeHtml(invoice.clientEmail || "—")}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(invoice.title || "Invoice")}</div>
+            <div class="cell-subtitle">${escapeHtml(invoice.description || "No description added")}</div>
+          </td>
+          <td>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</td>
+          <td>${escapeHtml(formatInvoiceCurrency(invoice.paidAmount, invoice.currency))}</td>
+          <td>${escapeHtml(formatInvoiceCurrency(invoice.balance, invoice.currency))}</td>
+          <td><span class="${badgeClass(invoice.status)}">${escapeHtml(formatStatusLabel(invoice.status))}</span></td>
+          <td>${escapeHtml(formatShortDate(invoice.dueDate))}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="view">View</button>
+              <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="edit">Edit</button>
+              ${invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
+                ? `<button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="add-payment">Add Payment</button>`
+                : ""}
+              ${invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
+                ? `<button class="mini-button is-warning" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="mark-paid">Mark Paid</button>`
+                : ""}
+              ${invoice.status !== "cancelled"
+                ? `<button class="mini-button is-danger" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="cancel">Cancel</button>`
+                : ""}
+            </div>
+          </td>
+        </tr>
+      `, "No invoices match the current search or status filters.");
+    }
+
     function renderPaymentsSection() {
       const stats = state.stats || {};
       const payment = getPaymentAnalytics();
@@ -3311,9 +3621,11 @@
 
     function renderNavCounters() {
       const packageAnalytics = getPackageAnalytics();
+      const invoiceAnalytics = getInvoiceAnalytics();
       document.getElementById("navCountClients").textContent = String(state.allClients.length);
       document.getElementById("navCountPending").textContent = String(getPendingApprovals().length);
       document.getElementById("navCountPackages").textContent = String(packageAnalytics.reduce((sum, entry) => sum + entry.active, 0));
+      document.getElementById("navCountInvoices").textContent = String(invoiceAnalytics.pendingInvoices + invoiceAnalytics.overdueInvoices);
       document.getElementById("navCountPayments").textContent = String(getPaymentAnalytics().overdueAccounts);
       document.getElementById("navCountBookings").textContent = String(state.allBookings.length);
       document.getElementById("navCountInquiries").textContent = String(state.allInquiries.length);
@@ -3330,6 +3642,7 @@
       renderClientsSection();
       renderPendingApprovalsSection();
       renderPackagesSection();
+      renderInvoicesSection();
       renderPaymentsSection();
       renderBookingsSection();
       renderInquiriesSection();
@@ -3365,6 +3678,11 @@
       state.allClients = payload.clients || [];
     }
 
+    async function loadInvoices() {
+      const payload = await apiFetch("/api/admin/invoices");
+      state.allInvoices = payload.invoices || [];
+    }
+
     async function loadBookings() {
       const payload = await apiFetch("/api/admin/bookings");
       state.allBookings = payload.bookings || [];
@@ -3381,7 +3699,7 @@
     }
 
     async function refreshAllData() {
-      await Promise.all([loadStats(), loadClients(), loadBookings(), loadInquiries(), loadReviews()]);
+      await Promise.all([loadStats(), loadClients(), loadInvoices(), loadBookings(), loadInquiries(), loadReviews()]);
       renderAll();
     }
 
@@ -3762,7 +4080,556 @@
       `;
     }
 
+    function invoiceClientOptionsMarkup(selectedClientId = "") {
+      const clients = getInvoiceClients();
+
+      if (!clients.length) {
+        return `<option value="">No clients available</option>`;
+      }
+
+      return clients.map((client) => `
+        <option value="${escapeHtml(client.id)}" ${selectedClientId === client.id ? "selected" : ""}>
+          ${escapeHtml(client.businessName || client.name)} • ${escapeHtml(client.name)}
+        </option>
+      `).join("");
+    }
+
+    function invoiceItemEditorMarkup(item = {}) {
+      const quantity = toNumber(item.quantity) || 1;
+      const unitPrice = toNumber(item.unitPrice);
+      const total = toNumber(item.total || quantity * unitPrice);
+
+      return `
+        <article class="preview-item" data-invoice-item-row>
+          <div class="drawer-grid">
+            <div class="field" style="grid-column: span 2;">
+              <label>Item name</label>
+              <input class="input" name="itemName" value="${escapeHtml(item.name || "")}" placeholder="Monthly service, campaign setup, support retainers">
+            </div>
+            <div class="field">
+              <label>Quantity</label>
+              <input class="input" name="itemQuantity" type="number" min="0" step="0.01" value="${escapeHtml(quantity)}">
+            </div>
+            <div class="field">
+              <label>Unit price</label>
+              <input class="input" name="itemUnitPrice" type="number" min="0" step="0.01" value="${escapeHtml(unitPrice)}">
+            </div>
+          </div>
+          <div class="preview-actions" style="margin-top: 16px;">
+            <span class="data-chip"><strong data-invoice-item-total>${escapeHtml(formatInvoiceCurrency(total))}</strong>Item Total</span>
+            <button class="mini-button is-danger" type="button" data-remove-invoice-item="true">Remove</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function invoiceReadonlySection(invoice) {
+      const lineItemsMarkup = Array.isArray(invoice.items) && invoice.items.length
+        ? `<div class="preview-list" style="margin-top: 14px;">${invoice.items.map((item) => `
+            <article class="preview-item">
+              <div class="preview-top">
+                <div>
+                  <strong>${escapeHtml(item.name)}</strong>
+                  <p>${escapeHtml(item.quantity)} × ${escapeHtml(formatInvoiceCurrency(item.unitPrice, invoice.currency))}</p>
+                </div>
+                <span class="data-chip"><strong>${escapeHtml(formatInvoiceCurrency(item.total, invoice.currency))}</strong>Total</span>
+              </div>
+            </article>
+          `).join("")}</div>`
+        : `<div class="empty-state">No invoice items were saved for this record.</div>`;
+
+      return `
+        <div class="chip-row">
+          <span class="data-chip"><strong>${escapeHtml(invoice.invoiceNumber)}</strong>Invoice Number</span>
+          <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(invoice.status))}</strong>Status</span>
+          <span class="data-chip"><strong>${escapeHtml(formatShortDate(invoice.issueDate))}</strong>Issue Date</span>
+          <span class="data-chip"><strong>${escapeHtml(formatShortDate(invoice.dueDate))}</strong>Due Date</span>
+        </div>
+
+        <div class="settings-grid" style="margin-top: 18px;">
+          <div class="settings-item">
+            <span>Client</span>
+            <strong>${escapeHtml(invoice.clientName || "—")}</strong>
+          </div>
+          <div class="settings-item">
+            <span>Business</span>
+            <strong>${escapeHtml(invoice.businessName || "—")}</strong>
+          </div>
+          <div class="settings-item">
+            <span>Total Amount</span>
+            <strong>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</strong>
+          </div>
+          <div class="settings-item">
+            <span>Balance</span>
+            <strong>${escapeHtml(formatInvoiceCurrency(invoice.balance, invoice.currency))}</strong>
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <small class="kicker">Invoice Details</small>
+          <div class="metric-list" style="margin-top: 14px;">
+            <div class="metric-row">
+              <div>
+                <div class="cell-title">${escapeHtml(invoice.title || "Invoice")}</div>
+                <small>${escapeHtml(invoice.description || "No description added.")}</small>
+              </div>
+              <strong>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</strong>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="cell-title">Collected Amount</div>
+                <small>Paid amount recorded manually by the admin team.</small>
+              </div>
+              <strong>${escapeHtml(formatInvoiceCurrency(invoice.paidAmount, invoice.currency))}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <small class="kicker">Line Items</small>
+          ${lineItemsMarkup}
+        </div>
+
+        <div class="drawer-section">
+          <small class="kicker">Notes</small>
+          <div class="metric-list" style="margin-top: 14px;">
+            <div class="metric-row">
+              <div>
+                <div class="cell-title">Client Notes</div>
+                <small>${escapeHtml(invoice.notes || "No invoice notes added.")}</small>
+              </div>
+              <strong>${escapeHtml(invoice.clientEmail || "—")}</strong>
+            </div>
+            <div class="metric-row">
+              <div>
+                <div class="cell-title">Admin Notes</div>
+                <small>${escapeHtml(invoice.adminNotes || "No internal notes added.")}</small>
+              </div>
+              <strong>${escapeHtml(invoice.paidDate ? formatShortDate(invoice.paidDate) : "Not paid")}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-actions">
+          <button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="edit">Edit Invoice</button>
+          ${invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
+            ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="add-payment">Add Payment</button>`
+            : ""}
+          ${invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
+            ? `<button class="button button-primary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="mark-paid">Mark Paid</button>`
+            : ""}
+        </div>
+      `;
+    }
+
+    function invoiceFormSection(invoice = null, options = {}) {
+      const mode = options.mode || (invoice ? "edit" : "create");
+      const statusOptions = mode === "create" ? ["draft", "sent"] : INVOICE_STATUS_OPTIONS;
+      const currentInvoice = invoice || {
+        id: "",
+        clientId: getInvoiceClients()[0] ? getInvoiceClients()[0].id : "",
+        title: "",
+        description: "",
+        items: [{ name: "", quantity: 1, unitPrice: 0, total: 0 }],
+        subtotal: 0,
+        discount: 0,
+        tax: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        balance: 0,
+        currency: "LKR",
+        status: "draft",
+        issueDate: new Date().toISOString(),
+        dueDate: null,
+        notes: "",
+        adminNotes: ""
+      };
+      const itemRows = Array.isArray(currentInvoice.items) && currentInvoice.items.length
+        ? currentInvoice.items
+        : [{ name: "", quantity: 1, unitPrice: 0, total: 0 }];
+
+      return `
+        <form id="invoiceDrawerForm" data-mode="${escapeHtml(mode)}" data-currency="${escapeHtml(currentInvoice.currency || "LKR")}" data-paid-amount="${escapeHtml(currentInvoice.paidAmount || 0)}">
+          <input type="hidden" name="invoiceId" value="${escapeHtml(currentInvoice.id || "")}">
+
+          <div class="drawer-grid">
+            <div class="field">
+              <label>Client</label>
+              <select class="select" name="clientId">
+                ${invoiceClientOptionsMarkup(currentInvoice.clientId || "")}
+              </select>
+            </div>
+            <div class="field">
+              <label>Status</label>
+              <select class="select" name="status">
+                ${statusOptions.map((status) => `
+                  <option value="${status}" ${currentInvoice.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="field" style="grid-column: span 2;">
+              <label>Invoice title</label>
+              <input class="input" name="title" value="${escapeHtml(currentInvoice.title || "")}" placeholder="Monthly service retainer">
+            </div>
+            <div class="field" style="grid-column: span 2;">
+              <label>Description</label>
+              <textarea class="textarea" name="description">${escapeHtml(currentInvoice.description || "")}</textarea>
+            </div>
+            <div class="field">
+              <label>Issue date</label>
+              <input class="input" name="issueDate" type="date" value="${escapeHtml(toDateInputValue(currentInvoice.issueDate))}">
+            </div>
+            <div class="field">
+              <label>Due date</label>
+              <input class="input" name="dueDate" type="date" value="${escapeHtml(toDateInputValue(currentInvoice.dueDate))}">
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="panel-header" style="margin-bottom: 14px;">
+              <div>
+                <small class="kicker">Invoice Items</small>
+                <h3>Line items and pricing</h3>
+              </div>
+              <div class="panel-actions">
+                <button class="button button-secondary" type="button" data-add-invoice-item="true">Add Item</button>
+              </div>
+            </div>
+            <div id="invoiceItemsList" class="preview-list">
+              ${itemRows.map(invoiceItemEditorMarkup).join("")}
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-grid">
+              <div class="field">
+                <label>Discount</label>
+                <input class="input" name="discount" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.discount || 0)}">
+              </div>
+              <div class="field">
+                <label>Tax</label>
+                <input class="input" name="tax" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.tax || 0)}">
+              </div>
+            </div>
+            <div class="settings-grid" style="margin-top: 16px;">
+              <div class="settings-item">
+                <span>Subtotal</span>
+                <strong id="invoiceSubtotalValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.subtotal || 0, currentInvoice.currency))}</strong>
+              </div>
+              <div class="settings-item">
+                <span>Total</span>
+                <strong id="invoiceTotalValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.totalAmount || 0, currentInvoice.currency))}</strong>
+              </div>
+              <div class="settings-item">
+                <span>Paid Amount</span>
+                <strong id="invoicePaidValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.paidAmount || 0, currentInvoice.currency))}</strong>
+              </div>
+              <div class="settings-item">
+                <span>Balance</span>
+                <strong id="invoiceBalanceValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.balance || 0, currentInvoice.currency))}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="field">
+              <label>Client notes</label>
+              <textarea class="textarea" name="notes">${escapeHtml(currentInvoice.notes || "")}</textarea>
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Admin notes</label>
+              <textarea class="textarea" name="adminNotes">${escapeHtml(currentInvoice.adminNotes || "")}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            ${mode === "create"
+              ? `
+                  <button class="button button-secondary" type="submit" data-submit-invoice-status="draft">Save Draft</button>
+                  <button class="button button-primary" type="submit" data-submit-invoice-status="sent">Save & Send</button>
+                `
+              : `
+                  ${currentInvoice.status !== "cancelled" && toNumber(currentInvoice.balance) > 0
+                    ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(currentInvoice.id)}" data-invoice-action="add-payment">Add Payment</button>`
+                    : ""}
+                  ${currentInvoice.status !== "cancelled" && toNumber(currentInvoice.balance) > 0
+                    ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(currentInvoice.id)}" data-invoice-action="mark-paid">Mark Paid</button>`
+                    : ""}
+                  ${currentInvoice.status !== "cancelled"
+                    ? `<button class="button button-danger" type="button" data-invoice-id="${escapeHtml(currentInvoice.id)}" data-invoice-action="cancel">Cancel Invoice</button>`
+                    : ""}
+                  <button class="button button-primary" type="submit">Save Invoice</button>
+                `}
+          </div>
+        </form>
+      `;
+    }
+
+    function invoicePaymentSection(invoice) {
+      return `
+        <form id="invoicePaymentForm" data-currency="${escapeHtml(invoice.currency || "LKR")}">
+          <input type="hidden" name="invoiceId" value="${escapeHtml(invoice.id)}">
+
+          <div class="chip-row">
+            <span class="data-chip"><strong>${escapeHtml(invoice.invoiceNumber)}</strong>Invoice Number</span>
+            <span class="data-chip"><strong>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</strong>Total</span>
+            <span class="data-chip"><strong>${escapeHtml(formatInvoiceCurrency(invoice.balance, invoice.currency))}</strong>Balance</span>
+          </div>
+
+          <div class="drawer-grid" style="margin-top: 18px;">
+            <div class="field">
+              <label>Payment amount</label>
+              <input class="input" name="amount" type="number" min="0" max="${escapeHtml(invoice.balance)}" step="0.01" value="${escapeHtml(invoice.balance)}">
+            </div>
+            <div class="field">
+              <label>Paid date</label>
+              <input class="input" name="paidDate" type="date" value="${escapeHtml(toDateInputValue(new Date()))}">
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: 16px;">
+            <label>Admin notes</label>
+            <textarea class="textarea" name="adminNotes">${escapeHtml(invoice.adminNotes || "")}</textarea>
+          </div>
+
+          <div class="drawer-actions">
+            <button class="button button-primary" type="submit">Record Payment</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function collectInvoiceItems(invoiceForm) {
+      return Array.from(invoiceForm.querySelectorAll("[data-invoice-item-row]")).map((row) => ({
+        name: row.querySelector('[name="itemName"]').value.trim(),
+        quantity: toNumber(row.querySelector('[name="itemQuantity"]').value),
+        unitPrice: toNumber(row.querySelector('[name="itemUnitPrice"]').value),
+        total: toNumber(row.querySelector('[data-invoice-item-total]').textContent.replace(/[^0-9.-]/g, ""))
+      }));
+    }
+
+    function syncInvoiceComposerForm() {
+      const invoiceForm = document.getElementById("invoiceDrawerForm");
+      if (!invoiceForm) {
+        return;
+      }
+
+      const currency = invoiceForm.dataset.currency || "LKR";
+      const paidAmount = toNumber(invoiceForm.dataset.paidAmount);
+      let subtotal = 0;
+
+      Array.from(invoiceForm.querySelectorAll("[data-invoice-item-row]")).forEach((row) => {
+        const quantity = toNumber(row.querySelector('[name="itemQuantity"]').value);
+        const unitPrice = toNumber(row.querySelector('[name="itemUnitPrice"]').value);
+        const name = row.querySelector('[name="itemName"]').value.trim();
+        const total = Math.max(0, quantity * unitPrice);
+
+        row.querySelector("[data-invoice-item-total]").textContent = formatInvoiceCurrency(total, currency);
+        if (name && quantity > 0) {
+          subtotal += total;
+        }
+      });
+
+      const discountField = invoiceForm.querySelector('[name="discount"]');
+      const taxField = invoiceForm.querySelector('[name="tax"]');
+      const discount = Math.min(subtotal, Math.max(0, toNumber(discountField.value)));
+      const tax = Math.max(0, toNumber(taxField.value));
+      const totalAmount = Math.max(0, subtotal - discount + tax);
+      const balance = Math.max(0, totalAmount - paidAmount);
+
+      document.getElementById("invoiceSubtotalValue").textContent = formatInvoiceCurrency(subtotal, currency);
+      document.getElementById("invoiceTotalValue").textContent = formatInvoiceCurrency(totalAmount, currency);
+      document.getElementById("invoicePaidValue").textContent = formatInvoiceCurrency(paidAmount, currency);
+      document.getElementById("invoiceBalanceValue").textContent = formatInvoiceCurrency(balance, currency);
+    }
+
+    function openCreateInvoiceDrawer() {
+      if (!getInvoiceClients().length) {
+        showBanner("Create at least one client account before issuing invoices.", "warning");
+        return;
+      }
+
+      openDrawer({
+        eyebrow: "New Invoice",
+        title: "Create Invoice",
+        subtitle: "Select a client, add line items, and save the invoice as a draft or sent record.",
+        body: invoiceFormSection(null, { mode: "create" })
+      });
+    }
+
+    async function openInvoiceDrawer(invoiceId, mode = "view") {
+      const payload = await apiFetch(`/api/admin/invoices/${invoiceId}`);
+      const invoice = payload.invoice;
+
+      openDrawer({
+        eyebrow: mode === "view" ? "Invoice Record" : "Edit Invoice",
+        title: invoice.invoiceNumber,
+        subtitle: mode === "view"
+          ? "Review invoice totals, notes, and current collection status."
+          : "Update line items, due dates, notes, and invoice status safely.",
+        body: mode === "view"
+          ? invoiceReadonlySection(invoice)
+          : invoiceFormSection(invoice, { mode: "edit" })
+      });
+    }
+
+    async function openInvoicePaymentDrawer(invoiceId) {
+      const payload = await apiFetch(`/api/admin/invoices/${invoiceId}`);
+      const invoice = payload.invoice;
+
+      openDrawer({
+        eyebrow: "Record Payment",
+        title: invoice.invoiceNumber,
+        subtitle: "Add a manual payment to this invoice and update the outstanding balance.",
+        body: invoicePaymentSection(invoice)
+      });
+    }
+
+    async function handleInvoiceAction(invoiceId, action) {
+      if (action === "view") {
+        await openInvoiceDrawer(invoiceId, "view");
+        return;
+      }
+
+      if (action === "edit") {
+        await openInvoiceDrawer(invoiceId, "edit");
+        return;
+      }
+
+      if (action === "add-payment") {
+        await openInvoicePaymentDrawer(invoiceId);
+        return;
+      }
+
+      if (action === "mark-paid") {
+        if (!window.confirm("Mark this invoice as fully paid?")) {
+          return;
+        }
+
+        await apiFetch(`/api/admin/invoices/${invoiceId}/mark-paid`, {
+          method: "PATCH",
+          body: JSON.stringify({})
+        });
+        await refreshAllData();
+        closeDrawer();
+        showToast("Invoice paid", "The invoice was marked as paid and its balance was cleared.");
+        return;
+      }
+
+      if (action === "cancel") {
+        if (!window.confirm("Cancel this invoice? The record will remain in history with cancelled status.")) {
+          return;
+        }
+
+        await apiFetch(`/api/admin/invoices/${invoiceId}`, {
+          method: "DELETE",
+          body: JSON.stringify({})
+        });
+        await refreshAllData();
+        closeDrawer();
+        showToast("Invoice cancelled", "The invoice remains stored, but it is now marked as cancelled.");
+      }
+    }
+
     function attachDrawerHandlers() {
+      const invoiceForm = document.getElementById("invoiceDrawerForm");
+      if (invoiceForm) {
+        syncInvoiceComposerForm();
+
+        invoiceForm.addEventListener("input", (event) => {
+          if (["itemName", "itemQuantity", "itemUnitPrice", "discount", "tax"].includes(event.target.name)) {
+            syncInvoiceComposerForm();
+          }
+        });
+
+        invoiceForm.addEventListener("click", (event) => {
+          const addButton = event.target.closest("[data-add-invoice-item]");
+          if (addButton) {
+            document.getElementById("invoiceItemsList").insertAdjacentHTML("beforeend", invoiceItemEditorMarkup({ name: "", quantity: 1, unitPrice: 0, total: 0 }));
+            syncInvoiceComposerForm();
+            return;
+          }
+
+          const removeButton = event.target.closest("[data-remove-invoice-item]");
+          if (removeButton) {
+            const rows = invoiceForm.querySelectorAll("[data-invoice-item-row]");
+            if (rows.length === 1) {
+              rows[0].remove();
+              document.getElementById("invoiceItemsList").insertAdjacentHTML("beforeend", invoiceItemEditorMarkup({ name: "", quantity: 1, unitPrice: 0, total: 0 }));
+            } else {
+              removeButton.closest("[data-invoice-item-row]").remove();
+            }
+            syncInvoiceComposerForm();
+          }
+        });
+
+        invoiceForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(invoiceForm);
+          const submitter = event.submitter;
+          const mode = invoiceForm.dataset.mode || "create";
+          const invoiceId = formData.get("invoiceId");
+          const payload = {
+            clientId: formData.get("clientId"),
+            title: formData.get("title"),
+            description: formData.get("description"),
+            items: collectInvoiceItems(invoiceForm),
+            discount: formData.get("discount"),
+            tax: formData.get("tax"),
+            issueDate: formData.get("issueDate"),
+            dueDate: formData.get("dueDate") || null,
+            status: submitter && submitter.dataset.submitInvoiceStatus
+              ? submitter.dataset.submitInvoiceStatus
+              : formData.get("status"),
+            notes: formData.get("notes"),
+            adminNotes: formData.get("adminNotes")
+          };
+
+          try {
+            await apiFetch(mode === "create" ? "/api/admin/invoices" : `/api/admin/invoices/${invoiceId}`, {
+              method: mode === "create" ? "POST" : "PATCH",
+              body: JSON.stringify(payload)
+            });
+
+            await refreshAllData();
+            closeDrawer();
+            showToast(
+              mode === "create" ? "Invoice created" : "Invoice saved",
+              mode === "create"
+                ? "The invoice has been saved and added to the billing workspace."
+                : "Invoice totals, line items, and notes were updated successfully."
+            );
+          } catch (error) {
+            showBanner(error.message || "Unable to save the invoice.", "error");
+          }
+        });
+      }
+
+      const invoicePaymentForm = document.getElementById("invoicePaymentForm");
+      if (invoicePaymentForm) {
+        invoicePaymentForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(invoicePaymentForm);
+
+          try {
+            await apiFetch(`/api/admin/invoices/${formData.get("invoiceId")}/add-payment`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                amount: formData.get("amount"),
+                paidDate: formData.get("paidDate"),
+                adminNotes: formData.get("adminNotes")
+              })
+            });
+
+            await refreshAllData();
+            closeDrawer();
+            showToast("Payment recorded", "The invoice payment was recorded and the balance was recalculated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to record the payment.", "error");
+          }
+        });
+      }
+
       const clientForm = document.getElementById("clientDrawerForm");
       if (clientForm) {
         const planField = clientForm.querySelector('[name="plan"]');
@@ -4135,6 +5002,13 @@
           return;
         }
 
+        const invoiceButton = event.target.closest("[data-invoice-id]");
+        if (invoiceButton) {
+          handleInvoiceAction(invoiceButton.dataset.invoiceId, invoiceButton.dataset.invoiceAction || "view")
+            .catch((error) => showBanner(error.message || "Unable to open the invoice record.", "error"));
+          return;
+        }
+
         const clientButton = event.target.closest("[data-client-id]");
         if (clientButton) {
           const action = clientButton.dataset.clientAction || "manage";
@@ -4162,11 +5036,15 @@
         }
       });
 
+      document.getElementById("createInvoiceButton").addEventListener("click", openCreateInvoiceDrawer);
       document.getElementById("refreshClientsButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh clients.", "error"));
       });
       document.getElementById("refreshPendingApprovalsButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh pending approvals.", "error"));
+      });
+      document.getElementById("refreshInvoicesButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh invoices.", "error"));
       });
       document.getElementById("refreshPaymentsButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh payments.", "error"));
@@ -4185,6 +5063,19 @@
         const field = document.getElementById(id);
         field.addEventListener("input", renderClientsSection);
         field.addEventListener("change", renderClientsSection);
+      });
+
+      ["invoiceSearch", "invoiceStatusFilter", "invoiceMonthFilter"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderInvoicesSection);
+        field.addEventListener("change", renderInvoicesSection);
+      });
+
+      document.querySelector("[data-clear-invoice-filters='true']").addEventListener("click", () => {
+        document.getElementById("invoiceSearch").value = "";
+        document.getElementById("invoiceStatusFilter").value = "";
+        document.getElementById("invoiceMonthFilter").value = "";
+        renderInvoicesSection();
       });
 
       ["bookingSearch", "bookingStatusFilter", "bookingDateFilter", "bookingSortBy"].forEach((id) => {

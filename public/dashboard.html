@@ -151,6 +151,7 @@
           <button data-tab="bookings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Bookings</button>
           <button data-tab="inquiries" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Inquiries</button>
           <button data-tab="reviews" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Reviews</button>
+          <button data-tab="invoices" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Invoices</button>
           <button data-tab="settings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Settings</button>
           <button id="upgradePlanButton" data-tab="upgrade" class="dashboard-tab rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm font-semibold text-amber-200">Upgrade Plan</button>
         </div>
@@ -385,6 +386,53 @@
           </section>
         </div>
 
+        <div id="tab-invoices" class="dashboard-panel hidden">
+          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div>
+              <h3 class="text-lg font-semibold">Invoices</h3>
+              <p class="mt-1 text-sm text-slate-400">View invoice totals, balances, due dates, and manual payment status updates from AutomateX.</p>
+            </div>
+
+            <div class="mt-6 grid gap-4 md:grid-cols-3">
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Total Invoices</p>
+                <p id="invoiceCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              </article>
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Outstanding Balance</p>
+                <p id="invoiceBalanceValue" class="mt-3 text-2xl font-semibold">LKR 0</p>
+              </article>
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Overdue Invoices</p>
+                <p id="invoiceOverdueValue" class="mt-3 text-2xl font-semibold">0</p>
+              </article>
+            </div>
+
+            <div id="invoicesEmptyState" class="dashboard-soft-surface mt-6 hidden rounded-3xl border p-6 text-sm">
+              No invoices are available for your account yet.
+            </div>
+
+            <div id="invoicesTableWrap" class="mt-6 overflow-hidden rounded-3xl border border-slate-800">
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-800">
+                  <thead class="bg-slate-950/70">
+                    <tr class="text-left text-xs uppercase tracking-[0.2em] text-slate-400">
+                      <th class="px-4 py-3">Invoice</th>
+                      <th class="px-4 py-3">Title</th>
+                      <th class="px-4 py-3">Total</th>
+                      <th class="px-4 py-3">Paid</th>
+                      <th class="px-4 py-3">Balance</th>
+                      <th class="px-4 py-3">Status</th>
+                      <th class="px-4 py-3">Due Date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="invoicesTableBody" class="divide-y divide-slate-800 bg-slate-900"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+
         <div id="tab-settings" class="dashboard-panel hidden">
           <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
             <section class="dashboard-panel-surface rounded-3xl border p-5">
@@ -499,7 +547,8 @@
       user: null,
       bookings: [],
       inquiries: [],
-      reviews: []
+      reviews: [],
+      invoices: []
     };
 
     function getToken() {
@@ -582,6 +631,16 @@
       return new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(number);
+    }
+
+    function formatInvoiceMoney(value, currency = "LKR") {
+      const number = Number(value || 0);
+      return new Intl.NumberFormat("en-LK", {
+        style: "currency",
+        currency: currency || "LKR",
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       }).format(number);
@@ -784,6 +843,7 @@
         bookings: ["Bookings", "Manage customer reservations and availability."],
         inquiries: ["Inquiries", "Review and respond to incoming leads quickly."],
         reviews: ["Reviews", "See which reviews are published, pending, or hidden."],
+        invoices: ["Invoices", "Review your invoice balances, due dates, and payment status."],
         settings: ["Settings", "Update your business profile, credentials, and chatbot preferences."],
         upgrade: ["Upgrade Plan", "Unlock more automation and premium features."]
       };
@@ -813,16 +873,20 @@
     }
 
     function statusBadge(status) {
-      if (status === "confirmed" || status === "published") {
+      if (status === "confirmed" || status === "published" || status === "paid") {
         return "inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold capitalize text-emerald-300";
       }
 
-      if (status === "cancelled") {
+      if (status === "cancelled" || status === "overdue") {
         return "inline-flex rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold capitalize text-rose-300";
       }
 
-      if (status === "pending") {
+      if (status === "pending" || status === "sent") {
         return "inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold capitalize text-amber-300";
+      }
+
+      if (status === "partial") {
+        return "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold capitalize text-cyan-300";
       }
 
       return "inline-flex rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold capitalize text-slate-300";
@@ -1203,6 +1267,46 @@
       saveButton.classList.toggle("cursor-not-allowed", isSuspendedAccount());
     }
 
+    function renderInvoices() {
+      const invoices = Array.isArray(state.invoices) ? state.invoices : [];
+      const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue");
+      const outstandingBalance = invoices.reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
+      const emptyState = document.getElementById("invoicesEmptyState");
+      const tableWrap = document.getElementById("invoicesTableWrap");
+      const tableBody = document.getElementById("invoicesTableBody");
+
+      document.getElementById("invoiceCountValue").textContent = String(invoices.length);
+      document.getElementById("invoiceBalanceValue").textContent = formatInvoiceMoney(outstandingBalance);
+      document.getElementById("invoiceOverdueValue").textContent = String(overdueInvoices.length);
+
+      if (!invoices.length) {
+        emptyState.classList.remove("hidden");
+        tableWrap.classList.add("hidden");
+        tableBody.innerHTML = "";
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+      tableWrap.classList.remove("hidden");
+      tableBody.innerHTML = invoices.map((invoice) => `
+        <tr>
+          <td class="px-4 py-4">
+            <div class="font-semibold">${escapeHtml(invoice.invoiceNumber || "Invoice")}</div>
+            <div class="mt-1 text-sm text-slate-400">${escapeHtml(formatDate(invoice.issueDate))}</div>
+          </td>
+          <td class="px-4 py-4">
+            <div class="font-semibold">${escapeHtml(invoice.title || "Invoice")}</div>
+            <div class="mt-1 text-sm text-slate-400">${escapeHtml(invoice.businessName || state.user.businessName || "AutomateX Service")}</div>
+          </td>
+          <td class="px-4 py-4">${escapeHtml(formatInvoiceMoney(invoice.totalAmount, invoice.currency))}</td>
+          <td class="px-4 py-4">${escapeHtml(formatInvoiceMoney(invoice.paidAmount, invoice.currency))}</td>
+          <td class="px-4 py-4">${escapeHtml(formatInvoiceMoney(invoice.balance, invoice.currency))}</td>
+          <td class="px-4 py-4"><span class="${statusBadge(invoice.status)}">${escapeHtml(formatStatusLabel(invoice.status))}</span></td>
+          <td class="px-4 py-4">${escapeHtml(formatDate(invoice.dueDate))}</td>
+        </tr>
+      `).join("");
+    }
+
     function updatePlanBadge() {
       const plan = state.user.plan || "not_assigned";
       const accountStatus = state.user.accountStatus || "pending";
@@ -1276,6 +1380,12 @@
       const payload = await apiRequest("/api/reviews/manage");
       state.reviews = payload.reviews || [];
       renderReviews();
+    }
+
+    async function loadInvoices() {
+      const payload = await apiRequest("/api/invoices");
+      state.invoices = payload.invoices || [];
+      renderInvoices();
     }
 
     function handleQuickActions() {
@@ -1466,9 +1576,12 @@
           renderReviews();
         }
 
+        dataLoaders.push(loadInvoices());
+
         await Promise.all(dataLoaders);
 
         renderOverview();
+        renderInvoices();
         renderSettings();
         showActiveDashboardState();
         setActiveTab("overview");
