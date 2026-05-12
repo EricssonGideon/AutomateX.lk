@@ -36,6 +36,11 @@ const inquirySchema = new mongoose.Schema(
       type: String,
       default: "",
       trim: true
+    },
+    clientNotes: {
+      type: String,
+      default: "",
+      trim: true
     }
   },
   {

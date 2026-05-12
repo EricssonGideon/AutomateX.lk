@@ -328,6 +328,12 @@
       color: #bbf7d0;
     }
 
+    .banner[data-tone="warning"] {
+      border-color: rgba(245, 158, 11, 0.26);
+      background: rgba(245, 158, 11, 0.12);
+      color: #fde68a;
+    }
+
     .section {
       display: none;
       gap: 18px;
@@ -426,6 +432,27 @@
       background: var(--bg-soft);
     }
 
+    .pending-banner-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pending-approvals-shell {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .inline-note {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(245, 158, 11, 0.26);
+      background: rgba(245, 158, 11, 0.1);
+      color: #fde68a;
+    }
+
     .filters {
       display: grid;
       gap: 14px;
@@ -473,6 +500,10 @@
 
     tbody tr:hover {
       background: rgba(34, 211, 238, 0.04);
+    }
+
+    tbody tr.pending-row {
+      background: rgba(245, 158, 11, 0.05);
     }
 
     .cell-title {
@@ -558,6 +589,26 @@
     .mini-button:hover {
       background: var(--accent-soft);
       border-color: var(--accent);
+    }
+
+    .mini-button.is-warning {
+      border-color: rgba(245, 158, 11, 0.28);
+      background: rgba(245, 158, 11, 0.12);
+      color: #fde68a;
+    }
+
+    .mini-button.is-warning:hover {
+      border-color: rgba(245, 158, 11, 0.42);
+      background: rgba(245, 158, 11, 0.18);
+    }
+
+    .button-secondary:disabled,
+    .mini-button:disabled,
+    .button:disabled,
+    .button-danger:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
     }
 
     .empty-state,
@@ -831,6 +882,21 @@
       <section class="section is-active" id="section-overview">
         <div class="stats-grid" id="statsGrid"></div>
 
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="eyebrow">Pending Approvals</small>
+              <h2 id="pendingApprovalHeadline">Loading approval queue</h2>
+              <p id="pendingApprovalCopy">New client signups waiting for approval will appear here with a direct path into package assignment and activation.</p>
+            </div>
+            <div class="pending-banner-actions">
+              <span class="badge pending" id="pendingApprovalCountBadge">0 Waiting</span>
+              <button id="reviewPendingClientsButton" class="button-secondary" type="button">Review pending clients</button>
+            </div>
+          </div>
+          <div class="summary-list" id="pendingApprovalHighlights"></div>
+        </article>
+
         <div class="overview-grid">
           <div class="stack">
             <article class="panel">
@@ -889,6 +955,38 @@
               <small class="eyebrow">Client Management</small>
               <h2>Accounts, package assignment, and feature access</h2>
               <p>Search businesses, assign packages manually, set monthly fees, manage payment state, and control platform feature access.</p>
+            </div>
+          </div>
+
+          <div class="pending-approvals-shell" id="pendingApprovalsPanel">
+            <div class="panel-header">
+              <div>
+                <small class="eyebrow">Approval Queue</small>
+                <h3>Clients waiting for approval</h3>
+                <p>Approve new signups by assigning a package, monthly fee, billing state, and feature access from the existing protected client drawer.</p>
+              </div>
+            </div>
+
+            <div class="table-card">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Client</th>
+                      <th>Business</th>
+                      <th>Type</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Signed Up</th>
+                      <th>Status</th>
+                      <th>Package</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pendingApprovalsTableBody"></tbody>
+                </table>
+              </div>
+              <div class="empty-state" id="pendingApprovalsEmptyState">Loading pending approvals…</div>
             </div>
           </div>
 
@@ -1193,6 +1291,7 @@
       currentSection: "overview",
       stats: null,
       clients: [],
+      pendingApprovals: [],
       bookings: [],
       inquiries: [],
       reviews: [],
@@ -1267,6 +1366,26 @@
       return String(value || "")
         .replace(/_/g, " ")
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function getPendingApprovals() {
+      return Array.isArray(state.pendingApprovals) ? state.pendingApprovals : [];
+    }
+
+    function inquiryOwnerLabel(inquiry) {
+      if (inquiry.source === "public-website") {
+        return "AutomateX Public Website";
+      }
+
+      return inquiry.clientBusinessName || inquiry.clientName || "Client";
+    }
+
+    function inquiryOwnerSubtitle(inquiry) {
+      if (inquiry.source === "public-website") {
+        return "Platform inbox lead";
+      }
+
+      return inquiry.clientEmail || "";
     }
 
     function ratingStars(value) {
@@ -1493,9 +1612,71 @@
       `).join("");
     }
 
+    function renderPendingApprovalBanner() {
+      const pendingApprovals = getPendingApprovals();
+      const pendingCount = pendingApprovals.length;
+      const headline = document.getElementById("pendingApprovalHeadline");
+      const copy = document.getElementById("pendingApprovalCopy");
+      const badge = document.getElementById("pendingApprovalCountBadge");
+      const highlights = document.getElementById("pendingApprovalHighlights");
+      const button = document.getElementById("reviewPendingClientsButton");
+
+      badge.textContent = `${pendingCount} Waiting`;
+      button.disabled = pendingCount === 0;
+
+      if (!pendingCount) {
+        headline.textContent = "No clients are waiting for approval";
+        copy.textContent = "New signups will appear here automatically when a client account enters the pending approval queue.";
+        highlights.innerHTML = `
+          <div class="summary-row">
+            <span>Approval queue</span>
+            <strong>All caught up</strong>
+          </div>
+        `;
+        return;
+      }
+
+      headline.textContent = `${pendingCount} client${pendingCount === 1 ? "" : "s"} ${pendingCount === 1 ? "is" : "are"} waiting for approval`;
+      copy.textContent = "Review pending signups, assign the right package, and activate their dashboard access once pricing and feature access are ready.";
+      highlights.innerHTML = pendingApprovals.slice(0, 3).map((client) => `
+        <div class="summary-row">
+          <span>${escapeHtml(client.businessName || client.name)}${client.businessType ? ` • ${escapeHtml(client.businessType)}` : ""}</span>
+          <strong>${escapeHtml(formatShortDate(client.createdAt))}</strong>
+        </div>
+      `).join("");
+    }
+
+    function pendingApprovalRowMarkup(client) {
+      return `
+        <tr class="pending-row">
+          <td>
+            <div class="cell-title">${escapeHtml(client.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.businessName || "Business name not set")}</div>
+          </td>
+          <td>${escapeHtml(client.businessName || "—")}</td>
+          <td>${escapeHtml(client.businessType || "—")}</td>
+          <td>${escapeHtml(client.email)}</td>
+          <td>${escapeHtml(client.phone || "—")}</td>
+          <td>${escapeHtml(formatDate(client.createdAt))}</td>
+          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
+              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function renderPendingApprovalsTable() {
+      setTableState("pendingApprovalsTableBody", "pendingApprovalsEmptyState", getPendingApprovals(), pendingApprovalRowMarkup);
+    }
+
     function clientRowMarkup(client) {
       return `
-        <tr>
+        <tr class="${client.accountStatus === "pending" ? "pending-row" : ""}">
           <td>
             <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
             <div class="cell-subtitle">${escapeHtml(client.email)}${client.phone ? ` • ${escapeHtml(client.phone)}` : ""}</div>
@@ -1508,7 +1689,12 @@
           <td>${escapeHtml(client.inquiryCount || 0)}</td>
           <td>
             <div class="actions">
-              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}">Manage</button>
+              ${client.accountStatus === "pending"
+                ? `
+                  <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
+                  <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
+                `
+                : `<button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage</button>`}
             </div>
           </td>
         </tr>
@@ -1550,8 +1736,8 @@
             <div class="cell-subtitle">${escapeHtml(inquiry.email)}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || "Client")}</div>
-            <div class="cell-subtitle">${escapeHtml(inquiry.clientEmail || "")}</div>
+            <div class="cell-title">${escapeHtml(inquiryOwnerLabel(inquiry))}</div>
+            <div class="cell-subtitle">${escapeHtml(inquiryOwnerSubtitle(inquiry))}</div>
           </td>
           <td>${escapeHtml(inquiry.message)}</td>
           <td><span class="${badgeClass(inquiry.status)}">${escapeHtml(formatStatusLabel(inquiry.status))}</span></td>
@@ -1647,6 +1833,19 @@
       renderBillingTable();
     }
 
+    async function loadPendingApprovals() {
+      const params = new URLSearchParams({
+        accountStatus: "pending",
+        sortBy: "createdAt",
+        sortDirection: "desc"
+      });
+
+      const payload = await apiFetch(`/api/admin/clients?${params}`);
+      state.pendingApprovals = payload.clients || [];
+      renderPendingApprovalBanner();
+      renderPendingApprovalsTable();
+    }
+
     async function loadBookings() {
       const params = new URLSearchParams();
       const search = document.getElementById("bookingSearch").value.trim();
@@ -1721,10 +1920,21 @@
       document.getElementById("drawerBody").innerHTML = "";
     }
 
-    function clientDetailSection(client) {
+    function clientDetailSection(client, options = {}) {
+      const approvalMode = options.approvalMode === true;
+      const selectedPlan = approvalMode && client.plan === "not_assigned" ? "not_assigned" : client.plan;
+
       return `
-        <form id="clientDrawerForm">
+        <form id="clientDrawerForm" data-approval-mode="${approvalMode ? "true" : "false"}">
           <input type="hidden" name="clientId" value="${escapeHtml(client.id)}">
+
+          ${approvalMode
+            ? `
+              <div class="inline-note">
+                Approving this client will activate their account, assign the package you choose below, save billing details, and unlock either the selected custom features or the package defaults when no custom features are checked.
+              </div>
+            `
+            : ""}
 
           <div class="drawer-grid">
             <div class="field">
@@ -1754,14 +1964,23 @@
             <div class="field">
               <label>Package</label>
               <select class="select" name="plan">
-                ${["not_assigned", "starter", "standard", "pro", "custom"].map((plan) => `<option value="${plan}" ${client.plan === plan ? "selected" : ""}>${escapeHtml(formatPlanLabel(plan))}</option>`).join("")}
+                ${["not_assigned", "starter", "standard", "pro", "custom"].map((plan) => `<option value="${plan}" ${selectedPlan === plan ? "selected" : ""}>${escapeHtml(formatPlanLabel(plan))}</option>`).join("")}
               </select>
             </div>
             <div class="field">
               <label>Account status</label>
-              <select class="select" name="accountStatus">
-                ${["pending", "active", "suspended"].map((status) => `<option value="${status}" ${client.accountStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
-              </select>
+              ${approvalMode
+                ? `
+                  <input type="hidden" name="accountStatus" value="active">
+                  <select class="select" disabled>
+                    <option value="active" selected>Active</option>
+                  </select>
+                `
+                : `
+                  <select class="select" name="accountStatus">
+                    ${["pending", "active", "suspended"].map((status) => `<option value="${status}" ${client.accountStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+                  </select>
+                `}
             </div>
             <div class="field">
               <label>Monthly fee</label>
@@ -1779,10 +1998,19 @@
             </div>
             <div class="field">
               <label>Account access</label>
-              <select class="select" name="isActive">
-                <option value="true" ${client.isActive ? "selected" : ""}>Enabled</option>
-                <option value="false" ${!client.isActive ? "selected" : ""}>Disabled</option>
-              </select>
+              ${approvalMode
+                ? `
+                  <input type="hidden" name="isActive" value="true">
+                  <select class="select" disabled>
+                    <option value="true" selected>Enabled</option>
+                  </select>
+                `
+                : `
+                  <select class="select" name="isActive">
+                    <option value="true" ${client.isActive ? "selected" : ""}>Enabled</option>
+                    <option value="false" ${!client.isActive ? "selected" : ""}>Disabled</option>
+                  </select>
+                `}
             </div>
           </div>
 
@@ -1818,8 +2046,12 @@
           </div>
 
           <div class="drawer-actions">
-            <button class="button-danger" id="clientDeactivateButton" type="button">Suspend Client</button>
-            <button class="button" type="submit">Save Client</button>
+            ${approvalMode
+              ? `<button class="button" type="submit">Approve Client</button>`
+              : `
+                <button class="button-danger" id="clientDeactivateButton" type="button">Suspend Client</button>
+                <button class="button" type="submit">Save Client</button>
+              `}
           </div>
         </form>
       `;
@@ -1896,7 +2128,7 @@
             </div>
             <div class="field">
               <label>Linked business</label>
-              <input class="input" value="${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || "Client")}" disabled>
+              <input class="input" value="${escapeHtml(inquiryOwnerLabel(inquiry))}" disabled>
             </div>
             <div class="field">
               <label>Status</label>
@@ -1912,12 +2144,17 @@
               <textarea class="textarea" disabled>${escapeHtml(inquiry.message)}</textarea>
             </div>
             <div class="field" style="margin-top: 14px;">
+              <label>Client notes</label>
+              <textarea class="textarea" disabled>${escapeHtml(inquiry.clientNotes || "")}</textarea>
+            </div>
+            <div class="field" style="margin-top: 14px;">
               <label>Admin notes</label>
               <textarea class="textarea" name="adminNotes">${escapeHtml(inquiry.adminNotes || "")}</textarea>
             </div>
           </div>
 
           <div class="drawer-actions">
+            <button class="button-secondary" type="button" id="inquiryConvertedButton">Mark Converted</button>
             <button class="button" type="submit">Save Lead</button>
           </div>
         </form>
@@ -1977,6 +2214,7 @@
         clientForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           const formData = new FormData(clientForm);
+          const approvalMode = clientForm.dataset.approvalMode === "true";
           const allowedFeatures = Array.from(clientForm.querySelectorAll('input[name="allowedFeatures"]:checked')).map((input) => input.value);
           const services = String(formData.get("services") || "")
             .split(",")
@@ -1984,15 +2222,19 @@
             .filter(Boolean);
 
           try {
+            if (approvalMode && formData.get("plan") === "not_assigned") {
+              throw new Error("Select a package before approving this client.");
+            }
+
             await apiFetch(`/api/admin/clients/${formData.get("clientId")}`, {
               method: "PATCH",
               body: JSON.stringify({
                 plan: formData.get("plan"),
-                accountStatus: formData.get("accountStatus"),
+                accountStatus: approvalMode ? "active" : formData.get("accountStatus"),
                 monthlyFee: formData.get("monthlyFee"),
                 paymentStatus: formData.get("paymentStatus"),
                 nextPaymentDate: formData.get("nextPaymentDate") || null,
-                isActive: formData.get("isActive") === "true",
+                isActive: approvalMode ? true : formData.get("isActive") === "true",
                 businessName: formData.get("businessName"),
                 businessType: formData.get("businessType"),
                 phone: formData.get("phone"),
@@ -2005,28 +2247,36 @@
               })
             });
 
-            await Promise.all([loadClients(), loadStats()]);
+            await Promise.all([loadClients(), loadPendingApprovals(), loadStats()]);
             closeDrawer();
-            showToast("Client saved", "Client package, billing, and feature controls were updated.");
+            showToast(
+              approvalMode ? "Client approved" : "Client saved",
+              approvalMode
+                ? "The client is now active with the selected package, billing values, and feature access."
+                : "Client package, billing, and feature controls were updated."
+            );
           } catch (error) {
             showBanner(error.message || "Unable to save the client.", "error");
           }
         });
 
-        document.getElementById("clientDeactivateButton").addEventListener("click", async () => {
-          const clientId = new FormData(clientForm).get("clientId");
+        const clientDeactivateButton = document.getElementById("clientDeactivateButton");
+        if (clientDeactivateButton) {
+          clientDeactivateButton.addEventListener("click", async () => {
+            const clientId = new FormData(clientForm).get("clientId");
 
-          try {
-            await apiFetch(`/api/admin/clients/${clientId}`, {
-              method: "DELETE"
-            });
-            await Promise.all([loadClients(), loadStats()]);
-            closeDrawer();
-            showToast("Client suspended", "The client account has been safely deactivated.");
-          } catch (error) {
-            showBanner(error.message || "Unable to suspend the client.", "error");
-          }
-        });
+            try {
+              await apiFetch(`/api/admin/clients/${clientId}`, {
+                method: "DELETE"
+              });
+              await Promise.all([loadClients(), loadPendingApprovals(), loadStats()]);
+              closeDrawer();
+              showToast("Client suspended", "The client account has been safely deactivated.");
+            } catch (error) {
+              showBanner(error.message || "Unable to suspend the client.", "error");
+            }
+          });
+        }
       }
 
       const bookingForm = document.getElementById("bookingDrawerForm");
@@ -2099,6 +2349,28 @@
             showBanner(error.message || "Unable to update the lead.", "error");
           }
         });
+
+        const inquiryConvertedButton = document.getElementById("inquiryConvertedButton");
+        if (inquiryConvertedButton) {
+          inquiryConvertedButton.addEventListener("click", async () => {
+            const formData = new FormData(inquiryForm);
+
+            try {
+              await apiFetch(`/api/admin/inquiries/${formData.get("inquiryId")}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  status: "converted",
+                  adminNotes: formData.get("adminNotes")
+                })
+              });
+              await Promise.all([loadInquiries(), loadStats()]);
+              closeDrawer();
+              showToast("Lead converted", "The lead has been marked as converted.");
+            } catch (error) {
+              showBanner(error.message || "Unable to convert the lead.", "error");
+            }
+          });
+        }
       }
 
       const reviewForm = document.getElementById("reviewDrawerForm");
@@ -2161,15 +2433,18 @@
       }
     }
 
-    async function openClientDrawer(clientId) {
+    async function openClientDrawer(clientId, options = {}) {
       const payload = await apiFetch(`/api/admin/clients/${clientId}`);
       const client = payload.client;
+      const approvalMode = options.approvalMode === true;
 
       openDrawer({
-        eyebrow: "Client Account",
+        eyebrow: approvalMode ? "Pending Approval" : "Client Account",
         title: client.businessName || client.name,
-        subtitle: "Assign packages, manage billing state, edit business profile fields, and control client feature access.",
-        body: clientDetailSection(client)
+        subtitle: approvalMode
+          ? "Approve this signup by assigning the package, monthly fee, payment state, and feature access the client should receive."
+          : "Assign packages, manage billing state, edit business profile fields, and control client feature access.",
+        body: clientDetailSection(client, options)
       });
     }
 
@@ -2198,6 +2473,16 @@
         title: inquiry.name,
         subtitle: "Track contact progress, conversions, and internal follow-up notes for this lead.",
         body: inquiryDetailSection(inquiry)
+      });
+    }
+
+    async function focusPendingClients() {
+      document.getElementById("clientStatusFilter").value = "pending";
+      setSection("clients");
+      await loadClients();
+      document.getElementById("pendingApprovalsPanel").scrollIntoView({
+        behavior: "smooth",
+        block: "start"
       });
     }
 
@@ -2239,10 +2524,27 @@
         }
       });
 
+      document.getElementById("reviewPendingClientsButton").addEventListener("click", () => {
+        focusPendingClients().catch((error) => showBanner(error.message || "Unable to open pending approvals.", "error"));
+      });
+
       document.getElementById("clientsTableBody").addEventListener("click", (event) => {
         const button = event.target.closest("[data-client-id]");
         if (button) {
-          openClientDrawer(button.dataset.clientId).catch((error) => showBanner(error.message, "error"));
+          const action = button.dataset.clientAction || "manage";
+          openClientDrawer(button.dataset.clientId, {
+            approvalMode: action === "approve"
+          }).catch((error) => showBanner(error.message, "error"));
+        }
+      });
+
+      document.getElementById("pendingApprovalsTableBody").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-client-id]");
+        if (button) {
+          const action = button.dataset.clientAction || "review";
+          openClientDrawer(button.dataset.clientId, {
+            approvalMode: action === "approve"
+          }).catch((error) => showBanner(error.message, "error"));
         }
       });
 
@@ -2268,7 +2570,9 @@
       });
 
       [
-        ["refreshClientsButton", loadClients],
+        ["refreshClientsButton", async () => {
+          await Promise.all([loadClients(), loadPendingApprovals(), loadStats()]);
+        }],
         ["refreshBookingsButton", loadBookings],
         ["refreshInquiriesButton", loadInquiries],
         ["refreshReviewsButton", loadReviews]
@@ -2356,7 +2660,7 @@
         }
 
         await verifyAdminSession();
-        await Promise.all([loadStats(), loadClients(), loadBookings(), loadInquiries(), loadReviews()]);
+        await Promise.all([loadStats(), loadClients(), loadPendingApprovals(), loadBookings(), loadInquiries(), loadReviews()]);
         hideBanner();
       } catch (error) {
         showBanner(error.message || "Unable to load the admin console.", "error");

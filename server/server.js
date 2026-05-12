@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -12,6 +13,7 @@ const { connectToDatabase } = require("./utils/db");
 dotenv.config();
 
 const app = express();
+const publicDirectory = path.join(__dirname, "..", "public");
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -74,6 +76,8 @@ app.use("/api", (req, res) => {
     message: `API route not found: ${req.originalUrl}`
   });
 });
+
+app.use(express.static(publicDirectory));
 
 app.use((req, res) => {
   res.status(404).send("Not found");

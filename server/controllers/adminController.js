@@ -471,6 +471,17 @@ async function updateClient(req, res) {
       return sendError(res, 404, "Client not found.");
     }
 
+    const finalPlan = normalizePlan(
+      typeof updates.plan === "string" ? updates.plan : client.plan
+    );
+    const finalAccountStatus = typeof updates.accountStatus === "string"
+      ? updates.accountStatus
+      : resolveAccountStatus(client);
+
+    if (finalAccountStatus === "active" && finalPlan === "not_assigned") {
+      return sendError(res, 400, "Assign a package before activating this client.");
+    }
+
     Object.assign(client, updates);
     client.onboardingStatus = resolveOnboardingStatus(client);
     await client.save();
