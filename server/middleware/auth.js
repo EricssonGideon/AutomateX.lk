@@ -2,6 +2,10 @@ const jwt = require("jsonwebtoken");
 
 const User = require("../models/User");
 const {
+  isOfficialAdminEmail,
+  resolveTrustedRole
+} = require("../utils/authRole");
+const {
   normalizePlan,
   resolveAccountStatus,
   normalizePaymentStatus,
@@ -41,7 +45,7 @@ async function verifyToken(req, res, next) {
     req.user = {
       id: String(user._id),
       email: user.email,
-      role: user.role,
+      role: resolveTrustedRole(user),
       plan: normalizePlan(user.plan),
       packageName: normalizePlan(user.plan),
       accountStatus: resolveAccountStatus(user),
@@ -66,7 +70,7 @@ async function verifyToken(req, res, next) {
  * @returns {void|import("express").Response} Continues the chain or returns an authorization error.
  */
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== "admin") {
+  if (!req.user || req.user.role !== "admin" || !isOfficialAdminEmail(req.user.email)) {
     return res.status(403).json({ message: "Admin access is required." });
   }
 
@@ -82,7 +86,7 @@ function requireAdmin(req, res, next) {
  * @returns {void|import("express").Response} Continues the chain or returns an authorization error.
  */
 function requireClient(req, res, next) {
-  if (!req.user || req.user.role !== "client") {
+  if (!req.user || req.user.role !== "client" || isOfficialAdminEmail(req.user.email)) {
     return res.status(403).json({
       error: "Client access required",
       message: "Only client accounts can access this route."

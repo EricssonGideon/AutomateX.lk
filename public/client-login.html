@@ -57,9 +57,12 @@
   </main>
 
   <script>
+    const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
+    const ADMIN_TOKEN_KEY = "automatex_admin_token";
     const PRIMARY_TOKEN_KEY = "automatex_client_token";
     const FALLBACK_TOKEN_KEY = "automatex_token";
-    const USER_KEY = "automatex_client_user";
+    const ADMIN_USER_KEY = "automatex_admin_user";
+    const CLIENT_USER_KEY = "automatex_client_user";
     const feedback = document.getElementById("feedback");
     const submitButton = document.getElementById("submitButton");
 
@@ -75,15 +78,35 @@
     }
 
     function clearClientSession() {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
       localStorage.removeItem(PRIMARY_TOKEN_KEY);
       localStorage.removeItem(FALLBACK_TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(ADMIN_USER_KEY);
+      localStorage.removeItem(CLIENT_USER_KEY);
+    }
+
+    function saveAdminSession(token, user) {
+      localStorage.setItem(ADMIN_TOKEN_KEY, token);
+      localStorage.setItem(FALLBACK_TOKEN_KEY, token);
+      localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
+      localStorage.removeItem(PRIMARY_TOKEN_KEY);
+      localStorage.removeItem(CLIENT_USER_KEY);
     }
 
     function saveClientSession(token, user) {
       localStorage.setItem(PRIMARY_TOKEN_KEY, token);
       localStorage.setItem(FALLBACK_TOKEN_KEY, token);
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(user));
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem(ADMIN_USER_KEY);
+    }
+
+    function isOfficialAdmin(user) {
+      return Boolean(
+        user &&
+        user.role === "admin" &&
+        String(user.email || "").trim().toLowerCase() === OFFICIAL_ADMIN_EMAIL
+      );
     }
 
     async function verifyExistingClientSession() {
@@ -104,7 +127,17 @@
         }
 
         const payload = await response.json();
-        if (!payload.user || payload.user.role !== "client") {
+        if (!payload.user) {
+          throw new Error("Session invalid");
+        }
+
+        if (isOfficialAdmin(payload.user)) {
+          saveAdminSession(token, payload.user);
+          window.location.href = "/admin.html";
+          return;
+        }
+
+        if (payload.user.role !== "client") {
           throw new Error("Client access required");
         }
 
@@ -142,9 +175,10 @@
           throw new Error("Login response was incomplete. Please try again.");
         }
 
-        if (payload.user.role === "admin") {
-          clearClientSession();
-          showMessage("Please use the admin login page.");
+        if (isOfficialAdmin(payload.user)) {
+          saveAdminSession(payload.token, payload.user);
+          showMessage("Login successful. Redirecting to admin dashboard...", "success");
+          window.location.href = "/admin.html";
           return;
         }
 

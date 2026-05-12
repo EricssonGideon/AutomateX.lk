@@ -4,6 +4,10 @@ const { body, validationResult } = require("express-validator");
 
 const User = require("../models/User");
 const {
+  resolveTrustedRole,
+  normalizeEmailAddress
+} = require("../utils/authRole");
+const {
   normalizePlan,
   resolveAccountStatus,
   normalizePaymentStatus,
@@ -40,7 +44,7 @@ function buildTokenPayload(user) {
   return {
     sub: String(user._id),
     email: user.email,
-    role: user.role,
+    role: resolveTrustedRole(user),
     plan: user.plan
   };
 }
@@ -77,6 +81,7 @@ function signToken(user) {
  * @returns {{id: string, name: string, email: string, role: string, plan: string, isActive: boolean, stripeCustomerId: string, stripeSubscriptionId: string, businessName: string, businessType: string, phone: string, location: string, services: string[], workingHours: string, bookingUrl: string, chatbotLanguage: string, planExpiresAt: Date|null, createdAt: Date}} Safe user data.
  */
 function serializeUser(user) {
+  const trustedRole = resolveTrustedRole(user);
   const accountStatus = resolveAccountStatus(user);
   const paymentStatus = normalizePaymentStatus(user.paymentStatus);
   const normalizedPlan = normalizePlan(user.plan);
@@ -93,7 +98,7 @@ function serializeUser(user) {
     id: String(user._id),
     name: user.name,
     email: user.email,
-    role: user.role,
+    role: trustedRole,
     plan: normalizedPlan,
     packageName: normalizedPlan,
     monthlyFee,
@@ -232,7 +237,7 @@ async function signup(req, res) {
       return sendValidationError(res, "Please fix the signup form and try again.", details);
     }
 
-    const email = String(req.body.email || "").toLowerCase().trim();
+    const email = normalizeEmailAddress(req.body.email);
     const existingUser = await User.findOne({ email }).lean();
 
     if (existingUser) {
@@ -240,11 +245,12 @@ async function signup(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(req.body.password, SALT_ROUNDS);
+    const trustedRole = resolveTrustedRole(email);
     const user = await User.create({
       name: String(req.body.name || "").trim(),
       email,
       passwordHash,
-      role: "client",
+      role: trustedRole,
       businessName: String(req.body.businessName || "").trim(),
       businessType: String(req.body.businessType || "").trim(),
       phone: String(req.body.phone || "").trim(),
@@ -283,7 +289,7 @@ async function login(req, res) {
       return sendValidationError(res, "Please fix the login form and try again.", details);
     }
 
-    const email = String(req.body.email || "").toLowerCase().trim();
+    const email = normalizeEmailAddress(req.body.email);
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -297,6 +303,12 @@ async function login(req, res) {
 
     if (!user.isActive) {
       return sendError(res, 403, "This account has been deactivated.");
+    }
+
+    const trustedRole = resolveTrustedRole(user);
+    if (user.role !== trustedRole) {
+      user.role = trustedRole;
+      await user.save();
     }
 
     const token = signToken(user);

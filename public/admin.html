@@ -1946,6 +1946,7 @@
   <div class="toast-stack" id="toastStack"></div>
 
   <script>
+    const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
     const TOKEN_KEY = "automatex_admin_token";
     const USER_KEY = "automatex_admin_user";
     const THEME_KEY = "automatex_admin_theme";
@@ -2044,6 +2045,14 @@
       }
 
       redirectToLogin();
+    }
+
+    function isOfficialAdmin(user) {
+      return Boolean(
+        user &&
+        user.role === "admin" &&
+        String(user.email || "").trim().toLowerCase() === OFFICIAL_ADMIN_EMAIL
+      );
     }
 
     function escapeHtml(value) {
@@ -3268,7 +3277,7 @@
         throw new Error("Admin access is required.");
       }
 
-      if (payload.user.role !== "admin") {
+      if (!isOfficialAdmin(payload.user)) {
         redirectNonAdminUser(payload.user.role);
         throw new Error("Admin access is required.");
       }

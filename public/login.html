@@ -469,6 +469,13 @@
           throw new Error("Signup response was incomplete. Please try again.");
         }
 
+        if (payload.user.role === "admin") {
+          saveAdminSession(payload.token, payload.user);
+          showMessage("Account created successfully. Redirecting to admin dashboard...", "success");
+          window.location.href = "/admin.html";
+          return;
+        }
+
         saveClientSession(payload.token, payload.user);
         showMessage("Account created successfully. Your account is pending admin approval. Redirecting...", "success");
         window.location.href = "/dashboard.html";
