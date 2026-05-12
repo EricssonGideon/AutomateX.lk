@@ -3,66 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutomateX Admin Console</title>
+  <title>AutomateX Admin Control Center</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #020617;
-      --bg-soft: #0f172a;
-      --bg-elevated: #111c34;
-      --panel: rgba(15, 23, 42, 0.88);
-      --panel-strong: #111827;
-      --line: rgba(148, 163, 184, 0.18);
-      --line-strong: rgba(148, 163, 184, 0.28);
+      --bg: #060d1a;
+      --bg-soft: #0d1628;
+      --bg-elevated: #111d34;
+      --surface: rgba(10, 18, 34, 0.86);
+      --surface-strong: rgba(14, 24, 42, 0.95);
+      --surface-muted: rgba(18, 29, 49, 0.78);
+      --line: rgba(148, 163, 184, 0.16);
+      --line-strong: rgba(148, 163, 184, 0.24);
       --text: #f8fafc;
-      --muted: #94a3b8;
+      --muted: #9fb0c9;
       --accent: #22d3ee;
-      --accent-strong: #06b6d4;
+      --accent-strong: #0891b2;
       --accent-soft: rgba(34, 211, 238, 0.14);
+      --accent-warm: #fb923c;
       --success: #34d399;
       --warning: #f59e0b;
       --danger: #fb7185;
-      --shadow: 0 22px 50px rgba(2, 6, 23, 0.36);
+      --shadow: 0 24px 70px rgba(2, 6, 23, 0.36);
       --radius-xl: 28px;
       --radius-lg: 22px;
-      --radius-md: 16px;
-      --radius-sm: 12px;
+      --radius-md: 18px;
+      --radius-sm: 14px;
     }
 
     :root[data-theme="light"] {
       color-scheme: light;
-      --bg: #eef4fb;
-      --bg-soft: #f8fbff;
+      --bg: #edf3fb;
+      --bg-soft: #f7fbff;
       --bg-elevated: #ffffff;
-      --panel: rgba(255, 255, 255, 0.94);
-      --panel-strong: #ffffff;
+      --surface: rgba(255, 255, 255, 0.94);
+      --surface-strong: rgba(255, 255, 255, 0.98);
+      --surface-muted: rgba(241, 245, 249, 0.92);
       --line: rgba(148, 163, 184, 0.24);
       --line-strong: rgba(148, 163, 184, 0.34);
       --text: #0f172a;
-      --muted: #475569;
+      --muted: #516076;
       --accent: #0891b2;
       --accent-strong: #0e7490;
       --accent-soft: rgba(8, 145, 178, 0.1);
-      --shadow: 0 22px 50px rgba(15, 23, 42, 0.12);
+      --accent-warm: #ea580c;
+      --shadow: 0 20px 54px rgba(15, 23, 42, 0.12);
     }
 
     * {
       box-sizing: border-box;
     }
 
-    html, body {
+    html,
+    body {
       margin: 0;
       min-height: 100%;
       font-family: "Inter", "Segoe UI", sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 30%),
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.14), transparent 28%),
         radial-gradient(circle at bottom right, rgba(251, 146, 60, 0.12), transparent 30%),
         var(--bg);
       color: var(--text);
     }
 
     body {
-      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 72px 72px;
+      pointer-events: none;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 88%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
     }
 
     button,
@@ -76,115 +98,218 @@
       cursor: pointer;
     }
 
-    a {
-      color: inherit;
-      text-decoration: none;
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.58);
+      backdrop-filter: blur(4px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+      z-index: 24;
+    }
+
+    .sidebar-backdrop.is-visible {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .admin-shell {
+      position: relative;
+      z-index: 1;
       display: grid;
       min-height: 100vh;
-      grid-template-columns: 290px minmax(0, 1fr);
+      grid-template-columns: 300px minmax(0, 1fr);
     }
 
     .sidebar {
       position: sticky;
       top: 0;
-      height: 100vh;
       display: flex;
       flex-direction: column;
-      gap: 24px;
-      padding: 28px 22px;
+      gap: 26px;
+      height: 100vh;
+      padding: 28px 22px 24px;
       border-right: 1px solid var(--line);
-      background: rgba(2, 6, 23, 0.68);
-      backdrop-filter: blur(20px);
+      background: rgba(6, 13, 26, 0.82);
+      backdrop-filter: blur(22px);
     }
 
     :root[data-theme="light"] .sidebar {
-      background: rgba(248, 250, 252, 0.86);
+      background: rgba(246, 250, 255, 0.9);
+    }
+
+    .sidebar-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
     }
 
     .sidebar-brand {
       display: flex;
       align-items: center;
       gap: 14px;
+      min-width: 0;
     }
 
     .brand-mark {
-      display: grid;
-      place-items: center;
-      width: 48px;
-      height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      padding: 6px;
       border-radius: 18px;
-      background: linear-gradient(135deg, var(--accent), #fb923c);
-      color: #082f49;
-      font-weight: 800;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(251, 146, 60, 0.28));
       box-shadow: var(--shadow);
+      overflow: hidden;
+      flex-shrink: 0;
     }
 
-    .brand-copy small,
-    .eyebrow {
-      display: block;
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 14px;
+      background: #020617;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .kicker {
+      display: inline-block;
       font-size: 11px;
-      letter-spacing: 0.28em;
+      font-weight: 700;
+      letter-spacing: 0.24em;
       text-transform: uppercase;
       color: var(--accent);
     }
 
-    .brand-copy strong {
-      display: block;
-      margin-top: 6px;
-      font-size: 1.05rem;
-      letter-spacing: -0.02em;
+    .brand-copy h2 {
+      margin: 8px 0 0;
+      font-size: 1.1rem;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-copy p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .mobile-close {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      padding: 10px 12px;
     }
 
     .sidebar-nav {
       display: grid;
       gap: 8px;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
-    .sidebar-nav button {
+    .nav-button {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 14px;
       width: 100%;
+      padding: 13px 14px;
       border: 1px solid transparent;
       border-radius: 18px;
-      padding: 13px 16px;
       background: transparent;
       color: var(--muted);
-      transition: 0.2s ease;
+      text-align: left;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, transform 0.2s ease;
     }
 
-    .sidebar-nav button:hover,
-    .sidebar-nav button.is-active {
+    .nav-button:hover,
+    .nav-button.is-active {
       border-color: var(--line-strong);
       background: var(--accent-soft);
       color: var(--text);
+      transform: translateY(-1px);
     }
 
-    .sidebar-meta {
+    .nav-button strong {
+      display: block;
+      font-size: 0.96rem;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-button small {
+      display: block;
+      margin-top: 3px;
+      color: inherit;
+      opacity: 0.78;
+      font-size: 0.8rem;
+    }
+
+    .nav-counter {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .sidebar-footer {
       margin-top: auto;
       display: grid;
       gap: 12px;
     }
 
-    .theme-toggle,
-    .sidebar-note {
+    .sidebar-panel,
+    .panel,
+    .kpi-card,
+    .table-card,
+    .preview-item,
+    .metric-row,
+    .placeholder-panel {
       border: 1px solid var(--line);
-      border-radius: 18px;
-      background: var(--panel);
-      padding: 16px;
+      border-radius: var(--radius-lg);
+      background: var(--surface);
       box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
     }
 
-    .theme-toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+    .sidebar-panel {
+      padding: 16px;
+    }
+
+    .sidebar-panel p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .field-inline {
+      display: grid;
+      gap: 10px;
       margin-top: 12px;
+    }
+
+    .field-inline span {
+      color: var(--muted);
+      font-size: 0.9rem;
     }
 
     .select,
@@ -193,9 +318,9 @@
       width: 100%;
       border: 1px solid var(--line-strong);
       border-radius: 14px;
+      padding: 12px 14px;
       background: var(--bg-soft);
       color: var(--text);
-      padding: 12px 14px;
       outline: none;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
@@ -208,75 +333,35 @@
     }
 
     .textarea {
-      min-height: 116px;
+      min-height: 120px;
       resize: vertical;
     }
 
-    .main {
-      min-width: 0;
-      padding: 28px;
-    }
-
-    .topbar {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 18px;
-      margin-bottom: 24px;
-    }
-
-    .topbar-title h1 {
-      margin: 6px 0 0;
-      font-size: clamp(1.8rem, 2.6vw, 2.5rem);
-      letter-spacing: -0.04em;
-    }
-
-    .topbar-title p {
-      margin: 10px 0 0;
-      max-width: 60ch;
-      color: var(--muted);
-      line-height: 1.6;
-    }
-
-    .topbar-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .pill {
+    .button {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
-      padding: 10px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--panel);
-      color: var(--muted);
-    }
-
-    .button,
-    .button-secondary,
-    .button-danger,
-    .button-ghost {
       border-radius: 14px;
       border: 1px solid transparent;
       padding: 11px 16px;
-      font-weight: 600;
-      transition: 0.2s ease;
+      font-weight: 700;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .button {
-      background: linear-gradient(135deg, var(--accent), #fb923c);
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-warm));
       color: #082f49;
       box-shadow: var(--shadow);
     }
 
     .button-secondary {
       border-color: var(--line-strong);
-      background: var(--panel);
+      background: var(--surface);
       color: var(--text);
     }
 
@@ -292,11 +377,59 @@
       color: #fecdd3;
     }
 
-    .button:hover,
-    .button-secondary:hover,
-    .button-ghost:hover,
-    .button-danger:hover {
-      transform: translateY(-1px);
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 28px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+
+    .topbar-copy h1 {
+      margin: 8px 0 0;
+      font-size: clamp(2rem, 3.2vw, 2.8rem);
+      letter-spacing: -0.05em;
+    }
+
+    .topbar-copy p {
+      margin: 12px 0 0;
+      max-width: 64ch;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .identity-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .mobile-nav-toggle {
@@ -306,10 +439,11 @@
     .banner {
       display: none;
       margin-bottom: 18px;
-      border-radius: 18px;
+      border-radius: 16px;
       border: 1px solid var(--line);
       padding: 14px 16px;
-      background: var(--panel);
+      background: var(--surface);
+      color: var(--text);
     }
 
     .banner.is-visible {
@@ -343,41 +477,69 @@
       display: grid;
     }
 
-    .stats-grid {
+    .kpi-grid {
       display: grid;
       gap: 16px;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(12, minmax(0, 1fr));
     }
 
-    .stat-card,
-    .panel,
-    .table-card {
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
-    }
-
-    .stat-card {
-      padding: 18px;
+    .kpi-card {
       display: grid;
       gap: 14px;
+      padding: 18px;
+      min-width: 0;
+      grid-column: span 3;
     }
 
-    .stat-card strong {
-      font-size: 1.95rem;
-      letter-spacing: -0.05em;
+    .kpi-card.is-wide {
+      grid-column: span 4;
     }
 
-    .stat-label,
-    .subtle {
+    .kpi-card strong {
+      font-size: 2rem;
+      line-height: 1;
+      letter-spacing: -0.06em;
+      overflow-wrap: anywhere;
+    }
+
+    .kpi-card strong.is-muted {
+      font-size: 1.05rem;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-label {
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       color: var(--muted);
-      font-size: 0.94rem;
     }
 
-    .panel {
+    .kpi-copy {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.92rem;
+    }
+
+    .dual-grid,
+    .triple-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .dual-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .triple-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .panel,
+    .placeholder-panel {
       padding: 20px;
+      min-width: 0;
     }
 
     .panel-header {
@@ -390,7 +552,7 @@
 
     .panel-header h2,
     .panel-header h3 {
-      margin: 0;
+      margin: 8px 0 0;
       font-size: 1.15rem;
       letter-spacing: -0.03em;
     }
@@ -401,56 +563,144 @@
       line-height: 1.6;
     }
 
-    .overview-grid {
-      display: grid;
-      gap: 16px;
-      grid-template-columns: 1.25fr 0.95fr;
-    }
-
-    .stack {
-      display: grid;
-      gap: 14px;
-    }
-
-    .health-list,
-    .summary-list,
-    .package-list {
-      display: grid;
-      gap: 12px;
-    }
-
-    .summary-row,
-    .health-row,
-    .package-row {
+    .panel-actions {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: var(--bg-soft);
-    }
-
-    .pending-banner-actions {
-      display: flex;
-      align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
-    .pending-approvals-shell {
+    .metric-list,
+    .summary-grid,
+    .preview-list,
+    .settings-list {
       display: grid;
-      gap: 14px;
-      margin-bottom: 18px;
+      gap: 12px;
     }
 
-    .inline-note {
+    .metric-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
       padding: 14px 16px;
-      border-radius: 16px;
-      border: 1px solid rgba(245, 158, 11, 0.26);
-      background: rgba(245, 158, 11, 0.1);
-      color: #fde68a;
+      background: var(--surface-muted);
+      box-shadow: none;
+    }
+
+    .metric-row strong {
+      font-size: 1rem;
+      letter-spacing: -0.03em;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .metric-row small,
+    .preview-meta,
+    .subtle {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .quick-action-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .quick-action {
+      display: grid;
+      gap: 6px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--surface-muted);
+      color: var(--text);
+      text-align: left;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .quick-action:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      background: var(--accent-soft);
+    }
+
+    .quick-action strong {
+      font-size: 0.98rem;
+      letter-spacing: -0.02em;
+      overflow-wrap: anywhere;
+    }
+
+    .quick-action span {
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+
+    .preview-list {
+      min-width: 0;
+    }
+
+    .preview-item {
+      padding: 16px;
+      background: var(--surface-muted);
+      box-shadow: none;
+      min-width: 0;
+    }
+
+    .preview-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .preview-top strong {
+      display: block;
+      font-size: 0.98rem;
+      letter-spacing: -0.02em;
+      overflow-wrap: anywhere;
+    }
+
+    .preview-top p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+      overflow-wrap: anywhere;
+    }
+
+    .preview-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .data-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 13px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .data-chip strong {
+      color: var(--text);
     }
 
     .filters {
@@ -458,6 +708,10 @@
       gap: 14px;
       grid-template-columns: repeat(5, minmax(0, 1fr));
       margin-bottom: 16px;
+    }
+
+    .filters.is-compact {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .table-card {
@@ -470,32 +724,37 @@
 
     table {
       width: 100%;
+      min-width: 960px;
       border-collapse: collapse;
-      min-width: 980px;
     }
 
     thead {
-      background: rgba(2, 6, 23, 0.52);
+      background: rgba(2, 6, 23, 0.5);
     }
 
     :root[data-theme="light"] thead {
-      background: rgba(226, 232, 240, 0.66);
+      background: rgba(226, 232, 240, 0.78);
     }
 
     th,
     td {
       padding: 14px 16px;
-      text-align: left;
       border-bottom: 1px solid var(--line);
+      text-align: left;
       vertical-align: top;
     }
 
     th {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.2em;
       color: var(--muted);
+      font-size: 11px;
       font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    td {
+      overflow-wrap: anywhere;
     }
 
     tbody tr:hover {
@@ -507,34 +766,35 @@
     }
 
     .cell-title {
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
 
     .cell-subtitle {
       margin-top: 4px;
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
+      line-height: 1.5;
     }
 
     .badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
       padding: 8px 12px;
       border-radius: 999px;
       border: 1px solid var(--line);
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 800;
       letter-spacing: 0.12em;
+      text-transform: uppercase;
       white-space: nowrap;
     }
 
     .badge.pending {
+      border-color: rgba(245, 158, 11, 0.28);
       background: rgba(245, 158, 11, 0.12);
       color: #fcd34d;
-      border-color: rgba(245, 158, 11, 0.28);
     }
 
     .badge.active,
@@ -542,32 +802,34 @@
     .badge.confirmed,
     .badge.completed,
     .badge.approved,
+    .badge.published,
     .badge.connected,
     .badge.operational {
+      border-color: rgba(52, 211, 153, 0.24);
       background: rgba(52, 211, 153, 0.12);
       color: #bbf7d0;
-      border-color: rgba(52, 211, 153, 0.24);
     }
 
-    .badge.unpaid,
-    .badge.overdue,
-    .badge.cancelled,
-    .badge.rejected,
-    .badge.hidden,
-    .badge.suspended,
-    .badge.degraded {
-      background: rgba(251, 113, 133, 0.12);
-      color: #fecdd3;
-      border-color: rgba(251, 113, 133, 0.24);
-    }
-
+    .badge.new,
     .badge.contacted,
     .badge.converted,
-    .badge.new,
     .badge.in_progress {
+      border-color: rgba(34, 211, 238, 0.24);
       background: rgba(34, 211, 238, 0.12);
       color: #a5f3fc;
-      border-color: rgba(34, 211, 238, 0.24);
+    }
+
+    .badge.suspended,
+    .badge.cancelled,
+    .badge.hidden,
+    .badge.rejected,
+    .badge.unpaid,
+    .badge.overdue,
+    .badge.disconnected,
+    .badge.degraded {
+      border-color: rgba(251, 113, 133, 0.24);
+      background: rgba(251, 113, 133, 0.12);
+      color: #fecdd3;
     }
 
     .actions {
@@ -583,12 +845,13 @@
       color: var(--text);
       padding: 9px 12px;
       font-size: 0.88rem;
-      font-weight: 600;
+      font-weight: 700;
+      transition: border-color 0.2s ease, background 0.2s ease;
     }
 
     .mini-button:hover {
-      background: var(--accent-soft);
       border-color: var(--accent);
+      background: var(--accent-soft);
     }
 
     .mini-button.is-warning {
@@ -597,32 +860,80 @@
       color: #fde68a;
     }
 
-    .mini-button.is-warning:hover {
-      border-color: rgba(245, 158, 11, 0.42);
-      background: rgba(245, 158, 11, 0.18);
+    .mini-button.is-danger {
+      border-color: rgba(251, 113, 133, 0.28);
+      background: rgba(251, 113, 133, 0.12);
+      color: #fecdd3;
     }
 
-    .button-secondary:disabled,
-    .mini-button:disabled,
-    .button:disabled,
-    .button-danger:disabled {
-      cursor: not-allowed;
-      opacity: 0.55;
-      transform: none;
-    }
-
-    .empty-state,
-    .loading-state {
-      padding: 34px 22px;
+    .empty-state {
+      padding: 28px 20px;
       text-align: center;
       color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .placeholder-panel h3 {
+      margin: 10px 0 0;
+      font-size: 1.2rem;
+      letter-spacing: -0.03em;
+    }
+
+    .placeholder-panel p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.65;
+      max-width: 70ch;
+    }
+
+    .placeholder-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .placeholder-list article {
+      padding: 14px 16px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 16px;
+      background: var(--surface-muted);
+    }
+
+    .settings-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .settings-item {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-muted);
+    }
+
+    .settings-item span {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .settings-item strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1rem;
+      letter-spacing: -0.02em;
+      overflow-wrap: anywhere;
     }
 
     .drawer-shell {
       position: fixed;
       inset: 0;
       display: none;
-      z-index: 30;
+      z-index: 40;
     }
 
     .drawer-shell.is-open {
@@ -640,11 +951,11 @@
       position: absolute;
       top: 0;
       right: 0;
-      width: min(620px, 100%);
+      width: min(660px, 100%);
       height: 100%;
       padding: 24px;
       border-left: 1px solid var(--line);
-      background: var(--panel-strong);
+      background: var(--surface-strong);
       overflow-y: auto;
       box-shadow: var(--shadow);
     }
@@ -659,14 +970,8 @@
 
     .drawer-header h3 {
       margin: 8px 0 0;
-      font-size: 1.4rem;
-      letter-spacing: -0.03em;
-    }
-
-    .drawer-section {
-      margin-top: 18px;
-      border-top: 1px solid var(--line);
-      padding-top: 18px;
+      font-size: 1.45rem;
+      letter-spacing: -0.04em;
     }
 
     .drawer-grid {
@@ -675,14 +980,20 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .drawer-section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
     .field {
       display: grid;
       gap: 8px;
     }
 
     .field label {
-      font-size: 0.9rem;
       color: var(--muted);
+      font-size: 0.9rem;
     }
 
     .checkbox-grid {
@@ -695,25 +1006,34 @@
       display: flex;
       align-items: flex-start;
       gap: 10px;
+      padding: 12px;
       border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 12px;
-      background: var(--bg-soft);
+      background: var(--surface-muted);
     }
 
     .drawer-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
       justify-content: flex-end;
+      gap: 10px;
       margin-top: 22px;
+    }
+
+    .inline-note {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(245, 158, 11, 0.26);
+      background: rgba(245, 158, 11, 0.1);
+      color: #fde68a;
+      line-height: 1.55;
     }
 
     .toast-stack {
       position: fixed;
       right: 22px;
       bottom: 22px;
-      z-index: 40;
+      z-index: 50;
       display: grid;
       gap: 10px;
     }
@@ -721,10 +1041,10 @@
     .toast {
       min-width: 260px;
       max-width: 360px;
-      border-radius: 16px;
-      border: 1px solid var(--line);
-      background: var(--panel-strong);
       padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-strong);
       box-shadow: var(--shadow);
     }
 
@@ -747,21 +1067,35 @@
       border-color: rgba(251, 113, 133, 0.24);
     }
 
-    @media (max-width: 1220px) {
-      .stats-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    @media (max-width: 1380px) {
+      .kpi-grid {
+        grid-template-columns: repeat(8, minmax(0, 1fr));
       }
 
-      .overview-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .filters {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+      .kpi-card,
+      .kpi-card.is-wide {
+        grid-column: span 2;
       }
     }
 
-    @media (max-width: 960px) {
+    @media (max-width: 1180px) {
+      .kpi-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .dual-grid,
+      .triple-grid,
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .filters,
+      .filters.is-compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 980px) {
       .admin-shell {
         grid-template-columns: 1fr;
       }
@@ -771,8 +1105,8 @@
         left: 0;
         top: 0;
         bottom: 0;
-        width: min(320px, 88vw);
-        z-index: 25;
+        width: min(320px, 90vw);
+        z-index: 30;
         transform: translateX(-100%);
         transition: transform 0.22s ease;
       }
@@ -781,6 +1115,7 @@
         transform: translateX(0);
       }
 
+      .mobile-close,
       .mobile-nav-toggle {
         display: inline-flex;
       }
@@ -795,24 +1130,36 @@
 
       .topbar-actions {
         width: 100%;
-        justify-content: space-between;
-      }
-
-      .stats-grid,
-      .filters,
-      .drawer-grid,
-      .checkbox-grid {
-        grid-template-columns: 1fr;
+        justify-content: flex-start;
       }
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 760px) {
+      .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .kpi-card,
+      .kpi-card.is-wide {
+        grid-column: span 1;
+      }
+
+      .quick-action-grid,
+      .checkbox-grid,
+      .drawer-grid,
+      .filters,
+      .filters.is-compact,
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+
       .main {
         padding: 16px;
       }
 
       .panel,
-      .stat-card {
+      .placeholder-panel,
+      .kpi-card {
         padding: 16px;
       }
 
@@ -823,175 +1170,287 @@
   </style>
 </head>
 <body>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
   <div class="admin-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-mark">AX</div>
-        <div class="brand-copy">
-          <small>AutomateX</small>
-          <strong>Admin Console</strong>
+      <div class="sidebar-top">
+        <div class="sidebar-brand">
+          <span class="brand-mark">
+            <img src="/Images/AutomateX-logo.PNG" alt="AutomateX logo">
+          </span>
+          <div class="brand-copy">
+            <small class="kicker">AutomateX</small>
+            <h2>Owner Control Center</h2>
+            <p>Platform operations, billing oversight, and client activation.</p>
+          </div>
         </div>
+        <button id="sidebarClose" class="mobile-close" type="button">Close</button>
       </div>
 
       <nav class="sidebar-nav" id="sidebarNav">
-        <button data-section="overview" class="is-active"><span>Overview</span><span>01</span></button>
-        <button data-section="clients"><span>Clients</span><span>02</span></button>
-        <button data-section="bookings"><span>Bookings</span><span>03</span></button>
-        <button data-section="inquiries"><span>Leads</span><span>04</span></button>
-        <button data-section="reviews"><span>Reviews</span><span>05</span></button>
-        <button data-section="billing"><span>Billing</span><span>06</span></button>
+        <button class="nav-button is-active" data-section="dashboard" type="button">
+          <span>
+            <strong>Dashboard</strong>
+            <small>Owner overview</small>
+          </span>
+          <span class="nav-counter">Live</span>
+        </button>
+        <button class="nav-button" data-section="clients" type="button">
+          <span>
+            <strong>Clients</strong>
+            <small>Manage accounts</small>
+          </span>
+          <span class="nav-counter" id="navCountClients">0</span>
+        </button>
+        <button class="nav-button" data-section="pending-approvals" type="button">
+          <span>
+            <strong>Pending Approvals</strong>
+            <small>Review new signups</small>
+          </span>
+          <span class="nav-counter" id="navCountPending">0</span>
+        </button>
+        <button class="nav-button" data-section="packages" type="button">
+          <span>
+            <strong>Packages</strong>
+            <small>Service distribution</small>
+          </span>
+          <span class="nav-counter" id="navCountPackages">0</span>
+        </button>
+        <button class="nav-button" data-section="invoices" type="button">
+          <span>
+            <strong>Invoices</strong>
+            <small>Coming next</small>
+          </span>
+          <span class="nav-counter">Soon</span>
+        </button>
+        <button class="nav-button" data-section="payments" type="button">
+          <span>
+            <strong>Payments</strong>
+            <small>Revenue follow-up</small>
+          </span>
+          <span class="nav-counter" id="navCountPayments">0</span>
+        </button>
+        <button class="nav-button" data-section="bookings" type="button">
+          <span>
+            <strong>Bookings</strong>
+            <small>Schedule activity</small>
+          </span>
+          <span class="nav-counter" id="navCountBookings">0</span>
+        </button>
+        <button class="nav-button" data-section="inquiries" type="button">
+          <span>
+            <strong>Inquiries</strong>
+            <small>Lead pipeline</small>
+          </span>
+          <span class="nav-counter" id="navCountInquiries">0</span>
+        </button>
+        <button class="nav-button" data-section="reviews" type="button">
+          <span>
+            <strong>Reviews</strong>
+            <small>Moderation queue</small>
+          </span>
+          <span class="nav-counter" id="navCountReviews">0</span>
+        </button>
+        <button class="nav-button" data-section="support" type="button">
+          <span>
+            <strong>Support Requests</strong>
+            <small>Coming next</small>
+          </span>
+          <span class="nav-counter">Soon</span>
+        </button>
+        <button class="nav-button" data-section="reports" type="button">
+          <span>
+            <strong>Reports</strong>
+            <small>Operational digest</small>
+          </span>
+          <span class="nav-counter" id="navCountReports">Live</span>
+        </button>
+        <button class="nav-button" data-section="settings" type="button">
+          <span>
+            <strong>Settings</strong>
+            <small>Appearance & access</small>
+          </span>
+          <span class="nav-counter">Admin</span>
+        </button>
       </nav>
 
-      <div class="sidebar-meta">
-        <div class="theme-toggle">
-          <small class="eyebrow">Appearance</small>
-          <div class="theme-toggle-row">
-            <span class="subtle">Dashboard theme</span>
-            <select id="themePreference" class="select">
+      <div class="sidebar-footer">
+        <div class="sidebar-panel">
+          <small class="kicker">Appearance</small>
+          <label class="field-inline">
+            <span>Dashboard theme</span>
+            <select class="select theme-control" id="themePreferenceSidebar">
               <option value="dark">Dark</option>
               <option value="light">Light</option>
               <option value="system">System</option>
             </select>
-          </div>
+          </label>
         </div>
 
-        <div class="sidebar-note">
-          <small class="eyebrow">Platform role</small>
-          <p class="subtle" style="margin: 10px 0 0;">This console manages the AutomateX SaaS platform. It does not represent a subscribed client account.</p>
+        <div class="sidebar-panel">
+          <small class="kicker">Security</small>
+          <p>This admin workspace is restricted to AutomateX company administrators and owner-level platform operators.</p>
+          <button id="logoutButtonSidebar" class="button button-danger" type="button" style="margin-top: 14px; width: 100%;">Logout</button>
         </div>
       </div>
     </aside>
 
     <main class="main">
-      <div class="topbar">
-        <div class="topbar-title">
-          <small class="eyebrow">Platform Control</small>
-          <h1 id="pageTitle">Admin Overview</h1>
-          <p id="pageSubtitle">Monitor client growth, package assignments, billing, support demand, and moderation from one SaaS-level control center.</p>
+      <header class="topbar">
+        <div class="topbar-copy">
+          <small class="kicker">AutomateX SaaS Owner</small>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSubtitle">Monitor approvals, revenue pressure, and platform activity from one professional admin control center.</p>
         </div>
 
         <div class="topbar-actions">
-          <button id="sidebarToggle" class="button-secondary mobile-nav-toggle" type="button">Menu</button>
-          <span class="pill" id="adminIdentity">Loading admin…</span>
-          <button id="logoutButton" class="button-danger" type="button">Logout</button>
+          <button id="sidebarToggle" class="button button-secondary mobile-nav-toggle" type="button">Menu</button>
+          <button id="headerPendingButton" class="button button-secondary" type="button">Pending Clients</button>
+          <button id="headerRefreshButton" class="button button-secondary" type="button">Refresh Data</button>
+          <span class="identity-chip" id="adminIdentity">Loading admin…</span>
         </div>
-      </div>
+      </header>
 
       <div class="banner" id="banner" data-tone="info"></div>
 
-      <section class="section is-active" id="section-overview">
-        <div class="stats-grid" id="statsGrid"></div>
+      <section class="section is-active" id="section-dashboard">
+        <div class="kpi-grid" id="dashboardKpiGrid"></div>
 
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <small class="eyebrow">Pending Approvals</small>
-              <h2 id="pendingApprovalHeadline">Loading approval queue</h2>
-              <p id="pendingApprovalCopy">New client signups waiting for approval will appear here with a direct path into package assignment and activation.</p>
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Revenue Overview</small>
+                <h2>Owner-level billing snapshot</h2>
+                <p>Use current plan assignments and payment states to see expected revenue, outstanding balances, and collection pressure.</p>
+              </div>
             </div>
-            <div class="pending-banner-actions">
-              <span class="badge pending" id="pendingApprovalCountBadge">0 Waiting</span>
-              <button id="reviewPendingClientsButton" class="button-secondary" type="button">Review pending clients</button>
+            <div class="metric-list" id="revenueOverviewList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Quick Actions</small>
+                <h2>Jump to the next task</h2>
+                <p>Move directly into the sections that need operational attention without hunting through the console.</p>
+              </div>
             </div>
-          </div>
-          <div class="summary-list" id="pendingApprovalHighlights"></div>
-        </article>
+            <div class="quick-action-grid">
+              <button class="quick-action" type="button" data-section-target="pending-approvals">
+                <strong>View Pending Clients</strong>
+                <span>Open the approval queue and activate waiting accounts.</span>
+              </button>
+              <button class="quick-action" type="button" data-section-target="clients">
+                <strong>Add / Manage Client</strong>
+                <span>Review live client records, packages, and feature access.</span>
+              </button>
+              <button class="quick-action" type="button" data-section-target="invoices" data-notice="Invoice tools are coming in the next update." data-notice-tone="warning">
+                <strong>Create Invoice</strong>
+                <span>Prepare the billing workspace placeholder for invoice operations.</span>
+              </button>
+              <button class="quick-action" type="button" data-section-target="payments">
+                <strong>View Payments</strong>
+                <span>Review outstanding balances, payment status, and billing follow-up.</span>
+              </button>
+              <button class="quick-action" type="button" data-section-target="support" data-notice="Support request tools are coming in the next update." data-notice-tone="warning">
+                <strong>View Support Requests</strong>
+                <span>Open the upcoming support queue placeholder section.</span>
+              </button>
+            </div>
+          </article>
+        </div>
 
-        <div class="overview-grid">
-          <div class="stack">
-            <article class="panel">
-              <div class="panel-header">
-                <div>
-                  <small class="eyebrow">Platform Snapshot</small>
-                  <h2>Package distribution and cash flow</h2>
-                  <p>See how active packages, monthly revenue, unpaid fees, and client state are trending across the platform.</p>
-                </div>
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Pending Approvals Preview</small>
+                <h2>Latest signup requests</h2>
+                <p>Review the newest client accounts waiting for package assignment and admin activation.</p>
               </div>
-              <div class="package-list" id="packageDistribution"></div>
-            </article>
+              <div class="panel-actions">
+                <button class="button button-secondary" type="button" data-section-target="pending-approvals">Open Queue</button>
+              </div>
+            </div>
+            <div id="dashboardPendingPreview"></div>
+          </article>
 
-            <article class="panel">
-              <div class="panel-header">
-                <div>
-                  <small class="eyebrow">Payment Pressure</small>
-                  <h2>Billing watchlist</h2>
-                  <p>Quickly identify overdue clients, unpaid balances, and how many accounts are settled this cycle.</p>
-                </div>
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Recent Clients</small>
+                <h2>Newest client accounts</h2>
+                <p>Keep track of who recently joined the platform and which accounts may need early operational attention.</p>
               </div>
-              <div class="summary-list" id="billingSummary"></div>
-            </article>
-          </div>
+              <div class="panel-actions">
+                <button class="button button-secondary" type="button" data-section-target="clients">Manage Clients</button>
+              </div>
+            </div>
+            <div id="dashboardRecentClients"></div>
+          </article>
+        </div>
 
-          <div class="stack">
-            <article class="panel">
-              <div class="panel-header">
-                <div>
-                  <small class="eyebrow">System Health</small>
-                  <h2>Infrastructure status</h2>
-                  <p>Basic runtime health indicators for the API and the database connection powering the platform.</p>
-                </div>
+        <div class="triple-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Recent Bookings</small>
+                <h3>Latest scheduling activity</h3>
               </div>
-              <div class="health-list" id="healthSummary"></div>
-            </article>
+              <div class="panel-actions">
+                <button class="button button-secondary" type="button" data-section-target="bookings">View All</button>
+              </div>
+            </div>
+            <div id="dashboardRecentBookings"></div>
+          </article>
 
-            <article class="panel">
-              <div class="panel-header">
-                <div>
-                  <small class="eyebrow">Operational Focus</small>
-                  <h2>Work queue</h2>
-                  <p>Keep the most urgent platform tasks visible: pending signups, new leads, unpaid accounts, and moderation backlog.</p>
-                </div>
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Recent Inquiries</small>
+                <h3>Latest leads and messages</h3>
               </div>
-              <div class="summary-list" id="operationsSummary"></div>
-            </article>
-          </div>
+              <div class="panel-actions">
+                <button class="button button-secondary" type="button" data-section-target="inquiries">View All</button>
+              </div>
+            </div>
+            <div id="dashboardRecentInquiries"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Recent Reviews</small>
+                <h3>Newest moderation items</h3>
+              </div>
+              <div class="panel-actions">
+                <button class="button button-secondary" type="button" data-section-target="reviews">View All</button>
+              </div>
+            </div>
+            <div id="dashboardRecentReviews"></div>
+          </article>
         </div>
       </section>
 
       <section class="section" id="section-clients">
+        <div class="chip-row" id="clientsSummaryChips"></div>
+
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="eyebrow">Client Management</small>
-              <h2>Accounts, package assignment, and feature access</h2>
-              <p>Search businesses, assign packages manually, set monthly fees, manage payment state, and control platform feature access.</p>
+              <small class="kicker">Client Management</small>
+              <h2>Accounts, package assignment, and activation control</h2>
+              <p>Search live clients, open the management drawer, adjust package and billing state, and monitor platform activity account by account.</p>
             </div>
-          </div>
-
-          <div class="pending-approvals-shell" id="pendingApprovalsPanel">
-            <div class="panel-header">
-              <div>
-                <small class="eyebrow">Approval Queue</small>
-                <h3>Clients waiting for approval</h3>
-                <p>Approve new signups by assigning a package, monthly fee, billing state, and feature access from the existing protected client drawer.</p>
-              </div>
-            </div>
-
-            <div class="table-card">
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Client</th>
-                      <th>Business</th>
-                      <th>Type</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                      <th>Signed Up</th>
-                      <th>Status</th>
-                      <th>Package</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="pendingApprovalsTableBody"></tbody>
-                </table>
-              </div>
-              <div class="empty-state" id="pendingApprovalsEmptyState">Loading pending approvals…</div>
+            <div class="panel-actions">
+              <button id="refreshClientsButton" class="button button-secondary" type="button">Refresh Clients</button>
             </div>
           </div>
 
           <div class="filters">
-            <input id="clientSearch" class="input" type="text" placeholder="Search name, email, business, phone">
+            <input id="clientSearch" class="input" type="text" placeholder="Search business, owner, email, phone">
             <select id="clientPlanFilter" class="select">
               <option value="">All packages</option>
               <option value="not_assigned">Not Assigned</option>
@@ -1008,10 +1467,10 @@
             </select>
             <select id="clientSortBy" class="select">
               <option value="createdAt">Sort: newest</option>
-              <option value="name">Sort: name</option>
+              <option value="name">Sort: business name</option>
               <option value="monthlyFee">Sort: monthly fee</option>
             </select>
-            <button id="refreshClientsButton" class="button-secondary" type="button">Refresh clients</button>
+            <button class="button button-secondary" type="button" data-section-target="pending-approvals">Open Approval Queue</button>
           </div>
 
           <div class="table-card">
@@ -1020,12 +1479,12 @@
                 <thead>
                   <tr>
                     <th>Business</th>
+                    <th>Owner</th>
                     <th>Package</th>
-                    <th>Status</th>
-                    <th>Monthly Fee</th>
+                    <th>Account</th>
                     <th>Payment</th>
-                    <th>Bookings</th>
-                    <th>Inquiries</th>
+                    <th>Monthly Fee</th>
+                    <th>Activity</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1037,13 +1496,186 @@
         </article>
       </section>
 
+      <section class="section" id="section-pending-approvals">
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Pending Approvals</small>
+              <h2>Approval queue for newly signed-up clients</h2>
+              <p>Approve new accounts by assigning the correct package, billing values, and feature access before platform access is activated.</p>
+            </div>
+            <div class="panel-actions">
+              <span class="badge pending" id="pendingApprovalCountBadge">0 Waiting</span>
+              <button id="refreshPendingApprovalsButton" class="button button-secondary" type="button">Refresh Queue</button>
+            </div>
+          </div>
+
+          <div class="chip-row" id="pendingApprovalChips"></div>
+
+          <div class="table-card" style="margin-top: 16px;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Owner</th>
+                    <th>Business</th>
+                    <th>Type</th>
+                    <th>Contact</th>
+                    <th>Signed Up</th>
+                    <th>Status</th>
+                    <th>Package</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="pendingApprovalsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="pendingApprovalsEmptyState">Loading pending approvals…</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="section-packages">
+        <div class="kpi-grid" id="packageKpiGrid"></div>
+
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Package Distribution</small>
+                <h2>Assigned service tiers</h2>
+                <p>Track how many client accounts sit inside each package tier and which services are active across the platform.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="packageDistributionList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Package Health</small>
+                <h2>Assignment watchlist</h2>
+                <p>See unassigned accounts, active package totals, and the current monthly value represented by assigned packages.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="packageHealthList"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Package Clients</small>
+              <h2>Clients by assigned package</h2>
+              <p>Review package allocation across real accounts without editing pricing or package rules in this step.</p>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Business</th>
+                    <th>Package</th>
+                    <th>Account Status</th>
+                    <th>Payment</th>
+                    <th>Monthly Value</th>
+                    <th>Features</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="packageClientsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="packageClientsEmptyState">Loading package assignments…</div>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="section-invoices">
+        <article class="placeholder-panel">
+          <small class="kicker">Invoices</small>
+          <h3>Coming in next update</h3>
+          <p>Invoice creation, invoice history, and automated invoice delivery are not wired to backend data yet in this step. This section is reserved so the admin navigation and control-center structure are ready.</p>
+          <div class="placeholder-list">
+            <article>No data available yet for invoice records.</article>
+            <article>Invoice generation and tracking will connect here in the next update.</article>
+          </div>
+        </article>
+      </section>
+
+      <section class="section" id="section-payments">
+        <div class="kpi-grid" id="paymentsKpiGrid"></div>
+
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Collections Summary</small>
+                <h2>Payment pressure and cash readiness</h2>
+                <p>Review estimated outstanding balances, due accounts, and which clients are currently settled or overdue.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="paymentsSummaryList"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Payment Alerts</small>
+                <h2>What needs follow-up now</h2>
+                <p>Use current payment status and next-payment dates to prioritize collection work without introducing new billing backend logic.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="paymentAlertsList"></div>
+          </article>
+        </div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Payments Table</small>
+              <h2>Billing-related client accounts</h2>
+              <p>Manage billing values from the existing client drawer and monitor which accounts need immediate attention.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="refreshPaymentsButton" class="button button-secondary" type="button">Refresh Payments</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Business</th>
+                    <th>Package</th>
+                    <th>Monthly Fee</th>
+                    <th>Payment Status</th>
+                    <th>Next Payment</th>
+                    <th>Account Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="paymentsEmptyState">Loading payment data…</div>
+          </div>
+        </article>
+      </section>
+
       <section class="section" id="section-bookings">
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="eyebrow">Booking Operations</small>
-              <h2>Schedule management across all tenants</h2>
-              <p>Review customer bookings, filter by status, inspect linked business accounts, and update date, time, status, or admin notes.</p>
+              <small class="kicker">Bookings</small>
+              <h2>Platform-wide schedule management</h2>
+              <p>Review recent bookings, filter by status or date, and edit operational details without touching the public booking flow.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="refreshBookingsButton" class="button button-secondary" type="button">Refresh Bookings</button>
             </div>
           </div>
 
@@ -1062,7 +1694,7 @@
               <option value="date">Sort: date</option>
               <option value="status">Sort: status</option>
             </select>
-            <button id="refreshBookingsButton" class="button-secondary" type="button">Refresh bookings</button>
+            <div></div>
           </div>
 
           <div class="table-card">
@@ -1091,13 +1723,16 @@
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="eyebrow">Lead Management</small>
-              <h2>Incoming inquiries and follow-up progress</h2>
-              <p>Track new leads, mark contact progress, record conversion outcomes, and keep platform-side notes for sales follow-up.</p>
+              <small class="kicker">Inquiries</small>
+              <h2>Lead and inquiry pipeline</h2>
+              <p>Track fresh inquiries, update follow-up status, and keep platform-side notes for the AutomateX owner team.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="refreshInquiriesButton" class="button button-secondary" type="button">Refresh Inquiries</button>
             </div>
           </div>
 
-          <div class="filters">
+          <div class="filters is-compact">
             <input id="inquirySearch" class="input" type="text" placeholder="Search lead, message, business">
             <select id="inquiryStatusFilter" class="select">
               <option value="">All statuses</option>
@@ -1110,10 +1745,9 @@
             <select id="inquirySortBy" class="select">
               <option value="createdAt">Sort: newest</option>
               <option value="status">Sort: status</option>
-              <option value="name">Sort: name</option>
+              <option value="name">Sort: lead name</option>
             </select>
             <div></div>
-            <button id="refreshInquiriesButton" class="button-secondary" type="button">Refresh leads</button>
           </div>
 
           <div class="table-card">
@@ -1142,9 +1776,12 @@
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="eyebrow">Review Moderation</small>
-              <h2>Approve or reject customer reviews safely</h2>
-              <p>Filter by rating and moderation state, then review the linked business before publishing or hiding feedback.</p>
+              <small class="kicker">Reviews</small>
+              <h2>Moderation and publication control</h2>
+              <p>Approve or reject client-linked customer reviews with clear visibility into the related business record.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="refreshReviewsButton" class="button button-secondary" type="button">Refresh Reviews</button>
             </div>
           </div>
 
@@ -1169,7 +1806,7 @@
               <option value="rating">Sort: rating</option>
               <option value="status">Sort: status</option>
             </select>
-            <button id="refreshReviewsButton" class="button-secondary" type="button">Refresh reviews</button>
+            <div></div>
           </div>
 
           <div class="table-card">
@@ -1194,38 +1831,99 @@
         </article>
       </section>
 
-      <section class="section" id="section-billing">
-        <article class="panel">
-          <div class="panel-header">
-            <div>
-              <small class="eyebrow">Billing Management</small>
-              <h2>Revenue, due dates, and payment follow-up</h2>
-              <p>Review paid and unpaid accounts, highlight overdue balances, and update package fees and due dates from the client drawer.</p>
-            </div>
-          </div>
-
-          <div class="stats-grid" id="billingStatsGrid"></div>
-
-          <div class="table-card" style="margin-top: 18px;">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Business</th>
-                    <th>Package</th>
-                    <th>Monthly Fee</th>
-                    <th>Payment Status</th>
-                    <th>Next Payment</th>
-                    <th>Account Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="billingTableBody"></tbody>
-              </table>
-            </div>
-            <div class="empty-state" id="billingEmptyState">Loading billing data…</div>
+      <section class="section" id="section-support">
+        <article class="placeholder-panel">
+          <small class="kicker">Support Requests</small>
+          <h3>Coming in next update</h3>
+          <p>The support request backend is not part of this step, so this section stays as a clean placeholder inside the owner control center.</p>
+          <div class="placeholder-list">
+            <article>No data available yet for internal support tickets.</article>
+            <article>Support request routing, status updates, and owner workflow tools will connect here next.</article>
           </div>
         </article>
+      </section>
+
+      <section class="section" id="section-reports">
+        <div class="kpi-grid" id="reportsKpiGrid"></div>
+
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Operational Digest</small>
+                <h2>High-level platform reporting</h2>
+                <p>Use available admin metrics to understand client growth, demand, moderation pressure, and platform health.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="reportsSummaryList"></div>
+          </article>
+
+          <article class="placeholder-panel">
+            <small class="kicker">Exports & Scheduled Reports</small>
+            <h3>Coming in next update</h3>
+            <p>CSV exports, downloadable executive reports, and scheduled summaries are not implemented yet. This placeholder keeps the reporting section visible without faking unavailable tools.</p>
+            <div class="placeholder-list">
+              <article>No data available yet for export history.</article>
+              <article>Automated reporting and downloadable summaries will appear here in the next step.</article>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="section-settings">
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Admin Session</small>
+                <h2>Current platform access details</h2>
+                <p>Review which administrator is authenticated and confirm that this page remains isolated from client-facing access.</p>
+              </div>
+            </div>
+            <div class="settings-grid" id="settingsAdminInfo"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">Appearance</small>
+                <h2>Console display preferences</h2>
+                <p>Theme preference is stored locally on this device so the owner dashboard stays readable in light or dark mode.</p>
+              </div>
+            </div>
+            <label class="field-inline">
+              <span>Theme preference</span>
+              <select class="select theme-control" id="themePreferenceSettings">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="system">System</option>
+              </select>
+            </label>
+          </article>
+        </div>
+
+        <div class="dual-grid">
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <small class="kicker">System Health</small>
+                <h2>Runtime connectivity snapshot</h2>
+                <p>Current backend-reported service health indicators for the API and database powering the admin console.</p>
+              </div>
+            </div>
+            <div class="metric-list" id="settingsHealthList"></div>
+          </article>
+
+          <article class="placeholder-panel">
+            <small class="kicker">Advanced Admin Settings</small>
+            <h3>Coming in next update</h3>
+            <p>System-wide configurable settings, owner notifications, and advanced permission tools are not part of this step yet.</p>
+            <div class="placeholder-list">
+              <article>No data available yet for persisted admin settings.</article>
+              <article>Platform preferences beyond local theme selection will connect here later.</article>
+            </div>
+          </article>
+        </div>
       </section>
     </main>
   </div>
@@ -1235,11 +1933,11 @@
     <aside class="drawer">
       <div class="drawer-header">
         <div>
-          <small class="eyebrow" id="drawerEyebrow">Details</small>
+          <small class="kicker" id="drawerEyebrow">Details</small>
           <h3 id="drawerTitle">Record Details</h3>
           <p class="subtle" id="drawerSubtitle">Manage this record safely using protected admin-only controls.</p>
         </div>
-        <button class="button-ghost" id="drawerCloseButton" type="button">Close</button>
+        <button class="button button-ghost" id="drawerCloseButton" type="button">Close</button>
       </div>
       <div id="drawerBody"></div>
     </aside>
@@ -1251,6 +1949,13 @@
     const TOKEN_KEY = "automatex_admin_token";
     const USER_KEY = "automatex_admin_user";
     const THEME_KEY = "automatex_admin_theme";
+    const PLAN_PRICE_MAP = {
+      not_assigned: 0,
+      starter: 49,
+      standard: 99,
+      pro: 199,
+      custom: 0
+    };
     const FEATURE_OPTIONS = [
       { key: "ai-chatbot", label: "AI Chatbot" },
       { key: "booking-system", label: "Booking Management" },
@@ -1262,39 +1967,63 @@
       { key: "website-maintenance", label: "Premium Support / Website Integration" }
     ];
     const SECTION_META = {
-      overview: {
-        title: "Admin Overview",
-        subtitle: "Monitor client growth, package assignments, billing, support demand, and moderation from one SaaS-level control center."
+      dashboard: {
+        title: "Dashboard",
+        subtitle: "Monitor approvals, revenue pressure, and platform activity from one professional admin control center."
       },
       clients: {
-        title: "Client Management",
-        subtitle: "Manage onboarding, package assignment, feature access, and payment readiness for every client business."
+        title: "Clients",
+        subtitle: "Manage client accounts, package assignment, billing state, and operational readiness."
+      },
+      "pending-approvals": {
+        title: "Pending Approvals",
+        subtitle: "Review waiting signups, assign the right package, and activate dashboard access professionally."
+      },
+      packages: {
+        title: "Packages",
+        subtitle: "See how service tiers are distributed across the AutomateX client base."
+      },
+      invoices: {
+        title: "Invoices",
+        subtitle: "Invoice controls are reserved here and will connect in the next backend update."
+      },
+      payments: {
+        title: "Payments",
+        subtitle: "Review collections pressure, payment states, and expected recurring revenue across active accounts."
       },
       bookings: {
-        title: "Booking Management",
-        subtitle: "Review, edit, complete, or cancel bookings across all businesses without touching client-facing workflows."
+        title: "Bookings",
+        subtitle: "Manage booking activity platform-wide without altering the public booking experience."
       },
       inquiries: {
-        title: "Lead Management",
-        subtitle: "Track new inquiries, sales follow-up, converted leads, and support queue notes across the whole platform."
+        title: "Inquiries",
+        subtitle: "Track the lead pipeline, follow-up progress, and message volume across AutomateX."
       },
       reviews: {
-        title: "Review Moderation",
-        subtitle: "Approve or reject customer reviews with clear visibility into the linked business account and moderation history."
+        title: "Reviews",
+        subtitle: "Moderate customer reviews with clear visibility into the connected client business."
       },
-      billing: {
-        title: "Billing Operations",
-        subtitle: "See recurring revenue, unpaid balances, upcoming due dates, and the clients that need billing follow-up most."
+      support: {
+        title: "Support Requests",
+        subtitle: "Support request tools are not wired in this step, but the admin information architecture is ready."
+      },
+      reports: {
+        title: "Reports",
+        subtitle: "Use available metrics for a platform digest while advanced reporting exports wait for the next update."
+      },
+      settings: {
+        title: "Settings",
+        subtitle: "Review admin session status, local display preferences, and system health visibility."
       }
     };
     const state = {
-      currentSection: "overview",
+      currentSection: "dashboard",
+      admin: null,
       stats: null,
-      clients: [],
-      pendingApprovals: [],
-      bookings: [],
-      inquiries: [],
-      reviews: [],
+      allClients: [],
+      allBookings: [],
+      allInquiries: [],
+      allReviews: [],
       drawer: null
     };
 
@@ -1308,6 +2037,15 @@
       window.location.href = "/admin-login.html";
     }
 
+    function redirectNonAdminUser(role) {
+      if (role === "client") {
+        window.location.replace("/dashboard.html");
+        return;
+      }
+
+      redirectToLogin();
+    }
+
     function escapeHtml(value) {
       return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -1317,12 +2055,17 @@
         .replace(/'/g, "&#39;");
     }
 
+    function toNumber(value) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
     function formatCurrency(value) {
       return new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
         maximumFractionDigits: 0
-      }).format(Number(value || 0));
+      }).format(toNumber(value));
     }
 
     function formatDate(value) {
@@ -1330,7 +2073,12 @@
         return "—";
       }
 
-      return new Date(value).toLocaleString("en-US", {
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return "—";
+      }
+
+      return parsed.toLocaleString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -1344,7 +2092,12 @@
         return "—";
       }
 
-      return new Date(value).toLocaleDateString("en-US", {
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return "—";
+      }
+
+      return parsed.toLocaleDateString("en-US", {
         year: "numeric",
         month: "short",
         day: "numeric"
@@ -1368,29 +2121,18 @@
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
     }
 
-    function getPendingApprovals() {
-      return Array.isArray(state.pendingApprovals) ? state.pendingApprovals : [];
-    }
-
-    function inquiryOwnerLabel(inquiry) {
-      if (inquiry.source === "public-website") {
-        return "AutomateX Public Website";
-      }
-
-      return inquiry.clientBusinessName || inquiry.clientName || "Client";
-    }
-
-    function inquiryOwnerSubtitle(inquiry) {
-      if (inquiry.source === "public-website") {
-        return "Platform inbox lead";
-      }
-
-      return inquiry.clientEmail || "";
-    }
-
     function ratingStars(value) {
-      const count = Number(value || 0);
+      const count = Math.max(0, Math.min(5, toNumber(value)));
       return `${"★".repeat(count)}${"☆".repeat(Math.max(0, 5 - count))}`;
+    }
+
+    function estimateClientFee(client) {
+      const monthlyFee = toNumber(client && client.monthlyFee);
+      if (monthlyFee > 0) {
+        return monthlyFee;
+      }
+
+      return PLAN_PRICE_MAP[String(client && client.plan || "not_assigned")] || 0;
     }
 
     function badgeClass(value) {
@@ -1400,15 +2142,298 @@
         return "badge active";
       }
 
-      if (["pending"].includes(normalized)) {
-        return "badge pending";
+      if (["pending", "new"].includes(normalized)) {
+        return normalized === "new" ? "badge new" : "badge pending";
       }
 
-      if (["contacted", "converted", "new", "in_progress"].includes(normalized)) {
+      if (["contacted", "converted", "in_progress"].includes(normalized)) {
         return `badge ${normalized}`;
       }
 
       return `badge ${normalized}`;
+    }
+
+    function normalizeDisplayReviewStatus(review) {
+      if (!review || !review.status) {
+        return "pending";
+      }
+
+      if (review.status === "published") {
+        return "approved";
+      }
+
+      if (review.status === "hidden") {
+        return "rejected";
+      }
+
+      return review.status;
+    }
+
+    function parseDateNumber(value) {
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    }
+
+    function compareStrings(left, right) {
+      return String(left || "").localeCompare(String(right || ""), undefined, { sensitivity: "base" });
+    }
+
+    function matchesSearch(fields, searchTerm) {
+      if (!searchTerm) {
+        return true;
+      }
+
+      return fields.some((field) => String(field || "").toLowerCase().includes(searchTerm));
+    }
+
+    function getPendingApprovals() {
+      return [...state.allClients]
+        .filter((client) => client.accountStatus === "pending")
+        .sort((left, right) => parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt));
+    }
+
+    function getClientFilters() {
+      return {
+        search: String(document.getElementById("clientSearch").value || "").trim().toLowerCase(),
+        plan: document.getElementById("clientPlanFilter").value,
+        accountStatus: document.getElementById("clientStatusFilter").value,
+        sortBy: document.getElementById("clientSortBy").value
+      };
+    }
+
+    function getFilteredClients() {
+      const { search, plan, accountStatus, sortBy } = getClientFilters();
+      const items = state.allClients.filter((client) => {
+        if (plan && client.plan !== plan) {
+          return false;
+        }
+
+        if (accountStatus && client.accountStatus !== accountStatus) {
+          return false;
+        }
+
+        return matchesSearch(
+          [client.businessName, client.name, client.email, client.phone, client.businessType, client.location],
+          search
+        );
+      });
+
+      items.sort((left, right) => {
+        if (sortBy === "name") {
+          return compareStrings(left.businessName || left.name, right.businessName || right.name);
+        }
+
+        if (sortBy === "monthlyFee") {
+          return estimateClientFee(right) - estimateClientFee(left);
+        }
+
+        return parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt);
+      });
+
+      return items;
+    }
+
+    function getBookingFilters() {
+      return {
+        search: String(document.getElementById("bookingSearch").value || "").trim().toLowerCase(),
+        status: document.getElementById("bookingStatusFilter").value,
+        date: String(document.getElementById("bookingDateFilter").value || "").trim(),
+        sortBy: document.getElementById("bookingSortBy").value
+      };
+    }
+
+    function getFilteredBookings() {
+      const { search, status, date, sortBy } = getBookingFilters();
+      const items = state.allBookings.filter((booking) => {
+        if (status && booking.status !== status) {
+          return false;
+        }
+
+        if (date && !String(booking.date || "").startsWith(date)) {
+          return false;
+        }
+
+        return matchesSearch(
+          [
+            booking.name,
+            booking.email,
+            booking.phone,
+            booking.service,
+            booking.clientName,
+            booking.clientEmail,
+            booking.clientBusinessName
+          ],
+          search
+        );
+      });
+
+      items.sort((left, right) => {
+        if (sortBy === "date") {
+          return compareStrings(`${right.date} ${right.time}`, `${left.date} ${left.time}`);
+        }
+
+        if (sortBy === "status") {
+          return compareStrings(left.status, right.status);
+        }
+
+        return parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt);
+      });
+
+      return items;
+    }
+
+    function getInquiryFilters() {
+      return {
+        search: String(document.getElementById("inquirySearch").value || "").trim().toLowerCase(),
+        status: document.getElementById("inquiryStatusFilter").value,
+        sortBy: document.getElementById("inquirySortBy").value
+      };
+    }
+
+    function getFilteredInquiries() {
+      const { search, status, sortBy } = getInquiryFilters();
+      const items = state.allInquiries.filter((inquiry) => {
+        if (status && inquiry.status !== status) {
+          return false;
+        }
+
+        return matchesSearch(
+          [inquiry.name, inquiry.email, inquiry.message, inquiry.clientName, inquiry.clientBusinessName],
+          search
+        );
+      });
+
+      items.sort((left, right) => {
+        if (sortBy === "name") {
+          return compareStrings(left.name, right.name);
+        }
+
+        if (sortBy === "status") {
+          return compareStrings(left.status, right.status);
+        }
+
+        return parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt);
+      });
+
+      return items;
+    }
+
+    function getReviewFilters() {
+      return {
+        search: String(document.getElementById("reviewSearch").value || "").trim().toLowerCase(),
+        status: document.getElementById("reviewStatusFilter").value,
+        rating: document.getElementById("reviewRatingFilter").value,
+        sortBy: document.getElementById("reviewSortBy").value
+      };
+    }
+
+    function getFilteredReviews() {
+      const { search, status, rating, sortBy } = getReviewFilters();
+      const items = state.allReviews.filter((review) => {
+        if (status && normalizeDisplayReviewStatus(review) !== status) {
+          return false;
+        }
+
+        if (rating && String(review.rating) !== rating) {
+          return false;
+        }
+
+        return matchesSearch(
+          [review.name, review.role, review.text, review.clientName, review.clientBusinessName],
+          search
+        );
+      });
+
+      items.sort((left, right) => {
+        if (sortBy === "rating") {
+          return toNumber(right.rating) - toNumber(left.rating);
+        }
+
+        if (sortBy === "status") {
+          return compareStrings(normalizeDisplayReviewStatus(left), normalizeDisplayReviewStatus(right));
+        }
+
+        return parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt);
+      });
+
+      return items;
+    }
+
+    function getRecentItems(items, limit = 4) {
+      return [...items]
+        .sort((left, right) => parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt))
+        .slice(0, limit);
+    }
+
+    function getPaymentAnalytics() {
+      return state.allClients.reduce((totals, client) => {
+        const fee = estimateClientFee(client);
+        const status = String(client.paymentStatus || "pending");
+
+        if (status === "paid") {
+          totals.paidAccounts += 1;
+          totals.estimatedPaidRevenue += fee;
+        } else if (status === "overdue") {
+          totals.overdueAccounts += 1;
+          totals.overdueRevenue += fee;
+        } else if (status === "pending") {
+          totals.pendingAccounts += 1;
+          totals.pendingRevenue += fee;
+        } else {
+          totals.unpaidAccounts += 1;
+          totals.pendingRevenue += fee;
+        }
+
+        if (client.nextPaymentDate) {
+          totals.scheduledPayments += 1;
+        }
+
+        return totals;
+      }, {
+        paidAccounts: 0,
+        estimatedPaidRevenue: 0,
+        overdueAccounts: 0,
+        overdueRevenue: 0,
+        pendingAccounts: 0,
+        unpaidAccounts: 0,
+        pendingRevenue: 0,
+        scheduledPayments: 0
+      });
+    }
+
+    function getPackageAnalytics() {
+      const groups = {
+        not_assigned: [],
+        starter: [],
+        standard: [],
+        pro: [],
+        custom: []
+      };
+
+      state.allClients.forEach((client) => {
+        const key = String(client.plan || "not_assigned");
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(client);
+      });
+
+      return Object.entries(groups).map(([plan, clients]) => ({
+        plan,
+        clients,
+        total: clients.length,
+        active: clients.filter((client) => client.accountStatus === "active").length,
+        pending: clients.filter((client) => client.accountStatus === "pending").length,
+        estimatedRevenue: clients.reduce((sum, client) => sum + estimateClientFee(client), 0)
+      }));
+    }
+
+    function getSystemHealthRows() {
+      return [
+        ["API", state.stats && state.stats.systemHealth ? state.stats.systemHealth.api : "Not available"],
+        ["Database", state.stats && state.stats.systemHealth ? state.stats.systemHealth.database : "Not available"],
+        ["Overall", state.stats && state.stats.systemHealth ? state.stats.systemHealth.status : "Not available"]
+      ];
     }
 
     function showBanner(message, tone = "info") {
@@ -1455,9 +2480,14 @@
 
       const payload = await response.json().catch(() => ({}));
 
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         redirectToLogin();
         throw new Error(payload.message || "Authentication failed.");
+      }
+
+      if (response.status === 403) {
+        redirectToLogin();
+        throw new Error(payload.message || "Admin access is required.");
       }
 
       if (!response.ok) {
@@ -1482,16 +2512,29 @@
     function applyTheme(preference) {
       document.documentElement.dataset.theme = resolveTheme(preference);
       localStorage.setItem(THEME_KEY, preference);
-      document.getElementById("themePreference").value = preference;
+      document.querySelectorAll(".theme-control").forEach((field) => {
+        field.value = preference;
+      });
+    }
+
+    function openSidebar() {
+      document.getElementById("sidebar").classList.add("is-open");
+      document.getElementById("sidebarBackdrop").classList.add("is-visible");
+    }
+
+    function closeSidebar() {
+      document.getElementById("sidebar").classList.remove("is-open");
+      document.getElementById("sidebarBackdrop").classList.remove("is-visible");
     }
 
     function setSection(sectionName) {
       state.currentSection = sectionName;
+
       document.querySelectorAll(".section").forEach((section) => {
         section.classList.toggle("is-active", section.id === `section-${sectionName}`);
       });
 
-      document.querySelectorAll("#sidebarNav button").forEach((button) => {
+      document.querySelectorAll("#sidebarNav .nav-button").forEach((button) => {
         button.classList.toggle("is-active", button.dataset.section === sectionName);
       });
 
@@ -1500,162 +2543,350 @@
       closeSidebar();
     }
 
-    function openSidebar() {
-      document.getElementById("sidebar").classList.add("is-open");
-    }
-
-    function closeSidebar() {
-      document.getElementById("sidebar").classList.remove("is-open");
-    }
-
     function setTableState(tableBodyId, emptyStateId, items, rowMarkup) {
-      const body = document.getElementById(tableBodyId);
+      const tableBody = document.getElementById(tableBodyId);
       const emptyState = document.getElementById(emptyStateId);
 
       if (!items.length) {
-        body.innerHTML = "";
-        emptyState.textContent = "No records found for the current filters.";
+        tableBody.innerHTML = "";
+        emptyState.textContent = "No records found for the current view.";
         emptyState.style.display = "block";
         return;
       }
 
       emptyState.style.display = "none";
-      body.innerHTML = items.map(rowMarkup).join("");
+      tableBody.innerHTML = items.map(rowMarkup).join("");
     }
 
-    function renderStats() {
-      const stats = state.stats;
-      if (!stats) {
+    function renderMetricList(containerId, rows, emptyMessage = "No data available yet.") {
+      const container = document.getElementById(containerId);
+
+      if (!rows.length) {
+        container.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
         return;
       }
 
+      container.innerHTML = rows.map((row) => `
+        <div class="metric-row">
+          <div>
+            <div class="cell-title">${escapeHtml(row.label)}</div>
+            <small>${escapeHtml(row.hint || "")}</small>
+          </div>
+          <strong>${escapeHtml(row.value)}</strong>
+        </div>
+      `).join("");
+    }
+
+    function renderPreviewList(containerId, items, itemMarkup, emptyMessage) {
+      const container = document.getElementById(containerId);
+
+      if (!items.length) {
+        container.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
+        return;
+      }
+
+      container.innerHTML = `<div class="preview-list">${items.map(itemMarkup).join("")}</div>`;
+    }
+
+    function renderDashboardKpis() {
+      const payment = getPaymentAnalytics();
+      const stats = state.stats || {};
       const cards = [
-        ["Total Clients", stats.totalClients, "All client/business accounts on the platform."],
-        ["Active Clients", stats.activeClients, "Accounts that are active and service-ready."],
-        ["Pending Clients", stats.pendingClients, "New signups waiting for admin approval."],
-        ["Monthly Recurring Revenue", formatCurrency(stats.monthlyRevenueEstimate), "Estimated recurring revenue from active client assignments."],
-        ["Unpaid Monthly Fees", formatCurrency(stats.unpaidMonthlyFees), "Total balance not yet marked paid."],
-        ["Total Bookings", stats.totalBookings, "All stored bookings across client accounts."],
-        ["New Inquiries / Leads", stats.newLeadsThisMonth, "Fresh inquiries captured this month."],
-        ["Reviews Waiting Approval", stats.totalReviewsPendingModeration, "Moderation queue needing admin action."],
-        ["Active Packages", Object.values(stats.activePackages || {}).reduce((sum, count) => sum + count, 0), "Clients currently assigned to active package tiers."],
-        ["System Status", formatStatusLabel(stats.systemHealth?.status || "degraded"), "Current API and database connectivity status."]
+        {
+          label: "Total Clients",
+          value: String(stats.totalClients ?? state.allClients.length ?? 0),
+          copy: "All client business records currently stored in AutomateX."
+        },
+        {
+          label: "Pending Clients",
+          value: String(stats.pendingClients ?? getPendingApprovals().length),
+          copy: "Accounts waiting for admin approval before dashboard access is fully active."
+        },
+        {
+          label: "Active Clients",
+          value: String(stats.activeClients ?? 0),
+          copy: "Live service accounts currently active on the platform."
+        },
+        {
+          label: "Suspended Clients",
+          value: String(stats.suspendedClients ?? 0),
+          copy: "Accounts currently blocked or deactivated from normal service access."
+        },
+        {
+          label: "Monthly Expected Revenue",
+          value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
+          copy: "Estimated recurring revenue from active client assignments."
+        },
+        {
+          label: "Paid This Month",
+          value: "Not available",
+          copy: "Payment-history reporting is not exposed by the current backend yet.",
+          muted: true
+        },
+        {
+          label: "Pending Payments",
+          value: String(payment.pendingAccounts + payment.unpaidAccounts),
+          copy: "Accounts currently marked pending or unpaid and likely needing follow-up."
+        },
+        {
+          label: "Overdue Payments",
+          value: String(payment.overdueAccounts),
+          copy: "Accounts currently marked overdue in the billing state."
+        },
+        {
+          label: "Total Bookings",
+          value: String(stats.totalBookings ?? state.allBookings.length ?? 0),
+          copy: "All bookings currently stored across client businesses."
+        },
+        {
+          label: "Total Inquiries",
+          value: String(stats.totalInquiries ?? state.allInquiries.length ?? 0),
+          copy: "Captured inquiries and leads across the AutomateX platform."
+        },
+        {
+          label: "Total Reviews",
+          value: String(stats.totalReviews ?? state.allReviews.length ?? 0),
+          copy: "All review records currently available for moderation or display."
+        }
       ];
 
-      document.getElementById("statsGrid").innerHTML = cards.map(([label, value, description]) => `
-        <article class="stat-card">
-          <div class="stat-label">${escapeHtml(label)}</div>
-          <strong>${escapeHtml(value)}</strong>
-          <div class="subtle">${escapeHtml(description)}</div>
-        </article>
-      `).join("");
-
-      const packageRows = stats.activePackages || {};
-      document.getElementById("packageDistribution").innerHTML = Object.entries(packageRows).map(([plan, count]) => `
-        <div class="package-row">
-          <div>
-            <div class="cell-title">${escapeHtml(formatPlanLabel(plan))}</div>
-            <div class="cell-subtitle">Assigned active package count</div>
-          </div>
-          <strong>${escapeHtml(count)}</strong>
-        </div>
-      `).join("");
-
-      document.getElementById("billingSummary").innerHTML = [
-        ["Paid Clients", stats.paidClients],
-        ["Unpaid Clients", stats.unpaidClients],
-        ["Overdue Clients", stats.overdueClients],
-        ["Suspended Clients", stats.suspendedClients]
-      ].map(([label, value]) => `
-        <div class="summary-row">
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </div>
-      `).join("");
-
-      document.getElementById("healthSummary").innerHTML = [
-        ["API", stats.systemHealth?.api || "offline"],
-        ["Database", stats.systemHealth?.database || "disconnected"],
-        ["Overall", stats.systemHealth?.status || "degraded"]
-      ].map(([label, value]) => `
-        <div class="health-row">
-          <span>${escapeHtml(label)}</span>
-          <span class="${badgeClass(value)}">${escapeHtml(formatStatusLabel(value))}</span>
-        </div>
-      `).join("");
-
-      document.getElementById("operationsSummary").innerHTML = [
-        ["Pending onboarding approvals", stats.pendingClients],
-        ["Reviews waiting moderation", stats.totalReviewsPendingModeration],
-        ["New leads this month", stats.newLeadsThisMonth],
-        ["Unpaid monthly fees", formatCurrency(stats.unpaidMonthlyFees)]
-      ].map(([label, value]) => `
-        <div class="summary-row">
-          <span>${escapeHtml(label)}</span>
-          <strong>${escapeHtml(value)}</strong>
-        </div>
-      `).join("");
-
-      document.getElementById("billingStatsGrid").innerHTML = [
-        ["Recurring Revenue", formatCurrency(stats.monthlyRevenueEstimate), "Current active-package revenue estimate."],
-        ["Unpaid Balance", formatCurrency(stats.unpaidMonthlyFees), "Outstanding monthly fees still unpaid."],
-        ["Overdue Clients", stats.overdueClients, "Clients currently marked overdue."],
-        ["Paid Clients", stats.paidClients, "Accounts settled successfully."],
-        ["Unpaid Clients", stats.unpaidClients, "Accounts still awaiting payment."],
-        ["Active Packages", Object.values(stats.activePackages || {}).reduce((sum, count) => sum + count, 0), "Total active package assignments."]
-      ].map(([label, value, description]) => `
-        <article class="stat-card">
-          <div class="stat-label">${escapeHtml(label)}</div>
-          <strong>${escapeHtml(value)}</strong>
-          <div class="subtle">${escapeHtml(description)}</div>
+      document.getElementById("dashboardKpiGrid").innerHTML = cards.map((card) => `
+        <article class="kpi-card">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong class="${card.muted ? "is-muted" : ""}">${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
     }
 
-    function renderPendingApprovalBanner() {
-      const pendingApprovals = getPendingApprovals();
-      const pendingCount = pendingApprovals.length;
-      const headline = document.getElementById("pendingApprovalHeadline");
-      const copy = document.getElementById("pendingApprovalCopy");
-      const badge = document.getElementById("pendingApprovalCountBadge");
-      const highlights = document.getElementById("pendingApprovalHighlights");
-      const button = document.getElementById("reviewPendingClientsButton");
+    function renderDashboardRevenue() {
+      const payment = getPaymentAnalytics();
+      const stats = state.stats || {};
 
-      badge.textContent = `${pendingCount} Waiting`;
-      button.disabled = pendingCount === 0;
-
-      if (!pendingCount) {
-        headline.textContent = "No clients are waiting for approval";
-        copy.textContent = "New signups will appear here automatically when a client account enters the pending approval queue.";
-        highlights.innerHTML = `
-          <div class="summary-row">
-            <span>Approval queue</span>
-            <strong>All caught up</strong>
-          </div>
-        `;
-        return;
-      }
-
-      headline.textContent = `${pendingCount} client${pendingCount === 1 ? "" : "s"} ${pendingCount === 1 ? "is" : "are"} waiting for approval`;
-      copy.textContent = "Review pending signups, assign the right package, and activate their dashboard access once pricing and feature access are ready.";
-      highlights.innerHTML = pendingApprovals.slice(0, 3).map((client) => `
-        <div class="summary-row">
-          <span>${escapeHtml(client.businessName || client.name)}${client.businessType ? ` • ${escapeHtml(client.businessType)}` : ""}</span>
-          <strong>${escapeHtml(formatShortDate(client.createdAt))}</strong>
-        </div>
-      `).join("");
+      renderMetricList("revenueOverviewList", [
+        {
+          label: "Expected monthly revenue",
+          value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
+          hint: "Active-package recurring revenue estimate from the current admin stats endpoint."
+        },
+        {
+          label: "Paid amount this month",
+          value: "Not available",
+          hint: "Monthly payment-history totals are not returned by the current backend."
+        },
+        {
+          label: "Pending and unpaid revenue",
+          value: formatCurrency(payment.pendingRevenue),
+          hint: "Estimated value tied to accounts marked pending or unpaid."
+        },
+        {
+          label: "Overdue revenue",
+          value: formatCurrency(payment.overdueRevenue),
+          hint: "Estimated value tied to accounts already marked overdue."
+        }
+      ]);
     }
 
-    function pendingApprovalRowMarkup(client) {
+    function pendingPreviewMarkup(client) {
       return `
+        <article class="preview-item">
+          <div class="preview-top">
+            <div>
+              <strong>${escapeHtml(client.businessName || client.name)}</strong>
+              <p>${escapeHtml(client.name)}${client.businessType ? ` • ${escapeHtml(client.businessType)}` : ""}</p>
+            </div>
+            <span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span>
+          </div>
+          <div class="preview-meta">Signed up ${escapeHtml(formatShortDate(client.createdAt))} • ${escapeHtml(client.email)}</div>
+          <div class="preview-actions">
+            <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
+            <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function recentClientMarkup(client) {
+      return `
+        <article class="preview-item">
+          <div class="preview-top">
+            <div>
+              <strong>${escapeHtml(client.businessName || client.name)}</strong>
+              <p>${escapeHtml(client.email)}</p>
+            </div>
+            <span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span>
+          </div>
+          <div class="preview-meta">${escapeHtml(formatPlanLabel(client.plan))} • ${escapeHtml(formatShortDate(client.createdAt))}</div>
+          <div class="preview-actions">
+            <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="${client.accountStatus === "pending" ? "review" : "manage"}">Open Client</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function recentBookingMarkup(booking) {
+      return `
+        <article class="preview-item">
+          <div class="preview-top">
+            <div>
+              <strong>${escapeHtml(booking.name)}</strong>
+              <p>${escapeHtml(booking.clientBusinessName || booking.clientName || "Client")} • ${escapeHtml(booking.service || "General booking")}</p>
+            </div>
+            <span class="${badgeClass(booking.status)}">${escapeHtml(formatStatusLabel(booking.status))}</span>
+          </div>
+          <div class="preview-meta">${escapeHtml(booking.date)} • ${escapeHtml(booking.time)}</div>
+          <div class="preview-actions">
+            <button class="mini-button" type="button" data-booking-id="${escapeHtml(booking._id)}">Open Booking</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function recentInquiryMarkup(inquiry) {
+      return `
+        <article class="preview-item">
+          <div class="preview-top">
+            <div>
+              <strong>${escapeHtml(inquiry.name)}</strong>
+              <p>${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform lead")}</p>
+            </div>
+            <span class="${badgeClass(inquiry.status)}">${escapeHtml(formatStatusLabel(inquiry.status))}</span>
+          </div>
+          <div class="preview-meta">${escapeHtml(formatShortDate(inquiry.createdAt))} • ${escapeHtml((inquiry.message || "").slice(0, 80))}${String(inquiry.message || "").length > 80 ? "..." : ""}</div>
+          <div class="preview-actions">
+            <button class="mini-button" type="button" data-inquiry-id="${escapeHtml(inquiry._id)}">Open Inquiry</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function recentReviewMarkup(review) {
+      const displayStatus = normalizeDisplayReviewStatus(review);
+
+      return `
+        <article class="preview-item">
+          <div class="preview-top">
+            <div>
+              <strong>${escapeHtml(review.name)}</strong>
+              <p>${escapeHtml(review.clientBusinessName || review.clientName || "Client")} • ${escapeHtml(ratingStars(review.rating))}</p>
+            </div>
+            <span class="${badgeClass(displayStatus)}">${escapeHtml(formatStatusLabel(displayStatus))}</span>
+          </div>
+          <div class="preview-meta">${escapeHtml((review.text || "").slice(0, 88))}${String(review.text || "").length > 88 ? "..." : ""}</div>
+          <div class="preview-actions">
+            <button class="mini-button" type="button" data-review-id="${escapeHtml(review._id)}">Open Review</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderDashboardPreviews() {
+      renderPreviewList(
+        "dashboardPendingPreview",
+        getPendingApprovals().slice(0, 4),
+        pendingPreviewMarkup,
+        "No pending approvals right now."
+      );
+
+      renderPreviewList(
+        "dashboardRecentClients",
+        getRecentItems(state.allClients, 4),
+        recentClientMarkup,
+        "No client records are available yet."
+      );
+
+      renderPreviewList(
+        "dashboardRecentBookings",
+        getRecentItems(state.allBookings, 3),
+        recentBookingMarkup,
+        "No bookings are available yet."
+      );
+
+      renderPreviewList(
+        "dashboardRecentInquiries",
+        getRecentItems(state.allInquiries, 3),
+        recentInquiryMarkup,
+        "No inquiries are available yet."
+      );
+
+      renderPreviewList(
+        "dashboardRecentReviews",
+        getRecentItems(state.allReviews, 3),
+        recentReviewMarkup,
+        "No reviews are available yet."
+      );
+    }
+
+    function renderClientsSection() {
+      const clients = getFilteredClients();
+      const stats = state.stats || {};
+
+      document.getElementById("clientsSummaryChips").innerHTML = [
+        { label: "Total", value: stats.totalClients ?? state.allClients.length },
+        { label: "Active", value: stats.activeClients ?? 0 },
+        { label: "Pending", value: stats.pendingClients ?? getPendingApprovals().length },
+        { label: "Suspended", value: stats.suspendedClients ?? 0 }
+      ].map((item) => `
+        <span class="data-chip"><strong>${escapeHtml(item.value)}</strong>${escapeHtml(item.label)}</span>
+      `).join("");
+
+      setTableState("clientsTableBody", "clientsEmptyState", clients, (client) => `
+        <tr class="${client.accountStatus === "pending" ? "pending-row" : ""}">
+          <td>
+            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.businessType || "Business type not set")}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(client.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.email)}${client.phone ? ` • ${escapeHtml(client.phone)}` : ""}</div>
+          </td>
+          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
+          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
+          <td>
+            <div class="cell-title">${escapeHtml(client.bookingCount || 0)} bookings</div>
+            <div class="cell-subtitle">${escapeHtml(client.inquiryCount || 0)} inquiries</div>
+          </td>
+          <td>
+            <div class="actions">
+              ${client.accountStatus === "pending"
+                ? `
+                    <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
+                    <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
+                  `
+                : `<button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage</button>`}
+            </div>
+          </td>
+        </tr>
+      `);
+    }
+
+    function renderPendingApprovalsSection() {
+      const pendingApprovals = getPendingApprovals();
+      const notAssignedCount = pendingApprovals.filter((client) => client.plan === "not_assigned").length;
+      const newestSignup = pendingApprovals.length ? formatShortDate(pendingApprovals[0].createdAt) : "—";
+
+      document.getElementById("pendingApprovalCountBadge").textContent = `${pendingApprovals.length} Waiting`;
+      document.getElementById("pendingApprovalChips").innerHTML = [
+        { label: "Waiting for approval", value: pendingApprovals.length },
+        { label: "Without package", value: notAssignedCount },
+        { label: "Newest signup", value: newestSignup }
+      ].map((item) => `
+        <span class="data-chip"><strong>${escapeHtml(item.value)}</strong>${escapeHtml(item.label)}</span>
+      `).join("");
+
+      setTableState("pendingApprovalsTableBody", "pendingApprovalsEmptyState", pendingApprovals, (client) => `
         <tr class="pending-row">
           <td>
             <div class="cell-title">${escapeHtml(client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.businessName || "Business name not set")}</div>
+            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
           </td>
-          <td>${escapeHtml(client.businessName || "—")}</td>
+          <td>
+            <div class="cell-title">${escapeHtml(client.businessName || "Business name not set")}</div>
+            <div class="cell-subtitle">${escapeHtml(client.location || "Location not set")}</div>
+          </td>
           <td>${escapeHtml(client.businessType || "—")}</td>
-          <td>${escapeHtml(client.email)}</td>
           <td>${escapeHtml(client.phone || "—")}</td>
           <td>${escapeHtml(formatDate(client.createdAt))}</td>
           <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
@@ -1667,42 +2898,170 @@
             </div>
           </td>
         </tr>
-      `;
+      `);
     }
 
-    function renderPendingApprovalsTable() {
-      setTableState("pendingApprovalsTableBody", "pendingApprovalsEmptyState", getPendingApprovals(), pendingApprovalRowMarkup);
-    }
+    function renderPackagesSection() {
+      const packageAnalytics = getPackageAnalytics();
+      const stats = state.stats || {};
+      const activePackageCount = Object.values(stats.activePackages || {}).reduce((sum, count) => sum + toNumber(count), 0);
 
-    function clientRowMarkup(client) {
-      return `
+      document.getElementById("packageKpiGrid").innerHTML = packageAnalytics.map((entry) => `
+        <article class="kpi-card">
+          <div class="kpi-label">${escapeHtml(formatPlanLabel(entry.plan))}</div>
+          <strong>${escapeHtml(entry.active)}</strong>
+          <div class="kpi-copy">${escapeHtml(entry.total)} total clients • ${escapeHtml(formatCurrency(entry.estimatedRevenue))} estimated monthly value</div>
+        </article>
+      `).join("");
+
+      renderMetricList("packageDistributionList", packageAnalytics.map((entry) => ({
+        label: formatPlanLabel(entry.plan),
+        value: `${entry.active} active`,
+        hint: `${entry.total} total assigned • ${entry.pending} pending`
+      })));
+
+      renderMetricList("packageHealthList", [
+        {
+          label: "Active package assignments",
+          value: String(activePackageCount),
+          hint: "Clients currently active on a package according to the admin stats endpoint."
+        },
+        {
+          label: "Accounts without package",
+          value: String(packageAnalytics.find((entry) => entry.plan === "not_assigned")?.total || 0),
+          hint: "These accounts still need package assignment before full activation."
+        },
+        {
+          label: "Estimated monthly value",
+          value: formatCurrency(packageAnalytics.reduce((sum, entry) => sum + entry.estimatedRevenue, 0)),
+          hint: "Derived from current monthly fee values or known plan pricing defaults."
+        }
+      ]);
+
+      const rows = [...state.allClients].sort((left, right) => {
+        if (left.plan === right.plan) {
+          return compareStrings(left.businessName || left.name, right.businessName || right.name);
+        }
+
+        return compareStrings(left.plan, right.plan);
+      });
+
+      setTableState("packageClientsTableBody", "packageClientsEmptyState", rows, (client) => `
         <tr class="${client.accountStatus === "pending" ? "pending-row" : ""}">
           <td>
             <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.email)}${client.phone ? ` • ${escapeHtml(client.phone)}` : ""}</div>
+            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
           </td>
           <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
           <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
           <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
-          <td>${escapeHtml(client.bookingCount || 0)}</td>
-          <td>${escapeHtml(client.inquiryCount || 0)}</td>
+          <td>${escapeHtml(formatCurrency(estimateClientFee(client)))}</td>
+          <td>${escapeHtml((client.allowedFeatures || []).length)}</td>
           <td>
             <div class="actions">
-              ${client.accountStatus === "pending"
-                ? `
-                  <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
-                  <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
-                `
-                : `<button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage</button>`}
+              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage</button>
             </div>
           </td>
         </tr>
-      `;
+      `);
     }
 
-    function bookingRowMarkup(booking) {
-      return `
+    function renderPaymentsSection() {
+      const stats = state.stats || {};
+      const payment = getPaymentAnalytics();
+      const billingRows = [...state.allClients]
+        .filter((client) => toNumber(client.monthlyFee) > 0 || client.plan !== "not_assigned")
+        .sort((left, right) => estimateClientFee(right) - estimateClientFee(left));
+
+      document.getElementById("paymentsKpiGrid").innerHTML = [
+        {
+          label: "Expected Revenue",
+          value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
+          copy: "Recurring revenue estimate from currently active client assignments."
+        },
+        {
+          label: "Outstanding Revenue",
+          value: formatCurrency(payment.pendingRevenue + payment.overdueRevenue),
+          copy: "Estimated pending, unpaid, and overdue value requiring follow-up."
+        },
+        {
+          label: "Overdue Revenue",
+          value: formatCurrency(payment.overdueRevenue),
+          copy: "Estimated monthly value currently tied to overdue accounts."
+        },
+        {
+          label: "Paid Accounts",
+          value: String(payment.paidAccounts),
+          copy: "Accounts marked paid in the current client state."
+        }
+      ].map((card) => `
+        <article class="kpi-card is-wide">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong>${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
+        </article>
+      `).join("");
+
+      renderMetricList("paymentsSummaryList", [
+        {
+          label: "Pending or unpaid accounts",
+          value: String(payment.pendingAccounts + payment.unpaidAccounts),
+          hint: "Accounts marked pending or unpaid and not yet overdue."
+        },
+        {
+          label: "Overdue accounts",
+          value: String(payment.overdueAccounts),
+          hint: "Accounts already marked overdue by the admin payment state."
+        },
+        {
+          label: "Accounts with scheduled next payment",
+          value: String(payment.scheduledPayments),
+          hint: "Clients that currently have a next payment date set."
+        }
+      ]);
+
+      renderMetricList("paymentAlertsList", [
+        {
+          label: "Unpaid monthly fees",
+          value: formatCurrency(stats.unpaidMonthlyFees ?? 0),
+          hint: "Outstanding monthly fees from the current admin stats endpoint."
+        },
+        {
+          label: "Paid this month",
+          value: "Not available",
+          hint: "Monthly paid totals need invoice or payment-history backend support."
+        },
+        {
+          label: "Overdue follow-up",
+          value: payment.overdueAccounts ? `${payment.overdueAccounts} accounts` : "Clear",
+          hint: "Use the client drawer to manage overdue account status and billing fields."
+        }
+      ]);
+
+      setTableState("paymentsTableBody", "paymentsEmptyState", billingRows, (client) => `
+        <tr class="${client.paymentStatus === "overdue" ? "pending-row" : ""}">
+          <td>
+            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
+          </td>
+          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
+          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
+          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td>${escapeHtml(formatShortDate(client.nextPaymentDate))}</td>
+          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage Billing</button>
+            </div>
+          </td>
+        </tr>
+      `);
+    }
+
+    function renderBookingsSection() {
+      const bookings = getFilteredBookings();
+
+      setTableState("bookingsTableBody", "bookingsEmptyState", bookings, (booking) => `
         <tr>
           <td>
             <div class="cell-title">${escapeHtml(booking.name)}</div>
@@ -1725,19 +3084,21 @@
             </div>
           </td>
         </tr>
-      `;
+      `);
     }
 
-    function inquiryRowMarkup(inquiry) {
-      return `
+    function renderInquiriesSection() {
+      const inquiries = getFilteredInquiries();
+
+      setTableState("inquiriesTableBody", "inquiriesEmptyState", inquiries, (inquiry) => `
         <tr>
           <td>
             <div class="cell-title">${escapeHtml(inquiry.name)}</div>
             <div class="cell-subtitle">${escapeHtml(inquiry.email)}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(inquiryOwnerLabel(inquiry))}</div>
-            <div class="cell-subtitle">${escapeHtml(inquiryOwnerSubtitle(inquiry))}</div>
+            <div class="cell-title">${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform inquiry")}</div>
+            <div class="cell-subtitle">${escapeHtml(inquiry.clientEmail || "")}</div>
           </td>
           <td>${escapeHtml(inquiry.message)}</td>
           <td><span class="${badgeClass(inquiry.status)}">${escapeHtml(formatStatusLabel(inquiry.status))}</span></td>
@@ -1749,159 +3110,201 @@
             </div>
           </td>
         </tr>
-      `;
-    }
-
-    function reviewRowMarkup(review) {
-      const displayStatus = review.status === "published"
-        ? "approved"
-        : review.status === "hidden"
-          ? "rejected"
-          : review.status;
-
-      return `
-        <tr>
-          <td>
-            <div class="cell-title">${escapeHtml(review.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(review.role || "Customer")}</div>
-          </td>
-          <td>
-            <div class="cell-title">${escapeHtml(review.clientBusinessName || review.clientName || "Client")}</div>
-            <div class="cell-subtitle">${escapeHtml(review.clientEmail || "")}</div>
-          </td>
-          <td>${escapeHtml(ratingStars(review.rating))}</td>
-          <td>${escapeHtml(review.text)}</td>
-          <td><span class="${badgeClass(displayStatus)}">${escapeHtml(formatStatusLabel(displayStatus))}</span></td>
-          <td>${escapeHtml(review.adminNotes || "—")}</td>
-          <td>
-            <div class="actions">
-              <button class="mini-button" type="button" data-review-id="${escapeHtml(review._id)}">Moderate</button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }
-
-    function renderBillingTable() {
-      const billingRows = [...state.clients]
-        .filter((client) => Number(client.monthlyFee || 0) > 0 || client.plan !== "not_assigned")
-        .sort((left, right) => Number(right.monthlyFee || 0) - Number(left.monthlyFee || 0));
-
-      setTableState("billingTableBody", "billingEmptyState", billingRows, (client) => `
-        <tr>
-          <td>
-            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
-          </td>
-          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
-          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
-          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
-          <td>${escapeHtml(formatShortDate(client.nextPaymentDate))}</td>
-          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td>
-            <div class="actions">
-              <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}">Manage billing</button>
-            </div>
-          </td>
-        </tr>
       `);
+    }
+
+    function renderReviewsSection() {
+      const reviews = getFilteredReviews();
+
+      setTableState("reviewsTableBody", "reviewsEmptyState", reviews, (review) => {
+        const displayStatus = normalizeDisplayReviewStatus(review);
+
+        return `
+          <tr>
+            <td>
+              <div class="cell-title">${escapeHtml(review.name)}</div>
+              <div class="cell-subtitle">${escapeHtml(review.role || "Customer")}</div>
+            </td>
+            <td>
+              <div class="cell-title">${escapeHtml(review.clientBusinessName || review.clientName || "Client")}</div>
+              <div class="cell-subtitle">${escapeHtml(review.clientEmail || "")}</div>
+            </td>
+            <td>${escapeHtml(ratingStars(review.rating))}</td>
+            <td>${escapeHtml(review.text)}</td>
+            <td><span class="${badgeClass(displayStatus)}">${escapeHtml(formatStatusLabel(displayStatus))}</span></td>
+            <td>${escapeHtml(review.adminNotes || "—")}</td>
+            <td>
+              <div class="actions">
+                <button class="mini-button" type="button" data-review-id="${escapeHtml(review._id)}">Moderate</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function renderReportsSection() {
+      const stats = state.stats || {};
+
+      document.getElementById("reportsKpiGrid").innerHTML = [
+        {
+          label: "Bookings This Month",
+          value: String(stats.totalBookingsThisMonth ?? 0),
+          copy: "Current-month bookings returned by the existing admin stats endpoint."
+        },
+        {
+          label: "Inquiries This Month",
+          value: String(stats.totalInquiriesThisMonth ?? stats.newLeadsThisMonth ?? 0),
+          copy: "Current-month inquiry volume across client and platform lead sources."
+        },
+        {
+          label: "Pending Reviews",
+          value: String(stats.totalReviewsPendingModeration ?? 0),
+          copy: "Moderation items waiting for admin review."
+        },
+        {
+          label: "System Status",
+          value: formatStatusLabel(stats.systemHealth ? stats.systemHealth.status : "Not available"),
+          copy: "Current platform health snapshot from the backend."
+        }
+      ].map((card) => `
+        <article class="kpi-card is-wide">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong class="${card.value === "Not Available" ? "is-muted" : ""}">${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
+        </article>
+      `).join("");
+
+      renderMetricList("reportsSummaryList", [
+        {
+          label: "Total clients",
+          value: String(stats.totalClients ?? state.allClients.length),
+          hint: "Current tenant count across the AutomateX platform."
+        },
+        {
+          label: "Active clients",
+          value: String(stats.activeClients ?? 0),
+          hint: "Accounts currently live and service-ready."
+        },
+        {
+          label: "Pending approvals",
+          value: String(stats.pendingClients ?? getPendingApprovals().length),
+          hint: "New signups waiting for an admin package decision."
+        },
+        {
+          label: "Unpaid monthly fees",
+          value: formatCurrency(stats.unpaidMonthlyFees ?? 0),
+          hint: "Outstanding value currently visible from the stats endpoint."
+        }
+      ]);
+    }
+
+    function renderSettingsSection() {
+      document.getElementById("settingsAdminInfo").innerHTML = [
+        {
+          label: "Admin email",
+          value: state.admin ? state.admin.email : "Not available"
+        },
+        {
+          label: "Role",
+          value: state.admin ? state.admin.role : "Not available"
+        },
+        {
+          label: "Secure auth route",
+          value: "/api/auth/me"
+        },
+        {
+          label: "Admin data routes",
+          value: "/api/admin/*"
+        }
+      ].map((item) => `
+        <div class="settings-item">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </div>
+      `).join("");
+
+      renderMetricList("settingsHealthList", getSystemHealthRows().map(([label, value]) => ({
+        label,
+        value: formatStatusLabel(value),
+        hint: "Backend-reported system health field."
+      })));
+    }
+
+    function renderNavCounters() {
+      const packageAnalytics = getPackageAnalytics();
+      document.getElementById("navCountClients").textContent = String(state.allClients.length);
+      document.getElementById("navCountPending").textContent = String(getPendingApprovals().length);
+      document.getElementById("navCountPackages").textContent = String(packageAnalytics.reduce((sum, entry) => sum + entry.active, 0));
+      document.getElementById("navCountPayments").textContent = String(getPaymentAnalytics().overdueAccounts);
+      document.getElementById("navCountBookings").textContent = String(state.allBookings.length);
+      document.getElementById("navCountInquiries").textContent = String(state.allInquiries.length);
+      document.getElementById("navCountReviews").textContent = String(
+        state.allReviews.filter((review) => normalizeDisplayReviewStatus(review) === "pending").length
+      );
+    }
+
+    function renderAll() {
+      renderNavCounters();
+      renderDashboardKpis();
+      renderDashboardRevenue();
+      renderDashboardPreviews();
+      renderClientsSection();
+      renderPendingApprovalsSection();
+      renderPackagesSection();
+      renderPaymentsSection();
+      renderBookingsSection();
+      renderInquiriesSection();
+      renderReviewsSection();
+      renderReportsSection();
+      renderSettingsSection();
+    }
+
+    async function verifyAdminSession() {
+      const payload = await apiFetch("/api/auth/me");
+
+      if (!payload.user) {
+        redirectToLogin();
+        throw new Error("Admin access is required.");
+      }
+
+      if (payload.user.role !== "admin") {
+        redirectNonAdminUser(payload.user.role);
+        throw new Error("Admin access is required.");
+      }
+
+      state.admin = payload.user;
+      localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
+      document.getElementById("adminIdentity").textContent = payload.user.email;
     }
 
     async function loadStats() {
       state.stats = await apiFetch("/api/admin/stats");
-      renderStats();
     }
 
     async function loadClients() {
-      const params = new URLSearchParams();
-      const search = document.getElementById("clientSearch").value.trim();
-      const plan = document.getElementById("clientPlanFilter").value;
-      const accountStatus = document.getElementById("clientStatusFilter").value;
-      const sortBy = document.getElementById("clientSortBy").value;
-
-      if (search) params.set("search", search);
-      if (plan) params.set("plan", plan);
-      if (accountStatus) params.set("accountStatus", accountStatus);
-      if (sortBy) {
-        params.set("sortBy", sortBy);
-        params.set("sortDirection", sortBy === "name" ? "asc" : "desc");
-      }
-
-      const payload = await apiFetch(`/api/admin/clients${params.toString() ? `?${params}` : ""}`);
-      state.clients = payload.clients || [];
-      setTableState("clientsTableBody", "clientsEmptyState", state.clients, clientRowMarkup);
-      renderBillingTable();
-    }
-
-    async function loadPendingApprovals() {
-      const params = new URLSearchParams({
-        accountStatus: "pending",
-        sortBy: "createdAt",
-        sortDirection: "desc"
-      });
-
-      const payload = await apiFetch(`/api/admin/clients?${params}`);
-      state.pendingApprovals = payload.clients || [];
-      renderPendingApprovalBanner();
-      renderPendingApprovalsTable();
+      const payload = await apiFetch("/api/admin/clients");
+      state.allClients = payload.clients || [];
     }
 
     async function loadBookings() {
-      const params = new URLSearchParams();
-      const search = document.getElementById("bookingSearch").value.trim();
-      const status = document.getElementById("bookingStatusFilter").value;
-      const date = document.getElementById("bookingDateFilter").value.trim();
-      const sortBy = document.getElementById("bookingSortBy").value;
-
-      if (search) params.set("search", search);
-      if (status) params.set("status", status);
-      if (date) params.set("date", date);
-      if (sortBy) {
-        params.set("sortBy", sortBy);
-        params.set("sortDirection", "desc");
-      }
-
-      const payload = await apiFetch(`/api/admin/bookings${params.toString() ? `?${params}` : ""}`);
-      state.bookings = payload.bookings || [];
-      setTableState("bookingsTableBody", "bookingsEmptyState", state.bookings, bookingRowMarkup);
+      const payload = await apiFetch("/api/admin/bookings");
+      state.allBookings = payload.bookings || [];
     }
 
     async function loadInquiries() {
-      const params = new URLSearchParams();
-      const search = document.getElementById("inquirySearch").value.trim();
-      const status = document.getElementById("inquiryStatusFilter").value;
-      const sortBy = document.getElementById("inquirySortBy").value;
-
-      if (search) params.set("search", search);
-      if (status) params.set("status", status);
-      if (sortBy) {
-        params.set("sortBy", sortBy);
-        params.set("sortDirection", sortBy === "name" ? "asc" : "desc");
-      }
-
-      const payload = await apiFetch(`/api/admin/inquiries${params.toString() ? `?${params}` : ""}`);
-      state.inquiries = payload.inquiries || [];
-      setTableState("inquiriesTableBody", "inquiriesEmptyState", state.inquiries, inquiryRowMarkup);
+      const payload = await apiFetch("/api/admin/inquiries");
+      state.allInquiries = payload.inquiries || [];
     }
 
     async function loadReviews() {
-      const params = new URLSearchParams();
-      const search = document.getElementById("reviewSearch").value.trim();
-      const status = document.getElementById("reviewStatusFilter").value;
-      const rating = document.getElementById("reviewRatingFilter").value;
-      const sortBy = document.getElementById("reviewSortBy").value;
+      const payload = await apiFetch("/api/admin/reviews");
+      state.allReviews = payload.reviews || [];
+    }
 
-      if (search) params.set("search", search);
-      if (status) params.set("status", status);
-      if (rating) params.set("rating", rating);
-      if (sortBy) {
-        params.set("sortBy", sortBy);
-        params.set("sortDirection", "desc");
-      }
-
-      const payload = await apiFetch(`/api/admin/reviews${params.toString() ? `?${params}` : ""}`);
-      state.reviews = payload.reviews || [];
-      setTableState("reviewsTableBody", "reviewsEmptyState", state.reviews, reviewRowMarkup);
+    async function refreshAllData() {
+      await Promise.all([loadStats(), loadClients(), loadBookings(), loadInquiries(), loadReviews()]);
+      renderAll();
     }
 
     function openDrawer(config) {
@@ -1930,13 +3333,13 @@
 
           ${approvalMode
             ? `
-              <div class="inline-note">
-                Approving this client will activate their account, assign the package you choose below, save billing details, and unlock either the selected custom features or the package defaults when no custom features are checked.
-              </div>
-            `
+                <div class="inline-note">
+                  Approving this client will activate the account, assign the chosen package, save billing values, and unlock the selected feature access for the official AutomateX client dashboard.
+                </div>
+              `
             : ""}
 
-          <div class="drawer-grid">
+          <div class="drawer-grid" style="margin-top: ${approvalMode ? "16px" : "0"};">
             <div class="field">
               <label>Owner name</label>
               <input class="input" name="name" value="${escapeHtml(client.name)}" disabled>
@@ -1964,23 +3367,27 @@
             <div class="field">
               <label>Package</label>
               <select class="select" name="plan">
-                ${["not_assigned", "starter", "standard", "pro", "custom"].map((plan) => `<option value="${plan}" ${selectedPlan === plan ? "selected" : ""}>${escapeHtml(formatPlanLabel(plan))}</option>`).join("")}
+                ${["not_assigned", "starter", "standard", "pro", "custom"].map((plan) => `
+                  <option value="${plan}" ${selectedPlan === plan ? "selected" : ""}>${escapeHtml(formatPlanLabel(plan))}</option>
+                `).join("")}
               </select>
             </div>
             <div class="field">
               <label>Account status</label>
               ${approvalMode
                 ? `
-                  <input type="hidden" name="accountStatus" value="active">
-                  <select class="select" disabled>
-                    <option value="active" selected>Active</option>
-                  </select>
-                `
+                    <input type="hidden" name="accountStatus" value="active">
+                    <select class="select" disabled>
+                      <option value="active" selected>Active</option>
+                    </select>
+                  `
                 : `
-                  <select class="select" name="accountStatus">
-                    ${["pending", "active", "suspended"].map((status) => `<option value="${status}" ${client.accountStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
-                  </select>
-                `}
+                    <select class="select" name="accountStatus">
+                      ${["pending", "active", "suspended"].map((status) => `
+                        <option value="${status}" ${client.accountStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                      `).join("")}
+                    </select>
+                  `}
             </div>
             <div class="field">
               <label>Monthly fee</label>
@@ -1989,7 +3396,9 @@
             <div class="field">
               <label>Payment status</label>
               <select class="select" name="paymentStatus">
-                ${["pending", "paid", "unpaid", "overdue"].map((status) => `<option value="${status}" ${client.paymentStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+                ${["pending", "paid", "unpaid", "overdue"].map((status) => `
+                  <option value="${status}" ${client.paymentStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                `).join("")}
               </select>
             </div>
             <div class="field">
@@ -2000,17 +3409,17 @@
               <label>Account access</label>
               ${approvalMode
                 ? `
-                  <input type="hidden" name="isActive" value="true">
-                  <select class="select" disabled>
-                    <option value="true" selected>Enabled</option>
-                  </select>
-                `
+                    <input type="hidden" name="isActive" value="true">
+                    <select class="select" disabled>
+                      <option value="true" selected>Enabled</option>
+                    </select>
+                  `
                 : `
-                  <select class="select" name="isActive">
-                    <option value="true" ${client.isActive ? "selected" : ""}>Enabled</option>
-                    <option value="false" ${!client.isActive ? "selected" : ""}>Disabled</option>
-                  </select>
-                `}
+                    <select class="select" name="isActive">
+                      <option value="true" ${client.isActive ? "selected" : ""}>Enabled</option>
+                      <option value="false" ${!client.isActive ? "selected" : ""}>Disabled</option>
+                    </select>
+                  `}
             </div>
           </div>
 
@@ -2034,7 +3443,7 @@
           </div>
 
           <div class="drawer-section">
-            <small class="eyebrow">Feature Access</small>
+            <small class="kicker">Feature Access</small>
             <div class="checkbox-grid" style="margin-top: 14px;">
               ${FEATURE_OPTIONS.map((feature) => `
                 <label class="feature-card">
@@ -2047,11 +3456,11 @@
 
           <div class="drawer-actions">
             ${approvalMode
-              ? `<button class="button" type="submit">Approve Client</button>`
+              ? `<button class="button button-primary" type="submit">Approve Client</button>`
               : `
-                <button class="button-danger" id="clientDeactivateButton" type="button">Suspend Client</button>
-                <button class="button" type="submit">Save Client</button>
-              `}
+                  <button class="button button-danger" id="clientDeactivateButton" type="button">Suspend Client</button>
+                  <button class="button button-primary" type="submit">Save Client</button>
+                `}
           </div>
         </form>
       `;
@@ -2089,7 +3498,9 @@
             <div class="field">
               <label>Status</label>
               <select class="select" name="status">
-                ${["pending", "confirmed", "completed", "cancelled"].map((status) => `<option value="${status}" ${booking.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+                ${["pending", "confirmed", "completed", "cancelled"].map((status) => `
+                  <option value="${status}" ${booking.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                `).join("")}
               </select>
             </div>
             <div class="field">
@@ -2106,8 +3517,8 @@
           </div>
 
           <div class="drawer-actions">
-            <button class="button-danger" type="button" id="bookingCancelButton">Mark Cancelled</button>
-            <button class="button" type="submit">Save Booking</button>
+            <button class="button button-danger" type="button" id="bookingCancelButton">Mark Cancelled</button>
+            <button class="button button-primary" type="submit">Save Booking</button>
           </div>
         </form>
       `;
@@ -2128,12 +3539,14 @@
             </div>
             <div class="field">
               <label>Linked business</label>
-              <input class="input" value="${escapeHtml(inquiryOwnerLabel(inquiry))}" disabled>
+              <input class="input" value="${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform inquiry")}" disabled>
             </div>
             <div class="field">
               <label>Status</label>
               <select class="select" name="status">
-                ${["new", "contacted", "converted", "closed", "in_progress"].map((status) => `<option value="${status}" ${inquiry.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>`).join("")}
+                ${["new", "contacted", "converted", "closed", "in_progress"].map((status) => `
+                  <option value="${status}" ${inquiry.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                `).join("")}
               </select>
             </div>
           </div>
@@ -2154,8 +3567,8 @@
           </div>
 
           <div class="drawer-actions">
-            <button class="button-secondary" type="button" id="inquiryConvertedButton">Mark Converted</button>
-            <button class="button" type="submit">Save Lead</button>
+            <button class="button button-secondary" type="button" id="inquiryConvertedButton">Mark Converted</button>
+            <button class="button button-primary" type="submit">Save Inquiry</button>
           </div>
         </form>
       `;
@@ -2200,9 +3613,9 @@
           </div>
 
           <div class="drawer-actions">
-            <button class="button-secondary" type="button" id="reviewApproveButton">Approve</button>
-            <button class="button-danger" type="button" id="reviewRejectButton">Reject</button>
-            <button class="button" type="submit">Save Review</button>
+            <button class="button button-secondary" type="button" id="reviewApproveButton">Approve</button>
+            <button class="button button-danger" type="button" id="reviewRejectButton">Reject</button>
+            <button class="button button-primary" type="submit">Save Review</button>
           </div>
         </form>
       `;
@@ -2247,13 +3660,13 @@
               })
             });
 
-            await Promise.all([loadClients(), loadPendingApprovals(), loadStats()]);
+            await refreshAllData();
             closeDrawer();
             showToast(
               approvalMode ? "Client approved" : "Client saved",
               approvalMode
-                ? "The client is now active with the selected package, billing values, and feature access."
-                : "Client package, billing, and feature controls were updated."
+                ? "The client is now active with the selected package, billing setup, and feature access."
+                : "Client package, billing, and business profile details were updated."
             );
           } catch (error) {
             showBanner(error.message || "Unable to save the client.", "error");
@@ -2263,13 +3676,12 @@
         const clientDeactivateButton = document.getElementById("clientDeactivateButton");
         if (clientDeactivateButton) {
           clientDeactivateButton.addEventListener("click", async () => {
-            const clientId = new FormData(clientForm).get("clientId");
-
             try {
-              await apiFetch(`/api/admin/clients/${clientId}`, {
+              await apiFetch(`/api/admin/clients/${new FormData(clientForm).get("clientId")}`, {
                 method: "DELETE"
               });
-              await Promise.all([loadClients(), loadPendingApprovals(), loadStats()]);
+
+              await refreshAllData();
               closeDrawer();
               showToast("Client suspended", "The client account has been safely deactivated.");
             } catch (error) {
@@ -2300,7 +3712,7 @@
               })
             });
 
-            await Promise.all([loadBookings(), loadStats()]);
+            await refreshAllData();
             closeDrawer();
             showToast("Booking saved", "Booking details were updated successfully.");
           } catch (error) {
@@ -2309,17 +3721,16 @@
         });
 
         document.getElementById("bookingCancelButton").addEventListener("click", async () => {
-          const formData = new FormData(bookingForm);
-
           try {
-            await apiFetch(`/api/admin/bookings/${formData.get("bookingId")}`, {
+            await apiFetch(`/api/admin/bookings/${new FormData(bookingForm).get("bookingId")}`, {
               method: "PATCH",
               body: JSON.stringify({
                 status: "cancelled",
-                adminNotes: formData.get("adminNotes")
+                adminNotes: new FormData(bookingForm).get("adminNotes")
               })
             });
-            await Promise.all([loadBookings(), loadStats()]);
+
+            await refreshAllData();
             closeDrawer();
             showToast("Booking cancelled", "The booking has been marked as cancelled.");
           } catch (error) {
@@ -2342,35 +3753,32 @@
                 adminNotes: formData.get("adminNotes")
               })
             });
-            await Promise.all([loadInquiries(), loadStats()]);
+
+            await refreshAllData();
             closeDrawer();
-            showToast("Lead saved", "Lead status and admin notes were updated.");
+            showToast("Inquiry saved", "Inquiry status and admin notes were updated.");
           } catch (error) {
-            showBanner(error.message || "Unable to update the lead.", "error");
+            showBanner(error.message || "Unable to update the inquiry.", "error");
           }
         });
 
-        const inquiryConvertedButton = document.getElementById("inquiryConvertedButton");
-        if (inquiryConvertedButton) {
-          inquiryConvertedButton.addEventListener("click", async () => {
-            const formData = new FormData(inquiryForm);
+        document.getElementById("inquiryConvertedButton").addEventListener("click", async () => {
+          try {
+            await apiFetch(`/api/admin/inquiries/${new FormData(inquiryForm).get("inquiryId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: "converted",
+                adminNotes: new FormData(inquiryForm).get("adminNotes")
+              })
+            });
 
-            try {
-              await apiFetch(`/api/admin/inquiries/${formData.get("inquiryId")}`, {
-                method: "PATCH",
-                body: JSON.stringify({
-                  status: "converted",
-                  adminNotes: formData.get("adminNotes")
-                })
-              });
-              await Promise.all([loadInquiries(), loadStats()]);
-              closeDrawer();
-              showToast("Lead converted", "The lead has been marked as converted.");
-            } catch (error) {
-              showBanner(error.message || "Unable to convert the lead.", "error");
-            }
-          });
-        }
+            await refreshAllData();
+            closeDrawer();
+            showToast("Inquiry converted", "The inquiry has been marked as converted.");
+          } catch (error) {
+            showBanner(error.message || "Unable to convert the inquiry.", "error");
+          }
+        });
       }
 
       const reviewForm = document.getElementById("reviewDrawerForm");
@@ -2387,7 +3795,8 @@
                 adminNotes: formData.get("adminNotes")
               })
             });
-            await Promise.all([loadReviews(), loadStats()]);
+
+            await refreshAllData();
             closeDrawer();
             showToast("Review saved", "Review moderation details were updated.");
           } catch (error) {
@@ -2396,34 +3805,34 @@
         });
 
         document.getElementById("reviewApproveButton").addEventListener("click", async () => {
-          const formData = new FormData(reviewForm);
           try {
-            await apiFetch(`/api/admin/reviews/${formData.get("reviewId")}`, {
+            await apiFetch(`/api/admin/reviews/${new FormData(reviewForm).get("reviewId")}`, {
               method: "PATCH",
               body: JSON.stringify({
                 status: "published",
-                adminNotes: formData.get("adminNotes")
+                adminNotes: new FormData(reviewForm).get("adminNotes")
               })
             });
-            await Promise.all([loadReviews(), loadStats()]);
+
+            await refreshAllData();
             closeDrawer();
-            showToast("Review approved", "The review is now visible as approved content.");
+            showToast("Review approved", "The review is now marked approved.");
           } catch (error) {
             showBanner(error.message || "Unable to approve the review.", "error");
           }
         });
 
         document.getElementById("reviewRejectButton").addEventListener("click", async () => {
-          const formData = new FormData(reviewForm);
           try {
-            await apiFetch(`/api/admin/reviews/${formData.get("reviewId")}`, {
+            await apiFetch(`/api/admin/reviews/${new FormData(reviewForm).get("reviewId")}`, {
               method: "PATCH",
               body: JSON.stringify({
                 status: "hidden",
-                adminNotes: formData.get("adminNotes")
+                adminNotes: new FormData(reviewForm).get("adminNotes")
               })
             });
-            await Promise.all([loadReviews(), loadStats()]);
+
+            await refreshAllData();
             closeDrawer();
             showToast("Review rejected", "The review has been hidden from public display.");
           } catch (error) {
@@ -2442,14 +3851,14 @@
         eyebrow: approvalMode ? "Pending Approval" : "Client Account",
         title: client.businessName || client.name,
         subtitle: approvalMode
-          ? "Approve this signup by assigning the package, monthly fee, payment state, and feature access the client should receive."
-          : "Assign packages, manage billing state, edit business profile fields, and control client feature access.",
+          ? "Approve this signup by assigning package, monthly fee, payment state, and feature access."
+          : "Manage package assignment, billing state, business profile details, and feature access.",
         body: clientDetailSection(client, options)
       });
     }
 
     function openBookingDrawer(bookingId) {
-      const booking = state.bookings.find((item) => item._id === bookingId);
+      const booking = state.allBookings.find((item) => item._id === bookingId);
       if (!booking) {
         return;
       }
@@ -2457,37 +3866,27 @@
       openDrawer({
         eyebrow: "Booking Record",
         title: `${booking.name} • ${booking.date} ${booking.time}`,
-        subtitle: "Edit schedule details, move the booking through its lifecycle, and keep internal notes for your team.",
+        subtitle: "Edit schedule details, move the booking through its lifecycle, and keep internal notes for the admin team.",
         body: bookingDetailSection(booking)
       });
     }
 
     function openInquiryDrawer(inquiryId) {
-      const inquiry = state.inquiries.find((item) => item._id === inquiryId);
+      const inquiry = state.allInquiries.find((item) => item._id === inquiryId);
       if (!inquiry) {
         return;
       }
 
       openDrawer({
-        eyebrow: "Lead Record",
+        eyebrow: "Inquiry Record",
         title: inquiry.name,
-        subtitle: "Track contact progress, conversions, and internal follow-up notes for this lead.",
+        subtitle: "Track follow-up progress, lead conversion state, and internal admin notes.",
         body: inquiryDetailSection(inquiry)
       });
     }
 
-    async function focusPendingClients() {
-      document.getElementById("clientStatusFilter").value = "pending";
-      setSection("clients");
-      await loadClients();
-      document.getElementById("pendingApprovalsPanel").scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }
-
     function openReviewDrawer(reviewId) {
-      const review = state.reviews.find((item) => item._id === reviewId);
+      const review = state.allReviews.find((item) => item._id === reviewId);
       if (!review) {
         return;
       }
@@ -2495,158 +3894,145 @@
       openDrawer({
         eyebrow: "Review Moderation",
         title: review.name,
-        subtitle: "Approve or reject this review and keep moderation notes attached to the record.",
+        subtitle: "Approve or reject this review while keeping moderation notes attached to the record.",
         body: reviewDetailSection(review)
       });
     }
 
     function attachGlobalEvents() {
       document.getElementById("sidebarNav").addEventListener("click", (event) => {
-        const button = event.target.closest("button[data-section]");
+        const button = event.target.closest(".nav-button");
         if (!button) {
           return;
         }
+
         setSection(button.dataset.section);
       });
 
       document.getElementById("sidebarToggle").addEventListener("click", openSidebar);
+      document.getElementById("sidebarClose").addEventListener("click", closeSidebar);
+      document.getElementById("sidebarBackdrop").addEventListener("click", closeSidebar);
       document.getElementById("drawerCloseButton").addEventListener("click", closeDrawer);
       document.getElementById("drawerBackdrop").addEventListener("click", closeDrawer);
-      document.getElementById("themePreference").addEventListener("change", (event) => {
-        applyTheme(event.target.value);
+
+      document.querySelectorAll(".theme-control").forEach((field) => {
+        field.addEventListener("change", () => {
+          applyTheme(field.value);
+        });
       });
 
-      document.getElementById("logoutButton").addEventListener("click", async () => {
-        try {
-          await fetch("/api/auth/logout", { method: "POST" });
-        } finally {
-          redirectToLogin();
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        if (getThemePreference() === "system") {
+          applyTheme("system");
         }
       });
 
-      document.getElementById("reviewPendingClientsButton").addEventListener("click", () => {
-        focusPendingClients().catch((error) => showBanner(error.message || "Unable to open pending approvals.", "error"));
+      ["logoutButtonSidebar"].forEach((id) => {
+        document.getElementById(id).addEventListener("click", async () => {
+          try {
+            await fetch("/api/auth/logout", { method: "POST" });
+          } finally {
+            redirectToLogin();
+          }
+        });
       });
 
-      document.getElementById("clientsTableBody").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-client-id]");
-        if (button) {
-          const action = button.dataset.clientAction || "manage";
-          openClientDrawer(button.dataset.clientId, {
+      document.getElementById("headerPendingButton").addEventListener("click", () => {
+        setSection("pending-approvals");
+      });
+
+      document.getElementById("headerRefreshButton").addEventListener("click", () => {
+        refreshAllData()
+          .then(() => {
+            hideBanner();
+            showToast("Data refreshed", "Admin dashboard data has been refreshed.");
+          })
+          .catch((error) => showBanner(error.message || "Unable to refresh admin data.", "error"));
+      });
+
+      document.addEventListener("click", (event) => {
+        const sectionTarget = event.target.closest("[data-section-target]");
+        if (sectionTarget) {
+          setSection(sectionTarget.dataset.sectionTarget);
+
+          if (sectionTarget.dataset.notice) {
+            showBanner(sectionTarget.dataset.notice, sectionTarget.dataset.noticeTone || "info");
+          } else {
+            hideBanner();
+          }
+
+          return;
+        }
+
+        const clientButton = event.target.closest("[data-client-id]");
+        if (clientButton) {
+          const action = clientButton.dataset.clientAction || "manage";
+          openClientDrawer(clientButton.dataset.clientId, {
             approvalMode: action === "approve"
-          }).catch((error) => showBanner(error.message, "error"));
+          }).catch((error) => showBanner(error.message || "Unable to open the client record.", "error"));
+          return;
+        }
+
+        const bookingButton = event.target.closest("[data-booking-id]");
+        if (bookingButton) {
+          openBookingDrawer(bookingButton.dataset.bookingId);
+          return;
+        }
+
+        const inquiryButton = event.target.closest("[data-inquiry-id]");
+        if (inquiryButton) {
+          openInquiryDrawer(inquiryButton.dataset.inquiryId);
+          return;
+        }
+
+        const reviewButton = event.target.closest("[data-review-id]");
+        if (reviewButton) {
+          openReviewDrawer(reviewButton.dataset.reviewId);
         }
       });
 
-      document.getElementById("pendingApprovalsTableBody").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-client-id]");
-        if (button) {
-          const action = button.dataset.clientAction || "review";
-          openClientDrawer(button.dataset.clientId, {
-            approvalMode: action === "approve"
-          }).catch((error) => showBanner(error.message, "error"));
-        }
+      document.getElementById("refreshClientsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh clients.", "error"));
+      });
+      document.getElementById("refreshPendingApprovalsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh pending approvals.", "error"));
+      });
+      document.getElementById("refreshPaymentsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh payments.", "error"));
+      });
+      document.getElementById("refreshBookingsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh bookings.", "error"));
+      });
+      document.getElementById("refreshInquiriesButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh inquiries.", "error"));
+      });
+      document.getElementById("refreshReviewsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reviews.", "error"));
       });
 
-      document.getElementById("bookingsTableBody").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-booking-id]");
-        if (button) {
-          openBookingDrawer(button.dataset.bookingId);
-        }
+      ["clientSearch", "clientPlanFilter", "clientStatusFilter", "clientSortBy"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderClientsSection);
+        field.addEventListener("change", renderClientsSection);
       });
 
-      document.getElementById("inquiriesTableBody").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-inquiry-id]");
-        if (button) {
-          openInquiryDrawer(button.dataset.inquiryId);
-        }
+      ["bookingSearch", "bookingStatusFilter", "bookingDateFilter", "bookingSortBy"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderBookingsSection);
+        field.addEventListener("change", renderBookingsSection);
       });
 
-      document.getElementById("reviewsTableBody").addEventListener("click", (event) => {
-        const button = event.target.closest("[data-review-id]");
-        if (button) {
-          openReviewDrawer(button.dataset.reviewId);
-        }
+      ["inquirySearch", "inquiryStatusFilter", "inquirySortBy"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderInquiriesSection);
+        field.addEventListener("change", renderInquiriesSection);
       });
 
-      [
-        ["refreshClientsButton", async () => {
-          await Promise.all([loadClients(), loadPendingApprovals(), loadStats()]);
-        }],
-        ["refreshBookingsButton", loadBookings],
-        ["refreshInquiriesButton", loadInquiries],
-        ["refreshReviewsButton", loadReviews]
-      ].forEach(([id, handler]) => {
-        document.getElementById(id).addEventListener("click", () => {
-          handler().catch((error) => showBanner(error.message || "Unable to refresh section.", "error"));
-        });
+      ["reviewSearch", "reviewStatusFilter", "reviewRatingFilter", "reviewSortBy"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderReviewsSection);
+        field.addEventListener("change", renderReviewsSection);
       });
-
-      [
-        "clientSearch",
-        "clientPlanFilter",
-        "clientStatusFilter",
-        "clientSortBy"
-      ].forEach((id) => {
-        document.getElementById(id).addEventListener("input", () => {
-          loadClients().catch((error) => showBanner(error.message || "Unable to load clients.", "error"));
-        });
-        document.getElementById(id).addEventListener("change", () => {
-          loadClients().catch((error) => showBanner(error.message || "Unable to load clients.", "error"));
-        });
-      });
-
-      [
-        "bookingSearch",
-        "bookingStatusFilter",
-        "bookingDateFilter",
-        "bookingSortBy"
-      ].forEach((id) => {
-        document.getElementById(id).addEventListener("input", () => {
-          loadBookings().catch((error) => showBanner(error.message || "Unable to load bookings.", "error"));
-        });
-        document.getElementById(id).addEventListener("change", () => {
-          loadBookings().catch((error) => showBanner(error.message || "Unable to load bookings.", "error"));
-        });
-      });
-
-      [
-        "inquirySearch",
-        "inquiryStatusFilter",
-        "inquirySortBy"
-      ].forEach((id) => {
-        document.getElementById(id).addEventListener("input", () => {
-          loadInquiries().catch((error) => showBanner(error.message || "Unable to load inquiries.", "error"));
-        });
-        document.getElementById(id).addEventListener("change", () => {
-          loadInquiries().catch((error) => showBanner(error.message || "Unable to load inquiries.", "error"));
-        });
-      });
-
-      [
-        "reviewSearch",
-        "reviewStatusFilter",
-        "reviewRatingFilter",
-        "reviewSortBy"
-      ].forEach((id) => {
-        document.getElementById(id).addEventListener("input", () => {
-          loadReviews().catch((error) => showBanner(error.message || "Unable to load reviews.", "error"));
-        });
-        document.getElementById(id).addEventListener("change", () => {
-          loadReviews().catch((error) => showBanner(error.message || "Unable to load reviews.", "error"));
-        });
-      });
-    }
-
-    async function verifyAdminSession() {
-      const payload = await apiFetch("/api/auth/me");
-      if (!payload.user || payload.user.role !== "admin") {
-        redirectToLogin();
-        throw new Error("Admin access is required.");
-      }
-
-      localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
-      document.getElementById("adminIdentity").textContent = payload.user.email;
     }
 
     async function initDashboard() {
@@ -2660,10 +4046,10 @@
         }
 
         await verifyAdminSession();
-        await Promise.all([loadStats(), loadClients(), loadPendingApprovals(), loadBookings(), loadInquiries(), loadReviews()]);
+        await refreshAllData();
         hideBanner();
       } catch (error) {
-        showBanner(error.message || "Unable to load the admin console.", "error");
+        showBanner(error.message || "Unable to load the admin control center.", "error");
       }
     }
 
