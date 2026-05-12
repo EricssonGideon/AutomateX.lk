@@ -18,7 +18,11 @@ const {
   getAdminInquiries,
   updateAdminInquiry,
   getAdminReviews,
-  updateAdminReview
+  updateAdminReview,
+  getAdminRequests,
+  getAdminRequestById,
+  updateAdminRequest,
+  deleteAdminRequest
 } = require("../controllers/adminController");
 const { verifyToken, requireAdmin } = require("../middleware/auth");
 
@@ -44,5 +48,9 @@ router.get("/inquiries", getAdminInquiries);
 router.patch("/inquiries/:id", updateAdminInquiry);
 router.get("/reviews", getAdminReviews);
 router.patch("/reviews/:id", updateAdminReview);
+router.get("/requests", getAdminRequests);
+router.get("/requests/:id", getAdminRequestById);
+router.patch("/requests/:id", updateAdminRequest);
+router.delete("/requests/:id", deleteAdminRequest);
 
 module.exports = router;

@@ -152,6 +152,7 @@
           <button data-tab="inquiries" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Inquiries</button>
           <button data-tab="reviews" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Reviews</button>
           <button data-tab="invoices" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Invoices</button>
+          <button data-tab="requests" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Requests</button>
           <button data-tab="settings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Settings</button>
           <button id="upgradePlanButton" data-tab="upgrade" class="dashboard-tab rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm font-semibold text-amber-200">Upgrade Plan</button>
         </div>
@@ -433,6 +434,100 @@
           </section>
         </div>
 
+        <div id="tab-requests" class="dashboard-panel hidden">
+          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div>
+              <h3 class="text-lg font-semibold">Support & Upgrade Requests</h3>
+              <p class="mt-1 text-sm text-slate-400">Send support, bug, feature, payment, or upgrade requests to AutomateX and track their workflow status from your dashboard.</p>
+            </div>
+
+            <div class="mt-6 grid gap-4 md:grid-cols-4">
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Total Requests</p>
+                <p id="requestTotalCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              </article>
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Open</p>
+                <p id="requestOpenCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              </article>
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">In Progress</p>
+                <p id="requestInProgressCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              </article>
+              <article class="dashboard-soft-surface rounded-2xl border p-4">
+                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Resolved</p>
+                <p id="requestResolvedCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              </article>
+            </div>
+
+            <div class="mt-6 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+              <article class="dashboard-panel-surface rounded-3xl border p-5">
+                <div>
+                  <h4 class="text-lg font-semibold">Create Request</h4>
+                  <p class="mt-1 text-sm text-slate-400">Upgrade requests are sent to admin for manual review only. They do not change your package automatically.</p>
+                </div>
+
+                <form id="requestForm" class="mt-6 grid gap-4">
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <label class="block">
+                      <span class="mb-2 block text-sm text-slate-300">Request type</span>
+                      <select id="requestType" name="type" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                        <option value="support">General Support</option>
+                        <option value="bug">Bug Report</option>
+                        <option value="feature">Feature Request</option>
+                        <option value="upgrade">Upgrade Request</option>
+                        <option value="payment">Payment Question</option>
+                      </select>
+                    </label>
+                    <label class="block">
+                      <span class="mb-2 block text-sm text-slate-300">Priority</span>
+                      <select id="requestPriority" name="priority" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                        <option value="low">Low</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <label id="requestPackageField" class="hidden block">
+                    <span class="mb-2 block text-sm text-slate-300">Requested package</span>
+                    <select id="requestPackage" name="requestedPackage" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                      <option value="starter">Starter</option>
+                      <option value="standard">Standard</option>
+                      <option value="pro">Pro</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+
+                  <label class="block">
+                    <span class="mb-2 block text-sm text-slate-300">Subject</span>
+                    <input id="requestSubject" name="subject" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="What do you need help with?">
+                  </label>
+
+                  <label class="block">
+                    <span class="mb-2 block text-sm text-slate-300">Message</span>
+                    <textarea id="requestMessage" name="message" class="min-h-[150px] w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="Describe your support issue, upgrade need, payment question, or feature request."></textarea>
+                  </label>
+
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">AutomateX reviews every request manually and updates the status here.</p>
+                    <button id="requestSubmitButton" type="submit" class="rounded-2xl border border-cyan-500/30 px-4 py-2 text-sm font-semibold text-cyan-200">Send Request</button>
+                  </div>
+                </form>
+              </article>
+
+              <article class="dashboard-panel-surface rounded-3xl border p-5">
+                <div>
+                  <h4 class="text-lg font-semibold">Request History</h4>
+                  <p class="mt-1 text-sm text-slate-400">Track status updates for support and upgrade requests submitted from your account.</p>
+                </div>
+                <div id="requestsList" class="mt-6 grid gap-4"></div>
+              </article>
+            </div>
+          </section>
+        </div>
+
         <div id="tab-settings" class="dashboard-panel hidden">
           <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
             <section class="dashboard-panel-surface rounded-3xl border p-5">
@@ -540,6 +635,8 @@
       "website-maintenance": "Website Maintenance"
     };
     const CLIENT_INQUIRY_STATUS_OPTIONS = ["new", "contacted", "converted", "closed", "in_progress"];
+    const CLIENT_REQUEST_TYPE_OPTIONS = ["support", "upgrade", "bug", "feature", "payment"];
+    const CLIENT_REQUEST_PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"];
     const state = {
       token: "",
       currentTab: "overview",
@@ -548,7 +645,8 @@
       bookings: [],
       inquiries: [],
       reviews: [],
-      invoices: []
+      invoices: [],
+      requests: []
     };
 
     function getToken() {
@@ -655,6 +753,19 @@
         .split("_")
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(" ");
+    }
+
+    function formatRequestTypeLabel(type) {
+      const labels = {
+        support: "General Support",
+        upgrade: "Upgrade Request",
+        bug: "Bug Report",
+        feature: "Feature Request",
+        payment: "Payment Question",
+        general: "General"
+      };
+
+      return labels[String(type || "support")] || formatStatusLabel(type);
     }
 
     function hasAssignedPlan(user = state.user) {
@@ -844,6 +955,7 @@
         inquiries: ["Inquiries", "Review and respond to incoming leads quickly."],
         reviews: ["Reviews", "See which reviews are published, pending, or hidden."],
         invoices: ["Invoices", "Review your invoice balances, due dates, and payment status."],
+        requests: ["Requests", "Send support or upgrade requests and monitor the response workflow."],
         settings: ["Settings", "Update your business profile, credentials, and chatbot preferences."],
         upgrade: ["Upgrade Plan", "Unlock more automation and premium features."]
       };
@@ -873,23 +985,39 @@
     }
 
     function statusBadge(status) {
-      if (status === "confirmed" || status === "published" || status === "paid") {
+      if (status === "confirmed" || status === "published" || status === "paid" || status === "resolved") {
         return "inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold capitalize text-emerald-300";
       }
 
-      if (status === "cancelled" || status === "overdue") {
+      if (status === "cancelled" || status === "overdue" || status === "rejected") {
         return "inline-flex rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold capitalize text-rose-300";
       }
 
-      if (status === "pending" || status === "sent") {
+      if (status === "pending" || status === "sent" || status === "open") {
         return "inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold capitalize text-amber-300";
       }
 
-      if (status === "partial") {
+      if (status === "partial" || status === "in_progress") {
         return "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold capitalize text-cyan-300";
       }
 
       return "inline-flex rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold capitalize text-slate-300";
+    }
+
+    function requestPriorityBadge(priority) {
+      if (priority === "urgent") {
+        return "inline-flex rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold capitalize text-rose-300";
+      }
+
+      if (priority === "high") {
+        return "inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold capitalize text-amber-300";
+      }
+
+      if (priority === "low") {
+        return "inline-flex rounded-full border border-slate-600 bg-slate-800 px-3 py-1 text-xs font-semibold capitalize text-slate-300";
+      }
+
+      return "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold capitalize text-cyan-300";
     }
 
     function renderOverview() {
@@ -1307,6 +1435,89 @@
       `).join("");
     }
 
+    function toggleRequestPackageField() {
+      const requestTypeField = document.getElementById("requestType");
+      const packageField = document.getElementById("requestPackageField");
+      const packageSelect = document.getElementById("requestPackage");
+      const isUpgradeRequest = requestTypeField.value === "upgrade";
+
+      packageField.classList.toggle("hidden", !isUpgradeRequest);
+      packageSelect.disabled = !isUpgradeRequest;
+
+      if (!isUpgradeRequest) {
+        packageSelect.value = "starter";
+      }
+    }
+
+    function renderRequests() {
+      const requests = Array.isArray(state.requests) ? state.requests : [];
+      const list = document.getElementById("requestsList");
+      const openRequests = requests.filter((request) => request.status === "open").length;
+      const inProgressRequests = requests.filter((request) => request.status === "in_progress").length;
+      const resolvedRequests = requests.filter((request) => request.status === "resolved").length;
+
+      document.getElementById("requestTotalCountValue").textContent = String(requests.length);
+      document.getElementById("requestOpenCountValue").textContent = String(openRequests);
+      document.getElementById("requestInProgressCountValue").textContent = String(inProgressRequests);
+      document.getElementById("requestResolvedCountValue").textContent = String(resolvedRequests);
+
+      if (!canManageWorkspace()) {
+        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">${escapeHtml(getRestrictionMessage())}</div>`;
+        return;
+      }
+
+      if (!requests.length) {
+        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No requests have been submitted from your account yet.</div>`;
+        return;
+      }
+
+      list.innerHTML = requests.map((request) => `
+        <article class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div class="max-w-3xl">
+              <div class="flex flex-wrap items-center gap-3">
+                <h4 class="text-lg font-semibold">${escapeHtml(request.subject || formatRequestTypeLabel(request.type))}</h4>
+                <span class="${statusBadge(request.status)}">${escapeHtml(formatStatusLabel(request.status))}</span>
+                <span class="${requestPriorityBadge(request.priority)}">${escapeHtml(formatStatusLabel(request.priority))}</span>
+              </div>
+              <p class="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">${escapeHtml(formatRequestTypeLabel(request.type))} • ${escapeHtml(formatDateTime(request.createdAt))}</p>
+              ${request.type === "upgrade" && request.requestedPackage
+                ? `<p class="mt-2 text-xs uppercase tracking-[0.18em] text-cyan-300">Requested package: ${escapeHtml(formatPlanLabel(request.requestedPackage))}</p>`
+                : ""}
+              <p class="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-300">${escapeHtml(request.message || "")}</p>
+              ${request.resolvedAt
+                ? `<p class="mt-3 text-xs uppercase tracking-[0.18em] text-slate-500">Last resolved update: ${escapeHtml(formatDateTime(request.resolvedAt))}</p>`
+                : ""}
+            </div>
+            ${["open", "in_progress"].includes(request.status)
+              ? `<button data-close-request="${escapeHtml(request.id)}" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Close Request</button>`
+              : ""}
+          </div>
+        </article>
+      `).join("");
+
+      list.querySelectorAll("[data-close-request]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          button.textContent = "Closing...";
+
+          try {
+            await apiRequest(`/api/requests/${button.dataset.closeRequest}`, {
+              method: "PATCH",
+              body: JSON.stringify({ status: "closed" })
+            });
+            setFeedback("Request closed successfully.");
+            await loadRequests();
+          } catch (error) {
+            setFeedback(error.message, "error");
+          } finally {
+            button.disabled = false;
+            button.textContent = "Close Request";
+          }
+        });
+      });
+    }
+
     function updatePlanBadge() {
       const plan = state.user.plan || "not_assigned";
       const accountStatus = state.user.accountStatus || "pending";
@@ -1388,6 +1599,12 @@
       renderInvoices();
     }
 
+    async function loadRequests() {
+      const payload = await apiRequest("/api/requests");
+      state.requests = payload.requests || [];
+      renderRequests();
+    }
+
     function handleQuickActions() {
       document.getElementById("copyBookingLinkButton").addEventListener("click", async () => {
         if (isRestrictedAccount()) {
@@ -1416,6 +1633,56 @@
 
       document.getElementById("whatsAppSupportButton").addEventListener("click", () => {
         window.open("https://wa.me/94711861722", "_blank", "noopener,noreferrer");
+      });
+    }
+
+    function handleRequestForm() {
+      const form = document.getElementById("requestForm");
+      const typeField = document.getElementById("requestType");
+      const submitButton = document.getElementById("requestSubmitButton");
+
+      toggleRequestPackageField();
+      typeField.addEventListener("change", toggleRequestPackageField);
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearFeedback();
+
+        if (!canManageWorkspace()) {
+          setFeedback(getRestrictionMessage(), "error");
+          return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = "Sending...";
+
+        try {
+          await apiRequest("/api/requests", {
+            method: "POST",
+            body: JSON.stringify({
+              type: document.getElementById("requestType").value,
+              requestedPackage: document.getElementById("requestType").value === "upgrade"
+                ? document.getElementById("requestPackage").value
+                : null,
+              priority: document.getElementById("requestPriority").value,
+              subject: document.getElementById("requestSubject").value.trim(),
+              message: document.getElementById("requestMessage").value.trim()
+            })
+          });
+
+          form.reset();
+          document.getElementById("requestPriority").value = "normal";
+          document.getElementById("requestType").value = "support";
+          toggleRequestPackageField();
+          setFeedback("Your request was sent successfully.");
+          await loadRequests();
+          setActiveTab("requests");
+        } catch (error) {
+          setFeedback(error.message, "error");
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = "Send Request";
+        }
       });
     }
 
@@ -1523,6 +1790,7 @@
       document.getElementById("logoutButtonDesktop").addEventListener("click", logout);
       document.getElementById("logoutButtonStatusScreen").addEventListener("click", logout);
       handleQuickActions();
+      handleRequestForm();
       handleSettingsSubmit();
       handleBillingButtons();
       handleThemeControls();
@@ -1577,11 +1845,13 @@
         }
 
         dataLoaders.push(loadInvoices());
+        dataLoaders.push(loadRequests());
 
         await Promise.all(dataLoaders);
 
         renderOverview();
         renderInvoices();
+        renderRequests();
         renderSettings();
         showActiveDashboardState();
         setActiveTab("overview");

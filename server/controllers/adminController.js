@@ -5,6 +5,7 @@ const Booking = require("../models/Booking");
 const Inquiry = require("../models/Inquiry");
 const Invoice = require("../models/Invoice");
 const Review = require("../models/Review");
+const SupportRequest = require("../models/SupportRequest");
 const { OFFICIAL_ADMIN_EMAIL, resolveTrustedRole } = require("../utils/authRole");
 const {
   PLAN_OPTIONS,
@@ -33,6 +34,17 @@ const {
   resolveInvoiceStatus,
   serializeInvoice
 } = require("../utils/invoice");
+const {
+  REQUEST_TYPE_OPTIONS,
+  REQUEST_PRIORITY_OPTIONS,
+  REQUEST_STATUS_OPTIONS,
+  normalizeRequestText,
+  normalizeRequestType,
+  normalizeRequestPriority,
+  normalizeRequestStatus,
+  applyResolvedTimestamp,
+  serializeSupportRequest
+} = require("../utils/supportRequest");
 const { sendSuccess, sendError } = require("../utils/response");
 
 const PLAN_PRICES = {
@@ -1294,6 +1306,166 @@ async function addInvoicePayment(req, res) {
   }
 }
 
+async function getAdminRequests(req, res) {
+  try {
+    const query = {};
+
+    if (req.query.clientId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.clientId)) {
+        return sendError(res, 400, "Invalid client ID.");
+      }
+      query.clientId = req.query.clientId;
+    }
+
+    if (req.query.type) {
+      const type = normalizeRequestType(req.query.type);
+      if (!REQUEST_TYPE_OPTIONS.includes(type)) {
+        return sendError(res, 400, "Invalid request type filter.");
+      }
+      query.type = type;
+    }
+
+    if (req.query.status) {
+      const status = normalizeRequestStatus(req.query.status);
+      if (!REQUEST_STATUS_OPTIONS.includes(status)) {
+        return sendError(res, 400, "Invalid request status filter.");
+      }
+      query.status = status;
+    }
+
+    if (req.query.priority) {
+      const priority = normalizeRequestPriority(req.query.priority);
+      if (!REQUEST_PRIORITY_OPTIONS.includes(priority)) {
+        return sendError(res, 400, "Invalid request priority filter.");
+      }
+      query.priority = priority;
+    }
+
+    const sortBy = String(req.query.sortBy || "createdAt");
+    const sortDirection = getSortDirection(req.query.sortDirection);
+    const sortMap = {
+      createdAt: { createdAt: sortDirection },
+      priority: { priority: sortDirection, createdAt: -1 },
+      status: { status: sortDirection, createdAt: -1 }
+    };
+    const searchPattern = buildSearchRegex(req.query.search);
+
+    const requests = await SupportRequest.find(query).sort(sortMap[sortBy] || sortMap.createdAt).lean();
+    const serializedRequests = requests
+      .map((request) => serializeSupportRequest(request, { includeAdminFields: true }))
+      .filter((request) => {
+        if (!searchPattern) {
+          return true;
+        }
+
+        return [
+          request.clientName,
+          request.clientEmail,
+          request.businessName,
+          request.subject,
+          request.message
+        ].some((value) => searchPattern.test(String(value || "")));
+      });
+
+    return sendSuccess(res, 200, {
+      requests: serializedRequests
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load support requests right now.");
+  }
+}
+
+async function getAdminRequestById(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid request ID.");
+    }
+
+    const request = await SupportRequest.findById(req.params.id).lean();
+    if (!request) {
+      return sendError(res, 404, "Request not found.");
+    }
+
+    return sendSuccess(res, 200, {
+      request: serializeSupportRequest(request, { includeAdminFields: true })
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load the request right now.");
+  }
+}
+
+async function updateAdminRequest(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid request ID.");
+    }
+
+    const request = await SupportRequest.findById(req.params.id);
+    if (!request) {
+      return sendError(res, 404, "Request not found.");
+    }
+
+    if (typeof req.body.status === "string") {
+      const status = normalizeRequestStatus(req.body.status);
+      if (!REQUEST_STATUS_OPTIONS.includes(status)) {
+        return sendError(res, 400, "Status must be open, in_progress, resolved, rejected, or closed.");
+      }
+      request.status = status;
+      applyResolvedTimestamp(request, request.status);
+    }
+
+    if (typeof req.body.priority === "string") {
+      const priority = normalizeRequestPriority(req.body.priority);
+      if (!REQUEST_PRIORITY_OPTIONS.includes(priority)) {
+        return sendError(res, 400, "Priority must be low, normal, high, or urgent.");
+      }
+      request.priority = priority;
+    }
+
+    if (typeof req.body.adminNote === "string") {
+      request.adminNote = normalizeRequestText(req.body.adminNote, 5000);
+    }
+
+    await request.save();
+
+    return sendSuccess(res, 200, {
+      message: "Request updated successfully.",
+      request: serializeSupportRequest(request, { includeAdminFields: true })
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update the request right now.");
+  }
+}
+
+async function deleteAdminRequest(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid request ID.");
+    }
+
+    const request = await SupportRequest.findById(req.params.id);
+    if (!request) {
+      return sendError(res, 404, "Request not found.");
+    }
+
+    request.status = "closed";
+    applyResolvedTimestamp(request, request.status);
+
+    if (typeof req.body.adminNote === "string") {
+      request.adminNote = normalizeRequestText(req.body.adminNote, 5000);
+    }
+
+    await request.save();
+
+    return sendSuccess(res, 200, {
+      message: "Request closed successfully.",
+      request: serializeSupportRequest(request, { includeAdminFields: true })
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to close the request right now.");
+  }
+}
+
 module.exports = {
   getStats,
   getClients,
@@ -1306,6 +1478,10 @@ module.exports = {
   updateAdminInquiry,
   getAdminReviews,
   updateAdminReview,
+  getAdminRequests,
+  getAdminRequestById,
+  updateAdminRequest,
+  deleteAdminRequest,
   getInvoices,
   createInvoice,
   getInvoiceById,

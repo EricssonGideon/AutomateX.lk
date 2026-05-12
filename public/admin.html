@@ -1270,9 +1270,9 @@
         <button class="nav-button" data-section="support" type="button">
           <span>
             <strong>Support Requests</strong>
-            <small>Coming next</small>
+            <small>Client queue</small>
           </span>
-          <span class="nav-counter">Soon</span>
+          <span class="nav-counter" id="navCountSupport">0</span>
         </button>
         <button class="nav-button" data-section="reports" type="button">
           <span>
@@ -1369,9 +1369,9 @@
                 <strong>View Payments</strong>
                 <span>Review outstanding balances, payment status, and billing follow-up.</span>
               </button>
-              <button class="quick-action" type="button" data-section-target="support" data-notice="Support request tools are coming in the next update." data-notice-tone="warning">
+              <button class="quick-action" type="button" data-section-target="support">
                 <strong>View Support Requests</strong>
-                <span>Open the upcoming support queue placeholder section.</span>
+                <span>Review support, upgrade, bug, payment, and feature requests from active clients.</span>
               </button>
             </div>
           </article>
@@ -1926,13 +1926,67 @@
       </section>
 
       <section class="section" id="section-support">
-        <article class="placeholder-panel">
-          <small class="kicker">Support Requests</small>
-          <h3>Coming in next update</h3>
-          <p>The support request backend is not part of this step, so this section stays as a clean placeholder inside the owner control center.</p>
-          <div class="placeholder-list">
-            <article>No data available yet for internal support tickets.</article>
-            <article>Support request routing, status updates, and owner workflow tools will connect here next.</article>
+        <div class="kpi-grid" id="supportKpiGrid"></div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Support Requests</small>
+              <h2>Client support, upgrade, and issue queue</h2>
+              <p>Track support and upgrade requests from active clients, review details, and move each request through its operational workflow.</p>
+            </div>
+            <div class="panel-actions">
+              <button id="refreshSupportButton" class="button button-secondary" type="button">Refresh Requests</button>
+            </div>
+          </div>
+
+          <div class="filters">
+            <input id="supportSearch" class="input" type="text" placeholder="Search client, business, subject">
+            <select id="supportTypeFilter" class="select">
+              <option value="">All request types</option>
+              <option value="support">General Support</option>
+              <option value="bug">Bug Report</option>
+              <option value="feature">Feature Request</option>
+              <option value="upgrade">Upgrade Request</option>
+              <option value="payment">Payment Question</option>
+              <option value="general">General</option>
+            </select>
+            <select id="supportStatusFilter" class="select">
+              <option value="">All statuses</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="rejected">Rejected</option>
+              <option value="closed">Closed</option>
+            </select>
+            <select id="supportPriorityFilter" class="select">
+              <option value="">All priorities</option>
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+            <div></div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Client / Business</th>
+                    <th>Type</th>
+                    <th>Subject</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="supportRequestsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="supportRequestsEmptyState">Loading support requests…</div>
           </div>
         </article>
       </section>
@@ -2087,6 +2141,10 @@
     const CLIENT_ACCOUNT_STATUS_OPTIONS = ["pending", "active", "suspended", "rejected"];
     const CLIENT_PAYMENT_STATUS_OPTIONS = ["pending", "paid", "overdue", "trial"];
     const INVOICE_STATUS_OPTIONS = ["draft", "sent", "partial", "paid", "overdue", "cancelled"];
+    const REQUEST_TYPE_OPTIONS = ["support", "upgrade", "bug", "feature", "payment", "general"];
+    const REQUEST_STATUS_OPTIONS = ["open", "in_progress", "resolved", "rejected", "closed"];
+    const REQUEST_PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"];
+    const REQUEST_PACKAGE_OPTIONS = ["starter", "standard", "pro", "custom"];
     const SECTION_META = {
       dashboard: {
         title: "Dashboard",
@@ -2126,7 +2184,7 @@
       },
       support: {
         title: "Support Requests",
-        subtitle: "Support request tools are not wired in this step, but the admin information architecture is ready."
+        subtitle: "Manage support, upgrade, bug, feature, and payment requests from active AutomateX clients."
       },
       reports: {
         title: "Reports",
@@ -2143,6 +2201,7 @@
       stats: null,
       allClients: [],
       allInvoices: [],
+      allRequests: [],
       allBookings: [],
       allInquiries: [],
       allReviews: [],
@@ -2267,6 +2326,23 @@
         .join(" ");
     }
 
+    function formatRequestTypeLabel(type) {
+      const labels = {
+        support: "General Support",
+        upgrade: "Upgrade Request",
+        bug: "Bug Report",
+        feature: "Feature Request",
+        payment: "Payment Question",
+        general: "General"
+      };
+
+      return labels[String(type || "support")] || formatStatusLabel(type);
+    }
+
+    function formatRequestedPackageLabel(requestedPackage) {
+      return requestedPackage ? formatPlanLabel(requestedPackage) : "Not requested";
+    }
+
     function formatStatusLabel(value) {
       return String(value || "")
         .replace(/_/g, " ")
@@ -2298,11 +2374,11 @@
     function badgeClass(value) {
       const normalized = String(value || "pending").toLowerCase();
 
-      if (["active", "paid", "confirmed", "completed", "published", "approved", "connected", "operational"].includes(normalized)) {
+      if (["active", "paid", "confirmed", "completed", "published", "approved", "connected", "operational", "resolved"].includes(normalized)) {
         return "badge active";
       }
 
-      if (["pending", "new"].includes(normalized)) {
+      if (["pending", "new", "open"].includes(normalized)) {
         return normalized === "new" ? "badge new" : "badge pending";
       }
 
@@ -2311,6 +2387,24 @@
       }
 
       return `badge ${normalized}`;
+    }
+
+    function requestPriorityBadgeClass(priority) {
+      const normalized = String(priority || "normal").toLowerCase();
+
+      if (normalized === "urgent") {
+        return "badge overdue";
+      }
+
+      if (normalized === "high") {
+        return "badge pending";
+      }
+
+      if (normalized === "low") {
+        return "badge draft";
+      }
+
+      return "badge in_progress";
     }
 
     function normalizeDisplayReviewStatus(review) {
@@ -2491,6 +2585,66 @@
           paid: 0,
           overdue: 0,
           cancelled: 0
+        }
+      });
+    }
+
+    function getSupportFilters() {
+      return {
+        search: String(document.getElementById("supportSearch").value || "").trim().toLowerCase(),
+        type: document.getElementById("supportTypeFilter").value,
+        status: document.getElementById("supportStatusFilter").value,
+        priority: document.getElementById("supportPriorityFilter").value
+      };
+    }
+
+    function getFilteredSupportRequests() {
+      const { search, type, status, priority } = getSupportFilters();
+      const requests = state.allRequests.filter((request) => {
+        if (type && request.type !== type) {
+          return false;
+        }
+
+        if (status && request.status !== status) {
+          return false;
+        }
+
+        if (priority && request.priority !== priority) {
+          return false;
+        }
+
+        return matchesSearch(
+          [request.clientName, request.clientEmail, request.businessName, request.subject, request.message],
+          search
+        );
+      });
+
+      requests.sort((left, right) => parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt));
+      return requests;
+    }
+
+    function getSupportRequestAnalytics(items = state.allRequests) {
+      return items.reduce((totals, request) => {
+        totals.totalRequests += 1;
+        totals.statusCounts[request.status] = (totals.statusCounts[request.status] || 0) + 1;
+        totals.typeCounts[request.type] = (totals.typeCounts[request.type] || 0) + 1;
+        return totals;
+      }, {
+        totalRequests: 0,
+        statusCounts: {
+          open: 0,
+          in_progress: 0,
+          resolved: 0,
+          rejected: 0,
+          closed: 0
+        },
+        typeCounts: {
+          support: 0,
+          upgrade: 0,
+          bug: 0,
+          feature: 0,
+          payment: 0,
+          general: 0
         }
       });
     }
@@ -2852,6 +3006,7 @@
 
     function renderDashboardKpis() {
       const payment = getPaymentAnalytics();
+      const requestAnalytics = getSupportRequestAnalytics();
       const stats = state.stats || {};
       const cards = [
         {
@@ -2909,6 +3064,11 @@
           label: "Total Reviews",
           value: String(stats.totalReviews ?? state.allReviews.length ?? 0),
           copy: "All review records currently available for moderation or display."
+        },
+        {
+          label: "Support Requests",
+          value: String(requestAnalytics.totalRequests),
+          copy: "Client support, upgrade, bug, feature, and payment requests currently in the queue."
         }
       ];
 
@@ -3531,6 +3691,78 @@
       });
     }
 
+    function renderSupportSection() {
+      const requests = getFilteredSupportRequests();
+      const analytics = getSupportRequestAnalytics();
+
+      document.getElementById("supportKpiGrid").innerHTML = [
+        {
+          label: "Total Requests",
+          value: String(analytics.totalRequests),
+          copy: "All support and upgrade requests currently stored in the client queue."
+        },
+        {
+          label: "Open Requests",
+          value: String(analytics.statusCounts.open || 0),
+          copy: "Newly submitted requests that still need owner attention."
+        },
+        {
+          label: "In Progress",
+          value: String(analytics.statusCounts.in_progress || 0),
+          copy: "Requests currently being handled by the AutomateX admin team."
+        },
+        {
+          label: "Resolved",
+          value: String(analytics.statusCounts.resolved || 0),
+          copy: "Requests that have been completed successfully."
+        },
+        {
+          label: "Upgrade Requests",
+          value: String(analytics.typeCounts.upgrade || 0),
+          copy: "Manual package change requests waiting for admin review."
+        },
+        {
+          label: "Bug Reports",
+          value: String(analytics.typeCounts.bug || 0),
+          copy: "Client-reported issues that may need investigation or follow-up."
+        }
+      ].map((card) => `
+        <article class="kpi-card">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong>${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
+        </article>
+      `).join("");
+
+      setTableState("supportRequestsTableBody", "supportRequestsEmptyState", requests, (request) => `
+        <tr class="${request.priority === "urgent" || request.status === "open" ? "pending-row" : ""}">
+          <td>
+            <div class="cell-title">${escapeHtml(request.businessName || request.clientName || "Client")}</div>
+            <div class="cell-subtitle">${escapeHtml(request.clientName || "—")} • ${escapeHtml(request.clientEmail || "—")}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(formatRequestTypeLabel(request.type))}</div>
+            <div class="cell-subtitle">${escapeHtml(formatRequestedPackageLabel(request.requestedPackage))}</div>
+          </td>
+          <td>
+            <div class="cell-title">${escapeHtml(request.subject || "Request")}</div>
+            <div class="cell-subtitle">${escapeHtml((request.message || "").slice(0, 90))}${String(request.message || "").length > 90 ? "..." : ""}</div>
+          </td>
+          <td><span class="${requestPriorityBadgeClass(request.priority)}">${escapeHtml(formatStatusLabel(request.priority))}</span></td>
+          <td><span class="${badgeClass(request.status)}">${escapeHtml(formatStatusLabel(request.status))}</span></td>
+          <td>${escapeHtml(formatShortDate(request.createdAt))}</td>
+          <td>
+            <div class="actions">
+              <button class="mini-button" type="button" data-request-id="${escapeHtml(request.id)}" data-request-action="manage">Manage</button>
+              ${["open", "in_progress"].includes(request.status)
+                ? `<button class="mini-button is-warning" type="button" data-request-id="${escapeHtml(request.id)}" data-request-action="resolve">Resolve</button>`
+                : ""}
+            </div>
+          </td>
+        </tr>
+      `, "No support or upgrade requests match the current filters.");
+    }
+
     function renderReportsSection() {
       const stats = state.stats || {};
 
@@ -3622,6 +3854,7 @@
     function renderNavCounters() {
       const packageAnalytics = getPackageAnalytics();
       const invoiceAnalytics = getInvoiceAnalytics();
+      const requestAnalytics = getSupportRequestAnalytics();
       document.getElementById("navCountClients").textContent = String(state.allClients.length);
       document.getElementById("navCountPending").textContent = String(getPendingApprovals().length);
       document.getElementById("navCountPackages").textContent = String(packageAnalytics.reduce((sum, entry) => sum + entry.active, 0));
@@ -3631,6 +3864,9 @@
       document.getElementById("navCountInquiries").textContent = String(state.allInquiries.length);
       document.getElementById("navCountReviews").textContent = String(
         state.allReviews.filter((review) => normalizeDisplayReviewStatus(review) === "pending").length
+      );
+      document.getElementById("navCountSupport").textContent = String(
+        (requestAnalytics.statusCounts.open || 0) + (requestAnalytics.statusCounts.in_progress || 0)
       );
     }
 
@@ -3647,6 +3883,7 @@
       renderBookingsSection();
       renderInquiriesSection();
       renderReviewsSection();
+      renderSupportSection();
       renderReportsSection();
       renderSettingsSection();
     }
@@ -3683,6 +3920,11 @@
       state.allInvoices = payload.invoices || [];
     }
 
+    async function loadRequests() {
+      const payload = await apiFetch("/api/admin/requests");
+      state.allRequests = payload.requests || [];
+    }
+
     async function loadBookings() {
       const payload = await apiFetch("/api/admin/bookings");
       state.allBookings = payload.bookings || [];
@@ -3699,7 +3941,7 @@
     }
 
     async function refreshAllData() {
-      await Promise.all([loadStats(), loadClients(), loadInvoices(), loadBookings(), loadInquiries(), loadReviews()]);
+      await Promise.all([loadStats(), loadClients(), loadInvoices(), loadRequests(), loadBookings(), loadInquiries(), loadReviews()]);
       renderAll();
     }
 
@@ -4531,7 +4773,231 @@
       }
     }
 
+    function requestDetailSection(request) {
+      return `
+        <form id="requestDrawerForm">
+          <input type="hidden" name="requestId" value="${escapeHtml(request.id)}">
+
+          <div class="chip-row">
+            <span class="data-chip"><strong>${escapeHtml(formatRequestTypeLabel(request.type))}</strong>Request Type</span>
+            <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(request.priority))}</strong>Priority</span>
+            <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(request.status))}</strong>Status</span>
+            <span class="data-chip"><strong>${escapeHtml(formatShortDate(request.createdAt))}</strong>Created</span>
+          </div>
+
+          <div class="settings-grid" style="margin-top: 18px;">
+            <div class="settings-item">
+              <span>Business</span>
+              <strong>${escapeHtml(request.businessName || "—")}</strong>
+            </div>
+            <div class="settings-item">
+              <span>Client</span>
+              <strong>${escapeHtml(request.clientName || "—")}</strong>
+            </div>
+            <div class="settings-item">
+              <span>Email</span>
+              <strong>${escapeHtml(request.clientEmail || "—")}</strong>
+            </div>
+            <div class="settings-item">
+              <span>Requested Package</span>
+              <strong>${escapeHtml(formatRequestedPackageLabel(request.requestedPackage))}</strong>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="field">
+              <label>Subject</label>
+              <input class="input" value="${escapeHtml(request.subject || "")}" disabled>
+            </div>
+            <div class="field" style="margin-top: 14px;">
+              <label>Client message</label>
+              <textarea class="textarea" disabled>${escapeHtml(request.message || "")}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-section">
+            <div class="drawer-grid">
+              <div class="field">
+                <label>Status</label>
+                <select class="select" name="status">
+                  ${REQUEST_STATUS_OPTIONS.map((status) => `
+                    <option value="${status}" ${request.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                  `).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label>Priority</label>
+                <select class="select" name="priority">
+                  ${REQUEST_PRIORITY_OPTIONS.map((priority) => `
+                    <option value="${priority}" ${request.priority === priority ? "selected" : ""}>${escapeHtml(formatStatusLabel(priority))}</option>
+                  `).join("")}
+                </select>
+              </div>
+            </div>
+
+            <div class="field" style="margin-top: 14px;">
+              <label>Admin note</label>
+              <textarea class="textarea" name="adminNote">${escapeHtml(request.adminNote || "")}</textarea>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            ${!["resolved", "rejected", "closed"].includes(request.status)
+              ? `<button class="button button-secondary" id="requestResolveButton" type="button">Mark Resolved</button>`
+              : ""}
+            ${!["rejected", "closed"].includes(request.status)
+              ? `<button class="button button-danger" id="requestRejectButton" type="button">Reject Request</button>`
+              : ""}
+            ${request.status !== "closed"
+              ? `<button class="button button-secondary" id="requestCloseButton" type="button">Close Request</button>`
+              : ""}
+            <button class="button button-primary" type="submit">Save Request</button>
+          </div>
+        </form>
+      `;
+    }
+
+    async function openRequestDrawer(requestId) {
+      const payload = await apiFetch(`/api/admin/requests/${requestId}`);
+      const request = payload.request;
+
+      openDrawer({
+        eyebrow: "Support Request",
+        title: request.subject || formatRequestTypeLabel(request.type),
+        subtitle: "Review the client request, update workflow status, and keep internal admin notes attached to the record.",
+        body: requestDetailSection(request)
+      });
+    }
+
+    async function handleRequestAction(requestId, action) {
+      if (action === "manage" || action === "view") {
+        await openRequestDrawer(requestId);
+        return;
+      }
+
+      if (action === "resolve") {
+        await apiFetch(`/api/admin/requests/${requestId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "resolved" })
+        });
+        await refreshAllData();
+        closeDrawer();
+        showToast("Request resolved", "The client request has been marked as resolved.");
+        return;
+      }
+
+      if (action === "reject") {
+        await apiFetch(`/api/admin/requests/${requestId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "rejected" })
+        });
+        await refreshAllData();
+        closeDrawer();
+        showToast("Request rejected", "The request has been marked as rejected.");
+        return;
+      }
+
+      if (action === "close") {
+        await apiFetch(`/api/admin/requests/${requestId}`, {
+          method: "DELETE",
+          body: JSON.stringify({})
+        });
+        await refreshAllData();
+        closeDrawer();
+        showToast("Request closed", "The request remains on record and is now marked as closed.");
+      }
+    }
+
     function attachDrawerHandlers() {
+      const requestForm = document.getElementById("requestDrawerForm");
+      if (requestForm) {
+        requestForm.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(requestForm);
+
+          try {
+            await apiFetch(`/api/admin/requests/${formData.get("requestId")}`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                status: formData.get("status"),
+                priority: formData.get("priority"),
+                adminNote: formData.get("adminNote")
+              })
+            });
+
+            await refreshAllData();
+            closeDrawer();
+            showToast("Request saved", "Request status, priority, and internal note were updated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to update the request.", "error");
+          }
+        });
+
+        const resolveButton = document.getElementById("requestResolveButton");
+        if (resolveButton) {
+          resolveButton.addEventListener("click", async () => {
+            try {
+              await apiFetch(`/api/admin/requests/${new FormData(requestForm).get("requestId")}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  status: "resolved",
+                  priority: new FormData(requestForm).get("priority"),
+                  adminNote: new FormData(requestForm).get("adminNote")
+                })
+              });
+
+              await refreshAllData();
+              closeDrawer();
+              showToast("Request resolved", "The request has been marked as resolved.");
+            } catch (error) {
+              showBanner(error.message || "Unable to resolve the request.", "error");
+            }
+          });
+        }
+
+        const rejectButton = document.getElementById("requestRejectButton");
+        if (rejectButton) {
+          rejectButton.addEventListener("click", async () => {
+            try {
+              await apiFetch(`/api/admin/requests/${new FormData(requestForm).get("requestId")}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  status: "rejected",
+                  priority: new FormData(requestForm).get("priority"),
+                  adminNote: new FormData(requestForm).get("adminNote")
+                })
+              });
+
+              await refreshAllData();
+              closeDrawer();
+              showToast("Request rejected", "The request has been marked as rejected.");
+            } catch (error) {
+              showBanner(error.message || "Unable to reject the request.", "error");
+            }
+          });
+        }
+
+        const closeButton = document.getElementById("requestCloseButton");
+        if (closeButton) {
+          closeButton.addEventListener("click", async () => {
+            try {
+              await apiFetch(`/api/admin/requests/${new FormData(requestForm).get("requestId")}`, {
+                method: "DELETE",
+                body: JSON.stringify({
+                  adminNote: new FormData(requestForm).get("adminNote")
+                })
+              });
+
+              await refreshAllData();
+              closeDrawer();
+              showToast("Request closed", "The request has been marked as closed.");
+            } catch (error) {
+              showBanner(error.message || "Unable to close the request.", "error");
+            }
+          });
+        }
+      }
+
       const invoiceForm = document.getElementById("invoiceDrawerForm");
       if (invoiceForm) {
         syncInvoiceComposerForm();
@@ -5009,6 +5475,13 @@
           return;
         }
 
+        const requestButton = event.target.closest("[data-request-id]");
+        if (requestButton) {
+          handleRequestAction(requestButton.dataset.requestId, requestButton.dataset.requestAction || "manage")
+            .catch((error) => showBanner(error.message || "Unable to open the request record.", "error"));
+          return;
+        }
+
         const clientButton = event.target.closest("[data-client-id]");
         if (clientButton) {
           const action = clientButton.dataset.clientAction || "manage";
@@ -5058,6 +5531,9 @@
       document.getElementById("refreshReviewsButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reviews.", "error"));
       });
+      document.getElementById("refreshSupportButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh support requests.", "error"));
+      });
 
       ["clientSearch", "clientPlanFilter", "clientStatusFilter", "clientPaymentFilter", "clientSortBy"].forEach((id) => {
         const field = document.getElementById(id);
@@ -5094,6 +5570,12 @@
         const field = document.getElementById(id);
         field.addEventListener("input", renderReviewsSection);
         field.addEventListener("change", renderReviewsSection);
+      });
+
+      ["supportSearch", "supportTypeFilter", "supportStatusFilter", "supportPriorityFilter"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderSupportSection);
+        field.addEventListener("change", renderSupportSection);
       });
     }
 
