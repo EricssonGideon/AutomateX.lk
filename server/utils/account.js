@@ -1,7 +1,7 @@
 const PLAN_OPTIONS = ["not_assigned", "starter", "standard", "pro", "custom"];
-const ACCOUNT_STATUS_OPTIONS = ["pending", "active", "suspended"];
-const PAYMENT_STATUS_OPTIONS = ["pending", "paid", "unpaid", "overdue"];
-const ONBOARDING_STATUS_OPTIONS = ["pending", "in_review", "approved", "active"];
+const ACCOUNT_STATUS_OPTIONS = ["pending", "active", "suspended", "rejected"];
+const PAYMENT_STATUS_OPTIONS = ["pending", "paid", "trial", "overdue", "unpaid"];
+const ONBOARDING_STATUS_OPTIONS = ["pending", "in_review", "approved", "active", "rejected"];
 const FEATURE_CATALOG = [
   { key: "ai-chatbot", label: "AI Chatbot" },
   { key: "booking-system", label: "Booking System" },
@@ -26,8 +26,12 @@ const PLAN_DEFAULT_FEATURES = {
     "google-business-support",
     "website-maintenance"
   ],
-  custom: ["booking-system", "inquiry-management", "review-management", "billing-system"]
+  custom: []
 };
+
+function getPlanDefaultFeatures(plan) {
+  return [...(PLAN_DEFAULT_FEATURES[normalizePlan(plan)] || [])];
+}
 
 function normalizePlan(value) {
   if (typeof value !== "string") {
@@ -60,6 +64,14 @@ function resolveAccountStatus(user) {
     return "pending";
   }
 
+  if (user.accountStatus === "rejected") {
+    return "rejected";
+  }
+
+  if (user.accountStatus === "suspended") {
+    return "suspended";
+  }
+
   if (user.isActive === false) {
     return "suspended";
   }
@@ -78,6 +90,9 @@ function normalizePaymentStatus(value) {
   }
 
   const normalized = value.trim().toLowerCase();
+  if (normalized === "unpaid") {
+    return "pending";
+  }
   return PAYMENT_STATUS_OPTIONS.includes(normalized) ? normalized : "pending";
 }
 
@@ -105,7 +120,7 @@ function resolveAllowedFeatures(user) {
   }
 
   const plan = normalizePlan(user && user.plan);
-  return [...(PLAN_DEFAULT_FEATURES[plan] || [])];
+  return getPlanDefaultFeatures(plan);
 }
 
 function normalizeMonthlyFee(value) {
@@ -131,6 +146,10 @@ function normalizeNextPaymentDate(value) {
 }
 
 function resolveOnboardingStatus(user) {
+  if (user.accountStatus === "rejected") {
+    return "rejected";
+  }
+
   if (user.accountStatus === "suspended") {
     return "approved";
   }
@@ -161,6 +180,7 @@ function buildFeatureAccess(user) {
   const allowedFeatures = resolveAllowedFeatures(user);
   const accountStatus = resolveAccountStatus(user);
   const isSuspended = accountStatus === "suspended";
+  const isRejected = accountStatus === "rejected";
   const isPending = accountStatus === "pending";
 
   return FEATURE_CATALOG.map((feature) => ({
@@ -168,7 +188,9 @@ function buildFeatureAccess(user) {
     label: feature.label,
     enabled: allowedFeatures.includes(feature.key) && accountStatus === "active",
     included: allowedFeatures.includes(feature.key),
-    lockedReason: isSuspended
+    lockedReason: isRejected
+      ? "Your account was not approved. Please contact AutomateX support for help."
+      : isSuspended
       ? "Your account is suspended. Please contact AutomateX support."
       : isPending
         ? "Your package is still pending admin approval."
@@ -184,6 +206,8 @@ module.exports = {
   PAYMENT_STATUS_OPTIONS,
   ONBOARDING_STATUS_OPTIONS,
   FEATURE_CATALOG,
+  PLAN_DEFAULT_FEATURES,
+  getPlanDefaultFeatures,
   normalizePlan,
   normalizeAccountStatus,
   resolveAccountStatus,

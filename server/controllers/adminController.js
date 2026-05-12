@@ -4,11 +4,12 @@ const User = require("../models/User");
 const Booking = require("../models/Booking");
 const Inquiry = require("../models/Inquiry");
 const Review = require("../models/Review");
+const { OFFICIAL_ADMIN_EMAIL, resolveTrustedRole } = require("../utils/authRole");
 const {
   PLAN_OPTIONS,
   ACCOUNT_STATUS_OPTIONS,
-  PAYMENT_STATUS_OPTIONS,
   normalizePlan,
+  normalizeAccountStatus,
   resolveAccountStatus,
   normalizePaymentStatus,
   normalizeAllowedFeatures,
@@ -16,7 +17,8 @@ const {
   normalizeMonthlyFee,
   normalizeNextPaymentDate,
   resolveOnboardingStatus,
-  buildFeatureAccess
+  buildFeatureAccess,
+  getPlanDefaultFeatures
 } = require("../utils/account");
 const { sendSuccess, sendError } = require("../utils/response");
 
@@ -29,8 +31,12 @@ const ACTIVE_BOOKING_STATUSES = ["pending", "confirmed"];
 const BOOKING_STATUS_OPTIONS = ["pending", "confirmed", "completed", "cancelled"];
 const INQUIRY_STATUS_OPTIONS = ["new", "in_progress", "contacted", "converted", "closed"];
 const REVIEW_STATUS_OPTIONS = ["pending", "published", "hidden"];
+const ADMIN_EDITABLE_PAYMENT_STATUS_OPTIONS = ["pending", "paid", "overdue", "trial"];
 const BOOKING_TIME_PATTERN = /^\d{2}:\d{2}$/;
 const BOOKING_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const CLIENT_BASE_QUERY = {
+  email: { $ne: OFFICIAL_ADMIN_EMAIL }
+};
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -98,7 +104,7 @@ function serializeAdminClient(client) {
     id: String(client._id || client.id),
     name: client.name,
     email: client.email,
-    role: client.role,
+    role: resolveTrustedRole(client),
     plan,
     packageName: plan,
     monthlyFee,
@@ -170,7 +176,7 @@ async function getStats(_req, res) {
   try {
     const { start, end } = getCurrentMonthRange();
     const activeAccountQuery = {
-      role: "client",
+      ...CLIENT_BASE_QUERY,
       isActive: true,
       $or: [
         { accountStatus: "active" },
@@ -194,10 +200,10 @@ async function getStats(_req, res) {
       totalReviews,
       clientRecords
     ] = await Promise.all([
-      User.countDocuments({ role: "client" }),
+      User.countDocuments(CLIENT_BASE_QUERY),
       User.countDocuments(activeAccountQuery),
-      User.countDocuments({ role: "client", accountStatus: "pending", isActive: true }),
-      User.countDocuments({ role: "client", accountStatus: "suspended" }),
+      User.countDocuments({ ...CLIENT_BASE_QUERY, accountStatus: "pending", isActive: true }),
+      User.countDocuments({ ...CLIENT_BASE_QUERY, accountStatus: "suspended" }),
       Booking.countDocuments({ createdAt: { $gte: start, $lt: end } }),
       Booking.countDocuments({}),
       Inquiry.countDocuments({ createdAt: { $gte: start, $lt: end } }),
@@ -205,7 +211,7 @@ async function getStats(_req, res) {
       Review.countDocuments({ status: "pending" }),
       Review.countDocuments({}),
       User.find(
-        { role: "client" },
+        CLIENT_BASE_QUERY,
         { plan: 1, monthlyFee: 1, accountStatus: 1, paymentStatus: 1, nextPaymentDate: 1, isActive: 1 }
       ).lean()
     ]);
@@ -277,7 +283,7 @@ async function getStats(_req, res) {
 
 async function getClients(req, res) {
   try {
-    const match = { role: "client" };
+    const match = { ...CLIENT_BASE_QUERY };
 
     if (req.query.plan && PLAN_OPTIONS.includes(req.query.plan)) {
       match.plan = req.query.plan;
@@ -290,6 +296,9 @@ async function getClients(req, res) {
 
     const requestedAccountStatus = req.query.accountStatus && ACCOUNT_STATUS_OPTIONS.includes(req.query.accountStatus)
       ? req.query.accountStatus
+      : "";
+    const requestedPaymentStatus = req.query.paymentStatus && ADMIN_EDITABLE_PAYMENT_STATUS_OPTIONS.includes(req.query.paymentStatus)
+      ? normalizePaymentStatus(req.query.paymentStatus)
       : "";
 
     const searchPattern = buildSearchRegex(req.query.search);
@@ -359,7 +368,8 @@ async function getClients(req, res) {
 
     const serializedClients = clients
       .map(serializeAdminClient)
-      .filter((client) => !requestedAccountStatus || client.accountStatus === requestedAccountStatus);
+      .filter((client) => !requestedAccountStatus || client.accountStatus === requestedAccountStatus)
+      .filter((client) => !requestedPaymentStatus || client.paymentStatus === requestedPaymentStatus);
 
     return sendSuccess(res, 200, {
       clients: serializedClients
@@ -377,10 +387,10 @@ async function getClientById(req, res) {
 
     const client = await User.findOne({
       _id: req.params.id,
-      role: "client"
+      ...CLIENT_BASE_QUERY
     }).lean();
 
-    if (!client) {
+    if (!client || resolveTrustedRole(client) !== "client") {
       return sendError(res, 404, "Client not found.");
     }
 
@@ -406,44 +416,59 @@ async function updateClient(req, res) {
     }
 
     const updates = {};
+    const requestedPlanInput = typeof req.body.plan === "string"
+      ? String(req.body.plan || "").trim().toLowerCase()
+      : null;
+    const requestedPlan = requestedPlanInput !== null
+      ? normalizePlan(requestedPlanInput)
+      : null;
+    const requestedAccountStatusInput = typeof req.body.accountStatus === "string"
+      ? String(req.body.accountStatus || "").trim().toLowerCase()
+      : null;
+    const requestedAccountStatus = requestedAccountStatusInput !== null
+      ? normalizeAccountStatus(requestedAccountStatusInput)
+      : null;
+    const paymentStatusInput = typeof req.body.paymentStatus === "string"
+      ? String(req.body.paymentStatus || "").trim().toLowerCase()
+      : null;
 
-    if (typeof req.body.plan === "string") {
-      const normalizedPlan = normalizePlan(req.body.plan);
-      if (!PLAN_OPTIONS.includes(normalizedPlan)) {
+    if (requestedPlan !== null) {
+      if (!PLAN_OPTIONS.includes(requestedPlanInput)) {
         return sendError(res, 400, "Plan must match a supported package.");
       }
-      updates.plan = normalizedPlan;
+      updates.plan = requestedPlan;
     }
 
     if (typeof req.body.isActive === "boolean") {
       updates.isActive = req.body.isActive;
+    } else if (typeof req.body.isActive === "string") {
+      updates.isActive = req.body.isActive === "true";
     }
 
     if (typeof req.body.monthlyFee !== "undefined") {
       updates.monthlyFee = normalizeMonthlyFee(req.body.monthlyFee);
     }
 
-    if (typeof req.body.accountStatus === "string") {
-      if (!ACCOUNT_STATUS_OPTIONS.includes(req.body.accountStatus)) {
-        return sendError(res, 400, "Account status must be pending, active, or suspended.");
+    if (requestedAccountStatus !== null) {
+      if (!ACCOUNT_STATUS_OPTIONS.includes(requestedAccountStatusInput)) {
+        return sendError(res, 400, "Account status must be pending, active, suspended, or rejected.");
       }
-      updates.accountStatus = req.body.accountStatus;
+      updates.accountStatus = requestedAccountStatus;
     }
 
-    if (typeof req.body.paymentStatus === "string") {
-      if (!PAYMENT_STATUS_OPTIONS.includes(req.body.paymentStatus)) {
-        return sendError(res, 400, "Payment status must be pending, paid, unpaid, or overdue.");
+    if (paymentStatusInput !== null) {
+      if (!ADMIN_EDITABLE_PAYMENT_STATUS_OPTIONS.includes(paymentStatusInput)) {
+        return sendError(res, 400, "Payment status must be pending, paid, overdue, or trial.");
       }
-      updates.paymentStatus = req.body.paymentStatus;
+      updates.paymentStatus = normalizePaymentStatus(paymentStatusInput);
     }
 
     if (typeof req.body.nextPaymentDate !== "undefined") {
       updates.nextPaymentDate = normalizeNextPaymentDate(req.body.nextPaymentDate);
     }
-
-    if (typeof req.body.allowedFeatures !== "undefined") {
-      updates.allowedFeatures = normalizeAllowedFeatures(req.body.allowedFeatures);
-    }
+    const requestedAllowedFeatures = typeof req.body.allowedFeatures !== "undefined"
+      ? normalizeAllowedFeatures(req.body.allowedFeatures)
+      : null;
 
     [
       "businessName",
@@ -466,20 +491,37 @@ async function updateClient(req, res) {
         .slice(0, 30);
     }
 
-    const client = await User.findOne({ _id: req.params.id, role: "client" });
-    if (!client) {
+    const client = await User.findOne({ _id: req.params.id, ...CLIENT_BASE_QUERY });
+    if (!client || resolveTrustedRole(client) !== "client") {
       return sendError(res, 404, "Client not found.");
     }
 
     const finalPlan = normalizePlan(
       typeof updates.plan === "string" ? updates.plan : client.plan
     );
-    const finalAccountStatus = typeof updates.accountStatus === "string"
+    const finalAccountStatus = requestedAccountStatus
       ? updates.accountStatus
       : resolveAccountStatus(client);
 
     if (finalAccountStatus === "active" && finalPlan === "not_assigned") {
       return sendError(res, 400, "Assign a package before activating this client.");
+    }
+
+    if (finalAccountStatus === "rejected") {
+      updates.plan = "not_assigned";
+      updates.monthlyFee = 0;
+      updates.paymentStatus = "pending";
+      updates.nextPaymentDate = null;
+      updates.allowedFeatures = [];
+      updates.isActive = false;
+    } else if (finalPlan === "custom") {
+      if (requestedAllowedFeatures !== null) {
+        updates.allowedFeatures = requestedAllowedFeatures;
+      }
+    } else if (finalPlan === "not_assigned") {
+      updates.allowedFeatures = [];
+    } else {
+      updates.allowedFeatures = getPlanDefaultFeatures(finalPlan);
     }
 
     Object.assign(client, updates);
@@ -502,21 +544,21 @@ async function softDeleteClient(req, res) {
     }
 
     const client = await User.findOneAndUpdate(
-      { _id: req.params.id, role: "client" },
-      { isActive: false, accountStatus: "suspended" },
+      { _id: req.params.id, ...CLIENT_BASE_QUERY },
+      { isActive: true, accountStatus: "suspended", onboardingStatus: "approved" },
       { new: true }
     ).lean();
 
-    if (!client) {
+    if (!client || resolveTrustedRole(client) !== "client") {
       return sendError(res, 404, "Client not found.");
     }
 
     return sendSuccess(res, 200, {
-      message: "Client deactivated successfully.",
-      client
+      message: "Client suspended successfully.",
+      client: serializeAdminClient(client)
     });
   } catch (_error) {
-    return sendError(res, 500, "Unable to deactivate the client right now.");
+    return sendError(res, 500, "Unable to suspend the client right now.");
   }
 }
 

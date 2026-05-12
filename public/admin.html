@@ -710,6 +710,10 @@
       margin-bottom: 16px;
     }
 
+    .filters.is-client-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
     .filters.is-compact {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
@@ -813,7 +817,8 @@
     .badge.new,
     .badge.contacted,
     .badge.converted,
-    .badge.in_progress {
+    .badge.in_progress,
+    .badge.trial {
       border-color: rgba(34, 211, 238, 0.24);
       background: rgba(34, 211, 238, 0.12);
       color: #a5f3fc;
@@ -1090,6 +1095,7 @@
       }
 
       .filters,
+      .filters.is-client-grid,
       .filters.is-compact {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -1148,6 +1154,7 @@
       .checkbox-grid,
       .drawer-grid,
       .filters,
+      .filters.is-client-grid,
       .filters.is-compact,
       .settings-grid {
         grid-template-columns: 1fr;
@@ -1449,7 +1456,7 @@
             </div>
           </div>
 
-          <div class="filters">
+          <div class="filters is-client-grid">
             <input id="clientSearch" class="input" type="text" placeholder="Search business, owner, email, phone">
             <select id="clientPlanFilter" class="select">
               <option value="">All packages</option>
@@ -1464,6 +1471,14 @@
               <option value="pending">Pending</option>
               <option value="active">Active</option>
               <option value="suspended">Suspended</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <select id="clientPaymentFilter" class="select">
+              <option value="">All payment states</option>
+              <option value="pending">Pending</option>
+              <option value="paid">Paid</option>
+              <option value="overdue">Overdue</option>
+              <option value="trial">Trial</option>
             </select>
             <select id="clientSortBy" class="select">
               <option value="createdAt">Sort: newest</option>
@@ -1478,13 +1493,16 @@
               <table>
                 <thead>
                   <tr>
-                    <th>Business</th>
-                    <th>Owner</th>
+                    <th>Business Name</th>
+                    <th>Owner Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
                     <th>Package</th>
-                    <th>Account</th>
-                    <th>Payment</th>
                     <th>Monthly Fee</th>
-                    <th>Activity</th>
+                    <th>Payment Status</th>
+                    <th>Account Status</th>
+                    <th>Next Payment</th>
+                    <th>Created</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1519,11 +1537,12 @@
                   <tr>
                     <th>Owner</th>
                     <th>Business</th>
+                    <th>Email</th>
+                    <th>Phone</th>
                     <th>Type</th>
-                    <th>Contact</th>
+                    <th>Location</th>
                     <th>Signed Up</th>
                     <th>Status</th>
-                    <th>Package</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1967,6 +1986,31 @@
       { key: "whatsapp-automation", label: "WhatsApp Feature" },
       { key: "website-maintenance", label: "Premium Support / Website Integration" }
     ];
+    const PLAN_FEATURE_DEFAULTS = {
+      not_assigned: [],
+      starter: ["booking-system", "inquiry-management", "review-management", "billing-system"],
+      standard: [
+        "booking-system",
+        "inquiry-management",
+        "review-management",
+        "billing-system",
+        "whatsapp-automation",
+        "google-business-support"
+      ],
+      pro: [
+        "ai-chatbot",
+        "booking-system",
+        "inquiry-management",
+        "review-management",
+        "billing-system",
+        "whatsapp-automation",
+        "google-business-support",
+        "website-maintenance"
+      ],
+      custom: []
+    };
+    const CLIENT_ACCOUNT_STATUS_OPTIONS = ["pending", "active", "suspended", "rejected"];
+    const CLIENT_PAYMENT_STATUS_OPTIONS = ["pending", "paid", "overdue", "trial"];
     const SECTION_META = {
       dashboard: {
         title: "Dashboard",
@@ -2144,6 +2188,14 @@
       return PLAN_PRICE_MAP[String(client && client.plan || "not_assigned")] || 0;
     }
 
+    function getPlanFeatureDefaults(plan) {
+      return [...(PLAN_FEATURE_DEFAULTS[String(plan || "not_assigned")] || [])];
+    }
+
+    function usesAutomaticFeatureDefaults(plan) {
+      return ["starter", "standard", "pro", "not_assigned"].includes(String(plan || "not_assigned"));
+    }
+
     function badgeClass(value) {
       const normalized = String(value || "pending").toLowerCase();
 
@@ -2206,18 +2258,23 @@
         search: String(document.getElementById("clientSearch").value || "").trim().toLowerCase(),
         plan: document.getElementById("clientPlanFilter").value,
         accountStatus: document.getElementById("clientStatusFilter").value,
+        paymentStatus: document.getElementById("clientPaymentFilter").value,
         sortBy: document.getElementById("clientSortBy").value
       };
     }
 
     function getFilteredClients() {
-      const { search, plan, accountStatus, sortBy } = getClientFilters();
+      const { search, plan, accountStatus, paymentStatus, sortBy } = getClientFilters();
       const items = state.allClients.filter((client) => {
         if (plan && client.plan !== plan) {
           return false;
         }
 
         if (accountStatus && client.accountStatus !== accountStatus) {
+          return false;
+        }
+
+        if (paymentStatus && client.paymentStatus !== paymentStatus) {
           return false;
         }
 
@@ -2240,6 +2297,19 @@
       });
 
       return items;
+    }
+
+    function getClientStatusCounts(items = state.allClients) {
+      return items.reduce((totals, client) => {
+        const status = String(client.accountStatus || "pending");
+        totals[status] = (totals[status] || 0) + 1;
+        return totals;
+      }, {
+        pending: 0,
+        active: 0,
+        suspended: 0,
+        rejected: 0
+      });
     }
 
     function getBookingFilters() {
@@ -2385,7 +2455,7 @@
         } else if (status === "overdue") {
           totals.overdueAccounts += 1;
           totals.overdueRevenue += fee;
-        } else if (status === "pending") {
+        } else if (status === "pending" || status === "trial") {
           totals.pendingAccounts += 1;
           totals.pendingRevenue += fee;
         } else {
@@ -2552,13 +2622,13 @@
       closeSidebar();
     }
 
-    function setTableState(tableBodyId, emptyStateId, items, rowMarkup) {
+    function setTableState(tableBodyId, emptyStateId, items, rowMarkup, emptyMessage = "No records found for the current view.") {
       const tableBody = document.getElementById(tableBodyId);
       const emptyState = document.getElementById(emptyStateId);
 
       if (!items.length) {
         tableBody.innerHTML = "";
-        emptyState.textContent = "No records found for the current view.";
+        emptyState.textContent = emptyMessage;
         emptyState.style.display = "block";
         return;
       }
@@ -2828,13 +2898,14 @@
 
     function renderClientsSection() {
       const clients = getFilteredClients();
-      const stats = state.stats || {};
+      const statusCounts = getClientStatusCounts();
 
       document.getElementById("clientsSummaryChips").innerHTML = [
-        { label: "Total", value: stats.totalClients ?? state.allClients.length },
-        { label: "Active", value: stats.activeClients ?? 0 },
-        { label: "Pending", value: stats.pendingClients ?? getPendingApprovals().length },
-        { label: "Suspended", value: stats.suspendedClients ?? 0 }
+        { label: "Total Clients", value: state.allClients.length },
+        { label: "Pending", value: statusCounts.pending },
+        { label: "Active", value: statusCounts.active },
+        { label: "Suspended", value: statusCounts.suspended },
+        { label: "Rejected", value: statusCounts.rejected }
       ].map((item) => `
         <span class="data-chip"><strong>${escapeHtml(item.value)}</strong>${escapeHtml(item.label)}</span>
       `).join("");
@@ -2845,18 +2916,18 @@
             <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
             <div class="cell-subtitle">${escapeHtml(client.businessType || "Business type not set")}</div>
           </td>
+          <td>${escapeHtml(client.name || "—")}</td>
           <td>
-            <div class="cell-title">${escapeHtml(client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.email)}${client.phone ? ` • ${escapeHtml(client.phone)}` : ""}</div>
+            <div class="cell-title">${escapeHtml(client.email)}</div>
+            <div class="cell-subtitle">${escapeHtml(client.location || "Location not set")}</div>
           </td>
+          <td>${escapeHtml(client.phone || "—")}</td>
           <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
-          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
           <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
-          <td>
-            <div class="cell-title">${escapeHtml(client.bookingCount || 0)} bookings</div>
-            <div class="cell-subtitle">${escapeHtml(client.inquiryCount || 0)} inquiries</div>
-          </td>
+          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td>${escapeHtml(formatShortDate(client.nextPaymentDate))}</td>
+          <td>${escapeHtml(formatShortDate(client.createdAt))}</td>
           <td>
             <div class="actions">
               ${client.accountStatus === "pending"
@@ -2868,7 +2939,7 @@
             </div>
           </td>
         </tr>
-      `);
+      `, "No client accounts match the current search or filter.");
     }
 
     function renderPendingApprovalsSection() {
@@ -2887,19 +2958,17 @@
 
       setTableState("pendingApprovalsTableBody", "pendingApprovalsEmptyState", pendingApprovals, (client) => `
         <tr class="pending-row">
-          <td>
-            <div class="cell-title">${escapeHtml(client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
-          </td>
+          <td>${escapeHtml(client.name || "—")}</td>
           <td>
             <div class="cell-title">${escapeHtml(client.businessName || "Business name not set")}</div>
-            <div class="cell-subtitle">${escapeHtml(client.location || "Location not set")}</div>
+            <div class="cell-subtitle">${escapeHtml(formatPlanLabel(client.plan))}</div>
           </td>
-          <td>${escapeHtml(client.businessType || "—")}</td>
+          <td>${escapeHtml(client.email || "—")}</td>
           <td>${escapeHtml(client.phone || "—")}</td>
+          <td>${escapeHtml(client.businessType || "—")}</td>
+          <td>${escapeHtml(client.location || "—")}</td>
           <td>${escapeHtml(formatDate(client.createdAt))}</td>
           <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
           <td>
             <div class="actions">
               <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
@@ -2907,7 +2976,7 @@
             </div>
           </td>
         </tr>
-      `);
+      `, "No pending clients are waiting for approval.");
     }
 
     function renderPackagesSection() {
@@ -3335,6 +3404,7 @@
     function clientDetailSection(client, options = {}) {
       const approvalMode = options.approvalMode === true;
       const selectedPlan = approvalMode && client.plan === "not_assigned" ? "not_assigned" : client.plan;
+      const selectedFeatures = Array.isArray(client.allowedFeatures) ? client.allowedFeatures : [];
 
       return `
         <form id="clientDrawerForm" data-approval-mode="${approvalMode ? "true" : "false"}">
@@ -3348,7 +3418,13 @@
               `
             : ""}
 
-          <div class="drawer-grid" style="margin-top: ${approvalMode ? "16px" : "0"};">
+          <div class="chip-row" style="margin-top: ${approvalMode ? "16px" : "0"};">
+            <span class="data-chip"><strong>${escapeHtml(formatShortDate(client.createdAt))}</strong>Signup Date</span>
+            <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(client.accountStatus))}</strong>Current Status</span>
+            <span class="data-chip"><strong>${escapeHtml(client.location || "Not set")}</strong>Location</span>
+          </div>
+
+          <div class="drawer-grid" style="margin-top: 16px;">
             <div class="field">
               <label>Owner name</label>
               <input class="input" name="name" value="${escapeHtml(client.name)}" disabled>
@@ -3392,7 +3468,7 @@
                   `
                 : `
                     <select class="select" name="accountStatus">
-                      ${["pending", "active", "suspended"].map((status) => `
+                      ${CLIENT_ACCOUNT_STATUS_OPTIONS.map((status) => `
                         <option value="${status}" ${client.accountStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
                       `).join("")}
                     </select>
@@ -3405,7 +3481,7 @@
             <div class="field">
               <label>Payment status</label>
               <select class="select" name="paymentStatus">
-                ${["pending", "paid", "unpaid", "overdue"].map((status) => `
+                ${CLIENT_PAYMENT_STATUS_OPTIONS.map((status) => `
                   <option value="${status}" ${client.paymentStatus === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
                 `).join("")}
               </select>
@@ -3453,10 +3529,23 @@
 
           <div class="drawer-section">
             <small class="kicker">Feature Access</small>
+            <p class="subtle" id="clientFeatureHint" style="margin: 10px 0 0;">
+              ${usesAutomaticFeatureDefaults(selectedPlan)
+                ? selectedPlan === "not_assigned"
+                  ? "No features are enabled until a package is assigned."
+                  : `${formatPlanLabel(selectedPlan)} uses the AutomateX package defaults shown below. Switch to Custom to manually control feature access.`
+                : "Custom package selected. Choose the allowed features for this client manually."}
+            </p>
             <div class="checkbox-grid" style="margin-top: 14px;">
               ${FEATURE_OPTIONS.map((feature) => `
                 <label class="feature-card">
-                  <input type="checkbox" name="allowedFeatures" value="${feature.key}" ${(client.allowedFeatures || []).includes(feature.key) ? "checked" : ""}>
+                  <input
+                    type="checkbox"
+                    name="allowedFeatures"
+                    value="${feature.key}"
+                    ${selectedFeatures.includes(feature.key) ? "checked" : ""}
+                    ${usesAutomaticFeatureDefaults(selectedPlan) ? "disabled" : ""}
+                  >
                   <span>${escapeHtml(feature.label)}</span>
                 </label>
               `).join("")}
@@ -3465,14 +3554,57 @@
 
           <div class="drawer-actions">
             ${approvalMode
-              ? `<button class="button button-primary" type="submit">Approve Client</button>`
+              ? `
+                  <button class="button button-danger" id="clientRejectButton" type="button">Reject Client</button>
+                  <button class="button button-primary" type="submit">Approve Client</button>
+                `
               : `
-                  <button class="button button-danger" id="clientDeactivateButton" type="button">Suspend Client</button>
+                  <button class="button button-danger" id="clientSuspendButton" type="button">Suspend Client</button>
                   <button class="button button-primary" type="submit">Save Client</button>
                 `}
           </div>
         </form>
       `;
+    }
+
+    function syncClientFeatureAccessForm() {
+      const clientForm = document.getElementById("clientDrawerForm");
+      if (!clientForm) {
+        return;
+      }
+
+      const planField = clientForm.querySelector('[name="plan"]');
+      const featureHint = document.getElementById("clientFeatureHint");
+      const featureInputs = Array.from(clientForm.querySelectorAll('input[name="allowedFeatures"]'));
+      if (!planField || !featureInputs.length) {
+        return;
+      }
+
+      const selectedPlan = String(planField.value || "not_assigned");
+      const automaticDefaults = usesAutomaticFeatureDefaults(selectedPlan);
+      const defaultFeatures = new Set(getPlanFeatureDefaults(selectedPlan));
+
+      featureInputs.forEach((input) => {
+        if (automaticDefaults) {
+          input.checked = defaultFeatures.has(input.value);
+          input.disabled = true;
+          return;
+        }
+
+        input.disabled = false;
+      });
+
+      if (!featureHint) {
+        return;
+      }
+
+      if (selectedPlan === "not_assigned") {
+        featureHint.textContent = "No features are enabled until a package is assigned.";
+      } else if (automaticDefaults) {
+        featureHint.textContent = `${formatPlanLabel(selectedPlan)} uses the AutomateX package defaults shown below. Switch to Custom to manually control feature access.`;
+      } else {
+        featureHint.textContent = "Custom package selected. Choose the allowed features for this client manually.";
+      }
     }
 
     function bookingDetailSection(booking) {
@@ -3633,6 +3765,12 @@
     function attachDrawerHandlers() {
       const clientForm = document.getElementById("clientDrawerForm");
       if (clientForm) {
+        const planField = clientForm.querySelector('[name="plan"]');
+        if (planField) {
+          syncClientFeatureAccessForm();
+          planField.addEventListener("change", syncClientFeatureAccessForm);
+        }
+
         clientForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           const formData = new FormData(clientForm);
@@ -3682,17 +3820,41 @@
           }
         });
 
-        const clientDeactivateButton = document.getElementById("clientDeactivateButton");
-        if (clientDeactivateButton) {
-          clientDeactivateButton.addEventListener("click", async () => {
+        const clientRejectButton = document.getElementById("clientRejectButton");
+        if (clientRejectButton) {
+          clientRejectButton.addEventListener("click", async () => {
             try {
               await apiFetch(`/api/admin/clients/${new FormData(clientForm).get("clientId")}`, {
-                method: "DELETE"
+                method: "PATCH",
+                body: JSON.stringify({
+                  accountStatus: "rejected"
+                })
               });
 
               await refreshAllData();
               closeDrawer();
-              showToast("Client suspended", "The client account has been safely deactivated.");
+              showToast("Client rejected", "The signup has been rejected and removed from the pending approval queue.");
+            } catch (error) {
+              showBanner(error.message || "Unable to reject the client.", "error");
+            }
+          });
+        }
+
+        const clientSuspendButton = document.getElementById("clientSuspendButton");
+        if (clientSuspendButton) {
+          clientSuspendButton.addEventListener("click", async () => {
+            try {
+              await apiFetch(`/api/admin/clients/${new FormData(clientForm).get("clientId")}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  accountStatus: "suspended",
+                  isActive: true
+                })
+              });
+
+              await refreshAllData();
+              closeDrawer();
+              showToast("Client suspended", "The client account is now suspended and restricted from full dashboard access.");
             } catch (error) {
               showBanner(error.message || "Unable to suspend the client.", "error");
             }
@@ -3860,7 +4022,7 @@
         eyebrow: approvalMode ? "Pending Approval" : "Client Account",
         title: client.businessName || client.name,
         subtitle: approvalMode
-          ? "Approve this signup by assigning package, monthly fee, payment state, and feature access."
+          ? "Approve or reject this signup after assigning package, monthly fee, payment state, and feature access."
           : "Manage package assignment, billing state, business profile details, and feature access.",
         body: clientDetailSection(client, options)
       });
@@ -3977,7 +4139,7 @@
         if (clientButton) {
           const action = clientButton.dataset.clientAction || "manage";
           openClientDrawer(clientButton.dataset.clientId, {
-            approvalMode: action === "approve"
+            approvalMode: action === "approve" || action === "review"
           }).catch((error) => showBanner(error.message || "Unable to open the client record.", "error"));
           return;
         }
@@ -4019,7 +4181,7 @@
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reviews.", "error"));
       });
 
-      ["clientSearch", "clientPlanFilter", "clientStatusFilter", "clientSortBy"].forEach((id) => {
+      ["clientSearch", "clientPlanFilter", "clientStatusFilter", "clientPaymentFilter", "clientSortBy"].forEach((id) => {
         const field = document.getElementById(id);
         field.addEventListener("input", renderClientsSection);
         field.addEventListener("change", renderClientsSection);
