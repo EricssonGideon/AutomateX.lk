@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutomateX - Updating</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #020617, #0f172a, #1e293b);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .card {
+      max-width: 620px;
+      width: 100%;
+      padding: 42px 28px;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+    }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 18px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.16);
+      color: #86efac;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+
+    h1 {
+      font-size: clamp(32px, 6vw, 54px);
+      margin-bottom: 14px;
+      line-height: 1.05;
+    }
+
+    p {
+      color: #cbd5e1;
+      font-size: 17px;
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .contact {
+      margin-top: 26px;
+      padding-top: 22px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      color: #e2e8f0;
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .loader {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 22px;
+      border: 4px solid rgba(255, 255, 255, 0.18);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="loader"></div>
+    <div class="badge">SYSTEM UPDATE IN PROGRESS</div>
+
+    <h1>AutomateX is being updated</h1>
+
+    <p>
+      Our website is currently being connected to the new AutomateX platform.
+      The update is almost complete. Please check again shortly.
+    </p>
+
+    <p>
+      Thank you for your patience while we improve our services.
+    </p>
+
+    <div class="contact">
+      <strong>AutomateX</strong><br />
+      Contact: <a href="tel:+94711861722">+94 71 186 1722</a><br />
+      Email: <a href="mailto:automatex100@gmail.com">automatex100@gmail.com</a>
+    </div>
+  </main>
+</body>
+</html>
