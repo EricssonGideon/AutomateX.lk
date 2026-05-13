@@ -229,6 +229,7 @@
   </main>
 
   <script>
+    const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
     const ADMIN_TOKEN_KEY = "automatex_admin_token";
     const CLIENT_TOKEN_KEY = "automatex_client_token";
     const FALLBACK_TOKEN_KEY = "automatex_token";
@@ -305,6 +306,14 @@
         "";
     }
 
+    function isOfficialAdmin(user) {
+      return Boolean(
+        user &&
+        user.role === "admin" &&
+        String(user.email || "").trim().toLowerCase() === OFFICIAL_ADMIN_EMAIL
+      );
+    }
+
     async function verifyExistingSession() {
       const token = getExistingToken();
       if (!token) {
@@ -327,7 +336,7 @@
           throw new Error("Session invalid");
         }
 
-        if (payload.user.role === "admin") {
+        if (isOfficialAdmin(payload.user)) {
           saveAdminSession(token, payload.user);
           window.location.href = "/admin.html";
           return;
@@ -387,7 +396,7 @@
           throw new Error("Login response was incomplete. Please try again.");
         }
 
-        if (payload.user.role === "admin") {
+        if (isOfficialAdmin(payload.user)) {
           saveAdminSession(payload.token, payload.user);
           showMessage("Login successful. Redirecting to admin dashboard...", "success");
           window.location.href = "/admin.html";
@@ -469,7 +478,7 @@
           throw new Error("Signup response was incomplete. Please try again.");
         }
 
-        if (payload.user.role === "admin") {
+        if (isOfficialAdmin(payload.user)) {
           saveAdminSession(payload.token, payload.user);
           showMessage("Account created successfully. Redirecting to admin dashboard...", "success");
           window.location.href = "/admin.html";

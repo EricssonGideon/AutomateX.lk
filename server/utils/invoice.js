@@ -43,7 +43,19 @@ function normalizeInvoiceStatus(value) {
 
 function normalizeInvoiceCurrency(value) {
   const normalized = String(value || DEFAULT_INVOICE_CURRENCY).trim().toUpperCase();
-  return normalized || DEFAULT_INVOICE_CURRENCY;
+  if (!normalized) {
+    return DEFAULT_INVOICE_CURRENCY;
+  }
+
+  try {
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: normalized
+    });
+    return normalized;
+  } catch (_error) {
+    return DEFAULT_INVOICE_CURRENCY;
+  }
 }
 
 function normalizeInvoiceItems(items) {
@@ -72,11 +84,16 @@ function normalizeInvoiceItems(items) {
     .filter(Boolean);
 }
 
-function calculateInvoiceTotals({ items, discount, tax, paidAmount }) {
+function calculateInvoiceTotals({ items, discount, tax, paidAmount, taxRate }) {
   const normalizedItems = normalizeInvoiceItems(items);
   const subtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + roundMoney(item.total), 0));
   const normalizedDiscount = Math.min(subtotal, normalizeMoney(discount));
-  const normalizedTax = normalizeMoney(tax);
+  const normalizedTaxRate = Number.isFinite(Number(taxRate))
+    ? Math.max(0, Number(taxRate))
+    : 0;
+  const normalizedTax = typeof tax === "undefined" || tax === null || tax === ""
+    ? roundMoney(Math.max(0, (subtotal - normalizedDiscount) * (normalizedTaxRate / 100)))
+    : normalizeMoney(tax);
   const totalAmount = roundMoney(Math.max(0, subtotal - normalizedDiscount + normalizedTax));
   const normalizedPaidAmount = normalizeMoney(paidAmount);
   const balance = roundMoney(Math.max(0, totalAmount - normalizedPaidAmount));

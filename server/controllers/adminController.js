@@ -6,7 +6,15 @@ const Inquiry = require("../models/Inquiry");
 const Invoice = require("../models/Invoice");
 const Review = require("../models/Review");
 const SupportRequest = require("../models/SupportRequest");
+const AppSettings = require("../models/AppSettings");
 const { OFFICIAL_ADMIN_EMAIL, resolveTrustedRole } = require("../utils/authRole");
+const {
+  DEFAULT_APP_SETTINGS,
+  buildAppSettingsUpdatePayload,
+  buildDueDateFromTerms,
+  normalizeInvoicePrefix,
+  serializeAppSettings
+} = require("../utils/appSettings");
 const {
   PLAN_OPTIONS,
   ACCOUNT_STATUS_OPTIONS,
@@ -180,12 +188,21 @@ function buildReportFilename(slug) {
   return `automatex-${slug}-report-${formatCsvDate(new Date())}.csv`;
 }
 
-async function generateInvoiceNumber() {
-  let sequence = await Invoice.countDocuments({});
+async function getCurrentAppSettings() {
+  const settings = await AppSettings.findOne({}).sort({ updatedAt: -1, createdAt: -1 }).lean();
+  return serializeAppSettings(settings || DEFAULT_APP_SETTINGS);
+}
+
+async function generateInvoiceNumber(prefix = DEFAULT_APP_SETTINGS.invoicePrefix) {
+  const normalizedPrefix = normalizeInvoicePrefix(prefix);
+  const prefixPattern = new RegExp(`^${escapeRegExp(normalizedPrefix)}-`);
+  let sequence = await Invoice.countDocuments({
+    invoiceNumber: prefixPattern
+  });
 
   while (true) {
     sequence += 1;
-    const invoiceNumber = `AX-INV-${String(sequence).padStart(4, "0")}`;
+    const invoiceNumber = `${normalizedPrefix}-${String(sequence).padStart(4, "0")}`;
     const exists = await Invoice.exists({ invoiceNumber });
 
     if (!exists) {
@@ -431,7 +448,7 @@ function buildReportSummaryPayload({
   };
 }
 
-function buildInvoiceMutationPayload(body, currentInvoice = null) {
+function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) {
   const hasOwn = (key) => Object.prototype.hasOwnProperty.call(body || {}, key);
   const title = normalizeInvoiceText(
     hasOwn("title") ? body.title : currentInvoice && currentInvoice.title,
@@ -449,16 +466,27 @@ function buildInvoiceMutationPayload(body, currentInvoice = null) {
     hasOwn("adminNotes") ? body.adminNotes : currentInvoice && currentInvoice.adminNotes,
     5000
   );
+  const defaultPaymentTerms = options.defaultPaymentTerms;
   const dueDate = normalizeInvoiceDate(
     hasOwn("dueDate") ? body.dueDate : currentInvoice && currentInvoice.dueDate
-  );
+  ) || (!currentInvoice && !hasOwn("dueDate")
+    ? buildDueDateFromTerms(
+      normalizeInvoiceDate(hasOwn("issueDate") ? body.issueDate : null) || new Date(),
+      defaultPaymentTerms
+    )
+    : null);
   const issueDate = normalizeInvoiceDate(
     hasOwn("issueDate") ? body.issueDate : currentInvoice && currentInvoice.issueDate
   ) || (currentInvoice && currentInvoice.issueDate) || new Date();
   const totals = calculateInvoiceTotals({
     items: hasOwn("items") ? body.items : currentInvoice && currentInvoice.items,
     discount: hasOwn("discount") ? body.discount : currentInvoice && currentInvoice.discount,
-    tax: hasOwn("tax") ? body.tax : currentInvoice && currentInvoice.tax,
+    tax: hasOwn("tax")
+      ? body.tax
+      : currentInvoice
+        ? currentInvoice.tax
+        : undefined,
+    taxRate: !currentInvoice && !hasOwn("tax") ? options.defaultTaxRate : undefined,
     paidAmount: hasOwn("paidAmount") ? body.paidAmount : currentInvoice && currentInvoice.paidAmount
   });
 
@@ -715,6 +743,39 @@ async function getStats(_req, res) {
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to load admin stats right now.");
+  }
+}
+
+async function getAdminSettings(_req, res) {
+  try {
+    const settings = await getCurrentAppSettings();
+    return sendSuccess(res, 200, {
+      settings
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load admin settings right now.");
+  }
+}
+
+async function updateAdminSettings(req, res) {
+  try {
+    const updates = buildAppSettingsUpdatePayload(req.body || {});
+    let settings = await AppSettings.findOne({}).sort({ updatedAt: -1, createdAt: -1 });
+
+    if (!settings) {
+      settings = new AppSettings(updates);
+    } else {
+      Object.assign(settings, updates);
+    }
+
+    await settings.save();
+
+    return sendSuccess(res, 200, {
+      message: "Admin settings updated successfully.",
+      settings: serializeAppSettings(settings)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update admin settings right now.");
   }
 }
 
@@ -1577,14 +1638,18 @@ async function createInvoice(req, res) {
       return sendError(res, 404, "Select a valid client before creating an invoice.");
     }
 
-    const payload = buildInvoiceMutationPayload(req.body);
+    const settings = await getCurrentAppSettings();
+    const payload = buildInvoiceMutationPayload(req.body, null, {
+      defaultTaxRate: settings.defaultTaxRate,
+      defaultPaymentTerms: settings.defaultPaymentTerms
+    });
     if (payload.error) {
       return sendError(res, 400, payload.error);
     }
 
     const invoice = new Invoice({
-      invoiceNumber: await generateInvoiceNumber(),
-      currency: DEFAULT_INVOICE_CURRENCY,
+      invoiceNumber: await generateInvoiceNumber(settings.invoicePrefix),
+      currency: settings.defaultCurrency || DEFAULT_INVOICE_CURRENCY,
       ...payload
     });
     applyInvoiceClientSnapshot(invoice, client);
@@ -1936,6 +2001,8 @@ async function deleteAdminRequest(req, res) {
 
 module.exports = {
   getStats,
+  getAdminSettings,
+  updateAdminSettings,
   getReportsSummary,
   exportClientsReport,
   exportInvoicesReport,

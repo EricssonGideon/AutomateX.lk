@@ -2121,28 +2121,164 @@
           </article>
         </div>
 
-        <div class="dual-grid">
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <small class="kicker">System Health</small>
-                <h2>Runtime connectivity snapshot</h2>
-                <p>Current backend-reported service health indicators for the API and database powering the admin console.</p>
+        <form id="adminSettingsForm">
+          <div class="dual-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="kicker">Company Profile</small>
+                  <h2>Core AutomateX business details</h2>
+                  <p>Manage the business identity and contact details that should appear across the owner workspace and future billing defaults.</p>
+                </div>
               </div>
-            </div>
-            <div class="metric-list" id="settingsHealthList"></div>
-          </article>
+              <div class="drawer-grid">
+                <div class="field">
+                  <label for="settingsCompanyName">Company name</label>
+                  <input class="input" id="settingsCompanyName" name="companyName" placeholder="AutomateX">
+                </div>
+                <div class="field">
+                  <label for="settingsCompanyEmail">Company email</label>
+                  <input class="input" id="settingsCompanyEmail" name="companyEmail" type="email" placeholder="automatex100@gmail.com">
+                </div>
+                <div class="field">
+                  <label for="settingsCompanyPhone">Phone</label>
+                  <input class="input" id="settingsCompanyPhone" name="companyPhone" placeholder="+94 77 123 4567">
+                </div>
+                <div class="field">
+                  <label for="settingsWebsiteUrl">Website URL</label>
+                  <input class="input" id="settingsWebsiteUrl" name="websiteUrl" type="url" placeholder="https://automatex.example">
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label for="settingsLogoUrl">Logo URL</label>
+                  <input class="input" id="settingsLogoUrl" name="logoUrl" type="url" placeholder="https://automatex.example/logo.png">
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label for="settingsBusinessAddress">Business address</label>
+                  <textarea class="textarea" id="settingsBusinessAddress" name="businessAddress" placeholder="Business address used for client communication and invoices"></textarea>
+                </div>
+              </div>
+            </article>
 
-          <article class="placeholder-panel">
-            <small class="kicker">Advanced Admin Settings</small>
-            <h3>Coming in next update</h3>
-            <p>System-wide configurable settings, owner notifications, and advanced permission tools are not part of this step yet.</p>
-            <div class="placeholder-list">
-              <article>No data available yet for persisted admin settings.</article>
-              <article>Platform preferences beyond local theme selection will connect here later.</article>
-            </div>
-          </article>
-        </div>
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="kicker">Invoice Settings</small>
+                  <h2>Default billing configuration</h2>
+                  <p>Control the prefix, currency, tax rate, and payment terms used when new manual invoices are created from the admin dashboard.</p>
+                </div>
+              </div>
+              <div class="drawer-grid">
+                <div class="field">
+                  <label for="settingsInvoicePrefix">Invoice prefix</label>
+                  <input class="input" id="settingsInvoicePrefix" name="invoicePrefix" placeholder="AX-INV">
+                </div>
+                <div class="field">
+                  <label for="settingsDefaultCurrency">Default currency</label>
+                  <input class="input" id="settingsDefaultCurrency" name="defaultCurrency" placeholder="LKR">
+                </div>
+                <div class="field">
+                  <label for="settingsDefaultTaxRate">Default tax rate (%)</label>
+                  <input class="input" id="settingsDefaultTaxRate" name="defaultTaxRate" type="number" min="0" step="0.01" placeholder="0">
+                </div>
+                <div class="field">
+                  <label for="settingsDefaultPaymentTerms">Default payment terms (days)</label>
+                  <input class="input" id="settingsDefaultPaymentTerms" name="defaultPaymentTerms" type="number" min="0" step="1" placeholder="30">
+                </div>
+              </div>
+              <div class="inline-note" style="margin-top: 18px;">
+                These defaults apply to newly created invoices. Existing invoice totals, numbers, and payment states stay unchanged.
+              </div>
+            </article>
+          </div>
+
+          <div class="dual-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="kicker">Support Settings</small>
+                  <h2>Client support contact defaults</h2>
+                  <p>Set the support email, WhatsApp support line, and the standard message the owner team wants ready for support communication.</p>
+                </div>
+              </div>
+              <div class="drawer-grid">
+                <div class="field">
+                  <label for="settingsSupportEmail">Support email</label>
+                  <input class="input" id="settingsSupportEmail" name="supportEmail" type="email" placeholder="support@automatex.com">
+                </div>
+                <div class="field">
+                  <label for="settingsWhatsappNumber">WhatsApp support number</label>
+                  <input class="input" id="settingsWhatsappNumber" name="whatsappNumber" placeholder="+94 77 123 4567">
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label for="settingsDefaultSupportMessage">Default support message</label>
+                  <textarea class="textarea" id="settingsDefaultSupportMessage" name="defaultSupportMessage" placeholder="Thank you for contacting AutomateX support. We will review your request and follow up soon."></textarea>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="kicker">Payment Instructions</small>
+                  <h2>Manual payment and bank details</h2>
+                  <p>Store the banking and transfer instructions the admin team wants available when reviewing invoices and coordinating manual payments.</p>
+                </div>
+              </div>
+              <div class="drawer-grid">
+                <div class="field">
+                  <label for="settingsBankName">Bank name</label>
+                  <input class="input" id="settingsBankName" name="bankName" placeholder="Commercial Bank">
+                </div>
+                <div class="field">
+                  <label for="settingsBankBranch">Branch</label>
+                  <input class="input" id="settingsBankBranch" name="bankBranch" placeholder="Colombo Main Branch">
+                </div>
+                <div class="field">
+                  <label for="settingsBankAccountName">Account name</label>
+                  <input class="input" id="settingsBankAccountName" name="bankAccountName" placeholder="AutomateX (Pvt) Ltd">
+                </div>
+                <div class="field">
+                  <label for="settingsBankAccountNumber">Account number</label>
+                  <input class="input" id="settingsBankAccountNumber" name="bankAccountNumber" placeholder="1234567890">
+                </div>
+                <div class="field" style="grid-column: span 2;">
+                  <label for="settingsPaymentInstructions">Payment instructions</label>
+                  <textarea class="textarea" id="settingsPaymentInstructions" name="paymentInstructions" placeholder="Share the transfer reference with AutomateX once the payment is completed."></textarea>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="dual-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="kicker">System Health</small>
+                  <h2>Runtime connectivity snapshot</h2>
+                  <p>Current backend-reported service health indicators for the API and database powering the admin console.</p>
+                </div>
+              </div>
+              <div class="metric-list" id="settingsHealthList"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <small class="kicker">Configuration Summary</small>
+                  <h2>Current business defaults overview</h2>
+                  <p>Review the active billing and support defaults, then save or refresh the configuration without leaving the admin console.</p>
+                </div>
+                <div class="panel-actions">
+                  <button id="refreshSettingsButton" class="button button-secondary" type="button">Refresh Settings</button>
+                </div>
+              </div>
+              <div class="settings-grid" id="settingsBusinessSummary"></div>
+              <div class="drawer-actions">
+                <button id="saveSettingsButton" class="button button-primary" type="submit">Save Settings</button>
+              </div>
+            </article>
+          </div>
+        </form>
       </section>
     </main>
   </div>
@@ -2216,6 +2352,28 @@
     const REQUEST_STATUS_OPTIONS = ["open", "in_progress", "resolved", "rejected", "closed"];
     const REQUEST_PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"];
     const REQUEST_PACKAGE_OPTIONS = ["starter", "standard", "pro", "custom"];
+    const DEFAULT_APP_SETTINGS = {
+      companyName: "AutomateX",
+      companyEmail: OFFICIAL_ADMIN_EMAIL,
+      companyPhone: "",
+      whatsappNumber: "",
+      businessAddress: "",
+      websiteUrl: "",
+      logoUrl: "",
+      invoicePrefix: "AX-INV",
+      defaultCurrency: "LKR",
+      defaultTaxRate: 0,
+      defaultPaymentTerms: 30,
+      supportEmail: OFFICIAL_ADMIN_EMAIL,
+      defaultSupportMessage: "",
+      paymentInstructions: "",
+      bankName: "",
+      bankAccountName: "",
+      bankAccountNumber: "",
+      bankBranch: "",
+      createdAt: null,
+      updatedAt: null
+    };
     const SECTION_META = {
       dashboard: {
         title: "Dashboard",
@@ -2263,13 +2421,14 @@
       },
       settings: {
         title: "Settings",
-        subtitle: "Review admin session status, local display preferences, and system health visibility."
+        subtitle: "Manage AutomateX business defaults, billing configuration, support contacts, and owner workspace preferences."
       }
     };
     const state = {
       currentSection: "dashboard",
       admin: null,
       stats: null,
+      appSettings: null,
       reportsSummary: null,
       allClients: [],
       allInvoices: [],
@@ -2321,10 +2480,28 @@
       return Number.isFinite(parsed) ? parsed : 0;
     }
 
+    function normalizeCurrencyCode(value, fallback = DEFAULT_APP_SETTINGS.defaultCurrency) {
+      const normalized = String(value || fallback).trim().toUpperCase();
+
+      if (!normalized) {
+        return fallback;
+      }
+
+      try {
+        new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: normalized
+        });
+        return normalized;
+      } catch (_error) {
+        return fallback;
+      }
+    }
+
     function formatCurrency(value) {
-      return new Intl.NumberFormat("en-US", {
+      return new Intl.NumberFormat("en-LK", {
         style: "currency",
-        currency: "USD",
+        currency: normalizeCurrencyCode(state.appSettings && state.appSettings.defaultCurrency),
         maximumFractionDigits: 0
       }).format(toNumber(value));
     }
@@ -2332,7 +2509,7 @@
     function formatInvoiceCurrency(value, currency = "LKR") {
       return new Intl.NumberFormat("en-LK", {
         style: "currency",
-        currency: currency || "LKR",
+        currency: normalizeCurrencyCode(currency),
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       }).format(toNumber(value));
@@ -2385,6 +2562,35 @@
       }
 
       return parsed.toISOString().slice(0, 10);
+    }
+
+    function getAppSettings() {
+      return {
+        ...DEFAULT_APP_SETTINGS,
+        ...(state.appSettings || {})
+      };
+    }
+
+    function buildPaymentInstructionsText(settings = getAppSettings()) {
+      return [
+        settings.bankName ? `Bank: ${settings.bankName}` : "",
+        settings.bankAccountName ? `Account Name: ${settings.bankAccountName}` : "",
+        settings.bankAccountNumber ? `Account Number: ${settings.bankAccountNumber}` : "",
+        settings.bankBranch ? `Branch: ${settings.bankBranch}` : "",
+        settings.paymentInstructions || ""
+      ].filter(Boolean).join("\n");
+    }
+
+    function calculateDueDateInputValue(issueDate, paymentTerms) {
+      const baseDate = issueDate ? new Date(issueDate) : new Date();
+      const days = Math.max(0, Math.round(toNumber(paymentTerms)));
+
+      if (Number.isNaN(baseDate.getTime()) || days <= 0) {
+        return "";
+      }
+
+      baseDate.setDate(baseDate.getDate() + days);
+      return baseDate.toISOString().slice(0, 10);
     }
 
     function formatPlanLabel(plan) {
@@ -4203,6 +4409,7 @@
     }
 
     function renderSettingsSection() {
+      const settings = getAppSettings();
       document.getElementById("settingsAdminInfo").innerHTML = [
         {
           label: "Admin email",
@@ -4219,6 +4426,68 @@
         {
           label: "Admin data routes",
           value: "/api/admin/*"
+        },
+        {
+          label: "Settings route",
+          value: "/api/admin/settings"
+        }
+      ].map((item) => `
+        <div class="settings-item">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </div>
+      `).join("");
+
+      [
+        ["settingsCompanyName", settings.companyName],
+        ["settingsCompanyEmail", settings.companyEmail],
+        ["settingsCompanyPhone", settings.companyPhone],
+        ["settingsWebsiteUrl", settings.websiteUrl],
+        ["settingsLogoUrl", settings.logoUrl],
+        ["settingsBusinessAddress", settings.businessAddress],
+        ["settingsInvoicePrefix", settings.invoicePrefix],
+        ["settingsDefaultCurrency", settings.defaultCurrency],
+        ["settingsDefaultTaxRate", settings.defaultTaxRate],
+        ["settingsDefaultPaymentTerms", settings.defaultPaymentTerms],
+        ["settingsSupportEmail", settings.supportEmail],
+        ["settingsWhatsappNumber", settings.whatsappNumber],
+        ["settingsDefaultSupportMessage", settings.defaultSupportMessage],
+        ["settingsBankName", settings.bankName],
+        ["settingsBankBranch", settings.bankBranch],
+        ["settingsBankAccountName", settings.bankAccountName],
+        ["settingsBankAccountNumber", settings.bankAccountNumber],
+        ["settingsPaymentInstructions", settings.paymentInstructions]
+      ].forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (field) {
+          field.value = value ?? "";
+        }
+      });
+
+      document.getElementById("settingsBusinessSummary").innerHTML = [
+        {
+          label: "Invoice prefix",
+          value: settings.invoicePrefix || DEFAULT_APP_SETTINGS.invoicePrefix
+        },
+        {
+          label: "Default currency",
+          value: settings.defaultCurrency || DEFAULT_APP_SETTINGS.defaultCurrency
+        },
+        {
+          label: "Default tax rate",
+          value: `${toNumber(settings.defaultTaxRate).toFixed(2)}%`
+        },
+        {
+          label: "Payment terms",
+          value: `${Math.round(toNumber(settings.defaultPaymentTerms))} days`
+        },
+        {
+          label: "Support email",
+          value: settings.supportEmail || "Not set"
+        },
+        {
+          label: "Last updated",
+          value: settings.updatedAt ? formatDate(settings.updatedAt) : "Using default values"
         }
       ].map((item) => `
         <div class="settings-item">
@@ -4293,6 +4562,11 @@
       state.stats = await apiFetch("/api/admin/stats");
     }
 
+    async function loadSettings() {
+      const payload = await apiFetch("/api/admin/settings");
+      state.appSettings = payload.settings || { ...DEFAULT_APP_SETTINGS };
+    }
+
     async function loadReportsSummary() {
       state.reportsSummary = await apiFetch("/api/admin/reports/summary");
     }
@@ -4330,6 +4604,7 @@
     async function refreshAllData() {
       await Promise.all([
         loadStats(),
+        loadSettings(),
         loadReportsSummary(),
         loadClients(),
         loadInvoices(),
@@ -4762,6 +5037,7 @@
     }
 
     function invoiceReadonlySection(invoice) {
+      const paymentInstructions = buildPaymentInstructionsText();
       const lineItemsMarkup = Array.isArray(invoice.items) && invoice.items.length
         ? `<div class="preview-list" style="margin-top: 14px;">${invoice.items.map((item) => `
             <article class="preview-item">
@@ -4848,6 +5124,23 @@
           </div>
         </div>
 
+        ${paymentInstructions
+          ? `
+              <div class="drawer-section">
+                <small class="kicker">Payment Instructions</small>
+                <div class="metric-list" style="margin-top: 14px;">
+                  <div class="metric-row">
+                    <div>
+                      <div class="cell-title">Manual payment details</div>
+                      <small>${escapeHtml(paymentInstructions).replace(/\n/g, "<br>")}</small>
+                    </div>
+                    <strong>${escapeHtml(getAppSettings().supportEmail || getAppSettings().companyEmail || "AutomateX")}</strong>
+                  </div>
+                </div>
+              </div>
+            `
+          : ""}
+
         <div class="drawer-actions">
           <button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="edit">Edit Invoice</button>
           ${invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
@@ -4863,6 +5156,9 @@
     function invoiceFormSection(invoice = null, options = {}) {
       const mode = options.mode || (invoice ? "edit" : "create");
       const statusOptions = mode === "create" ? ["draft", "sent"] : INVOICE_STATUS_OPTIONS;
+      const settings = getAppSettings();
+      const defaultIssueDate = new Date().toISOString();
+      const defaultDueDate = calculateDueDateInputValue(defaultIssueDate, settings.defaultPaymentTerms);
       const currentInvoice = invoice || {
         id: "",
         clientId: getInvoiceClients()[0] ? getInvoiceClients()[0].id : "",
@@ -4875,19 +5171,30 @@
         totalAmount: 0,
         paidAmount: 0,
         balance: 0,
-        currency: "LKR",
+        currency: settings.defaultCurrency || "LKR",
         status: "draft",
-        issueDate: new Date().toISOString(),
-        dueDate: null,
+        issueDate: defaultIssueDate,
+        dueDate: defaultDueDate || null,
         notes: "",
         adminNotes: ""
       };
       const itemRows = Array.isArray(currentInvoice.items) && currentInvoice.items.length
         ? currentInvoice.items
         : [{ name: "", quantity: 1, unitPrice: 0, total: 0 }];
+      const autoTaxEnabled = !invoice && toNumber(settings.defaultTaxRate) > 0;
+      const autoDueDateEnabled = !invoice && Boolean(defaultDueDate);
 
       return `
-        <form id="invoiceDrawerForm" data-mode="${escapeHtml(mode)}" data-currency="${escapeHtml(currentInvoice.currency || "LKR")}" data-paid-amount="${escapeHtml(currentInvoice.paidAmount || 0)}">
+        <form
+          id="invoiceDrawerForm"
+          data-mode="${escapeHtml(mode)}"
+          data-currency="${escapeHtml(currentInvoice.currency || "LKR")}"
+          data-paid-amount="${escapeHtml(currentInvoice.paidAmount || 0)}"
+          data-default-tax-rate="${escapeHtml(settings.defaultTaxRate || 0)}"
+          data-auto-tax="${autoTaxEnabled ? "true" : "false"}"
+          data-default-payment-terms="${escapeHtml(settings.defaultPaymentTerms || 0)}"
+          data-auto-due-date="${autoDueDateEnabled ? "true" : "false"}"
+        >
           <input type="hidden" name="invoiceId" value="${escapeHtml(currentInvoice.id || "")}">
 
           <div class="drawer-grid">
@@ -4945,8 +5252,9 @@
                 <input class="input" name="discount" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.discount || 0)}">
               </div>
               <div class="field">
-                <label>Tax</label>
+                <label>Tax amount</label>
                 <input class="input" name="tax" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.tax || 0)}">
+                <small class="subtle">Default tax rate: ${escapeHtml(toNumber(settings.defaultTaxRate).toFixed(2))}%</small>
               </div>
             </div>
             <div class="settings-grid" style="margin-top: 16px;">
@@ -4978,6 +5286,13 @@
               <label>Admin notes</label>
               <textarea class="textarea" name="adminNotes">${escapeHtml(currentInvoice.adminNotes || "")}</textarea>
             </div>
+            ${buildPaymentInstructionsText(settings)
+              ? `
+                  <div class="inline-note" style="margin-top: 16px;">
+                    ${escapeHtml(buildPaymentInstructionsText(settings)).replace(/\n/g, "<br>")}
+                  </div>
+                `
+              : ""}
           </div>
 
           <div class="drawer-actions">
@@ -5070,7 +5385,19 @@
 
       const discountField = invoiceForm.querySelector('[name="discount"]');
       const taxField = invoiceForm.querySelector('[name="tax"]');
+      const issueDateField = invoiceForm.querySelector('[name="issueDate"]');
+      const dueDateField = invoiceForm.querySelector('[name="dueDate"]');
       const discount = Math.min(subtotal, Math.max(0, toNumber(discountField.value)));
+      const defaultTaxRate = Math.max(0, toNumber(invoiceForm.dataset.defaultTaxRate));
+
+      if (invoiceForm.dataset.autoTax === "true") {
+        taxField.value = Math.max(0, (subtotal - discount) * (defaultTaxRate / 100)).toFixed(2);
+      }
+
+      if (invoiceForm.dataset.autoDueDate === "true" && dueDateField && issueDateField) {
+        dueDateField.value = calculateDueDateInputValue(issueDateField.value, invoiceForm.dataset.defaultPaymentTerms);
+      }
+
       const tax = Math.max(0, toNumber(taxField.value));
       const totalAmount = Math.max(0, subtotal - discount + tax);
       const balance = Math.max(0, totalAmount - paidAmount);
@@ -5399,7 +5726,15 @@
         syncInvoiceComposerForm();
 
         invoiceForm.addEventListener("input", (event) => {
-          if (["itemName", "itemQuantity", "itemUnitPrice", "discount", "tax"].includes(event.target.name)) {
+          if (event.target.name === "tax") {
+            invoiceForm.dataset.autoTax = "false";
+          }
+
+          if (event.target.name === "dueDate") {
+            invoiceForm.dataset.autoDueDate = "false";
+          }
+
+          if (["itemName", "itemQuantity", "itemUnitPrice", "discount", "tax", "issueDate", "dueDate"].includes(event.target.name)) {
             syncInvoiceComposerForm();
           }
         });
@@ -5933,6 +6268,9 @@
       document.getElementById("refreshReportsButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reports.", "error"));
       });
+      document.getElementById("refreshSettingsButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh settings.", "error"));
+      });
       document.getElementById("exportClientsReportButton").addEventListener("click", () => {
         downloadAdminFile("/api/admin/reports/export/clients", "automatex-clients-report.csv")
           .then(() => showToast("Clients CSV ready", "The client report export has been downloaded."))
@@ -5947,6 +6285,52 @@
         downloadAdminFile("/api/admin/reports/export/requests", "automatex-requests-report.csv")
           .then(() => showToast("Requests CSV ready", "The support request report export has been downloaded."))
           .catch((error) => showBanner(error.message || "Unable to export the support request report.", "error"));
+      });
+      document.getElementById("adminSettingsForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+        const saveButton = document.getElementById("saveSettingsButton");
+        const originalLabel = saveButton.textContent;
+        const payload = {
+          companyName: formData.get("companyName"),
+          companyEmail: formData.get("companyEmail"),
+          companyPhone: formData.get("companyPhone"),
+          whatsappNumber: formData.get("whatsappNumber"),
+          businessAddress: formData.get("businessAddress"),
+          websiteUrl: formData.get("websiteUrl"),
+          logoUrl: formData.get("logoUrl"),
+          invoicePrefix: formData.get("invoicePrefix"),
+          defaultCurrency: formData.get("defaultCurrency"),
+          defaultTaxRate: formData.get("defaultTaxRate"),
+          defaultPaymentTerms: formData.get("defaultPaymentTerms"),
+          supportEmail: formData.get("supportEmail"),
+          defaultSupportMessage: formData.get("defaultSupportMessage"),
+          paymentInstructions: formData.get("paymentInstructions"),
+          bankName: formData.get("bankName"),
+          bankAccountName: formData.get("bankAccountName"),
+          bankAccountNumber: formData.get("bankAccountNumber"),
+          bankBranch: formData.get("bankBranch")
+        };
+
+        try {
+          saveButton.disabled = true;
+          saveButton.textContent = "Saving...";
+          const response = await apiFetch("/api/admin/settings", {
+            method: "PATCH",
+            body: JSON.stringify(payload)
+          });
+
+          state.appSettings = response.settings || state.appSettings;
+          renderSettingsSection();
+          hideBanner();
+          showToast("Settings saved", "AutomateX business settings were updated successfully.");
+        } catch (error) {
+          showBanner(error.message || "Unable to save admin settings.", "error");
+        } finally {
+          saveButton.disabled = false;
+          saveButton.textContent = originalLabel;
+        }
       });
 
       ["clientSearch", "clientPlanFilter", "clientStatusFilter", "clientPaymentFilter", "clientSortBy"].forEach((id) => {

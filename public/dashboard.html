@@ -540,8 +540,16 @@
                   <input id="settingsBusinessName" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
                 </label>
                 <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Owner name</span>
+                  <input id="settingsOwnerName" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
                   <span class="mb-2 block text-sm text-slate-300">Business type</span>
                   <input id="settingsBusinessType" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                </label>
+                <label class="block">
+                  <span class="mb-2 block text-sm text-slate-300">Phone</span>
+                  <input id="settingsPhone" type="tel" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
                 </label>
                 <label class="block">
                   <span class="mb-2 block text-sm text-slate-300">Location</span>
@@ -555,25 +563,19 @@
                   <span class="mb-2 block text-sm text-slate-300">Services</span>
                   <input id="settingsServices" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="Comma separated services">
                 </label>
-                <label class="block sm:col-span-2">
-                  <span class="mb-2 block text-sm text-slate-300">Booking URL</span>
-                  <input id="settingsBookingUrl" type="url" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Email</span>
-                  <input id="settingsEmail" type="email" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
                 <label class="block">
                   <span class="mb-2 block text-sm text-slate-300">Chatbot language</span>
                   <input id="settingsChatbotLanguage" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="English, Sinhala, Tamil...">
                 </label>
                 <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Current password</span>
-                  <input id="settingsCurrentPassword" type="password" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                  <span class="mb-2 block text-sm text-slate-300">Account email</span>
+                  <input id="settingsAccountEmail" type="email" readonly class="w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-400 outline-none" aria-readonly="true">
                 </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">New password</span>
-                  <input id="settingsNewPassword" type="password" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                <label class="block sm:col-span-2">
+                  <span class="mb-2 block text-sm text-slate-300">Account security</span>
+                  <div class="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
+                    Email, package, payment, and password changes are managed by AutomateX support.
+                  </div>
                 </label>
                 <div class="sm:col-span-2">
                   <button type="submit" class="rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950">Save settings</button>
@@ -621,9 +623,11 @@
   <script>
     const CLIENT_TOKEN_KEYS = ["automatex_client_token", "automatex_token"];
     const ADMIN_TOKEN_KEY = "automatex_admin_token";
+    const ADMIN_USER_KEY = "automatex_admin_user";
     const USER_KEY = "automatex_client_user";
     const LOGIN_URL = "/client-login.html";
     const THEME_KEY = "automatex_dashboard_theme";
+    const DEFAULT_MONEY_CURRENCY = "LKR";
     const FEATURE_LABELS = {
       "ai-chatbot": "AI Chatbot",
       "booking-system": "Booking System",
@@ -667,6 +671,8 @@
 
     function redirectToLogin() {
       saveToken("");
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      localStorage.removeItem(ADMIN_USER_KEY);
       localStorage.removeItem(USER_KEY);
       window.location.href = LOGIN_URL;
     }
@@ -724,11 +730,29 @@
       });
     }
 
-    function formatMoney(value) {
+    function normalizeCurrencyCode(value, fallback = DEFAULT_MONEY_CURRENCY) {
+      const normalized = String(value || fallback).trim().toUpperCase();
+
+      if (!normalized) {
+        return fallback;
+      }
+
+      try {
+        new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: normalized
+        });
+        return normalized;
+      } catch (_error) {
+        return fallback;
+      }
+    }
+
+    function formatMoney(value, currency = DEFAULT_MONEY_CURRENCY) {
       const number = Number(value || 0);
-      return new Intl.NumberFormat("en-US", {
+      return new Intl.NumberFormat("en-LK", {
         style: "currency",
-        currency: "USD",
+        currency: normalizeCurrencyCode(currency),
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       }).format(number);
@@ -738,7 +762,7 @@
       const number = Number(value || 0);
       return new Intl.NumberFormat("en-LK", {
         style: "currency",
-        currency: currency || "LKR",
+        currency: normalizeCurrencyCode(currency),
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       }).format(number);
@@ -1378,15 +1402,14 @@
     function renderSettings() {
       const user = state.user;
       document.getElementById("settingsBusinessName").value = user.businessName || "";
+      document.getElementById("settingsOwnerName").value = user.name || "";
       document.getElementById("settingsBusinessType").value = user.businessType || "";
+      document.getElementById("settingsPhone").value = user.phone || "";
       document.getElementById("settingsLocation").value = user.location || "";
       document.getElementById("settingsWorkingHours").value = user.workingHours || "";
-      document.getElementById("settingsBookingUrl").value = user.bookingUrl || "";
-      document.getElementById("settingsEmail").value = user.email || "";
       document.getElementById("settingsChatbotLanguage").value = user.chatbotLanguage || "";
+      document.getElementById("settingsAccountEmail").value = user.email || "";
       document.getElementById("settingsServices").value = Array.isArray(user.services) ? user.services.join(", ") : "";
-      document.getElementById("settingsCurrentPassword").value = "";
-      document.getElementById("settingsNewPassword").value = "";
       applyTheme(getThemePreference());
 
       const saveButton = document.querySelector("#settingsForm button[type='submit']");
@@ -1700,8 +1723,10 @@
           const payload = await apiRequest("/api/auth/me", {
             method: "PATCH",
             body: JSON.stringify({
+              name: document.getElementById("settingsOwnerName").value.trim(),
               businessName: document.getElementById("settingsBusinessName").value.trim(),
               businessType: document.getElementById("settingsBusinessType").value.trim(),
+              phone: document.getElementById("settingsPhone").value.trim(),
               location: document.getElementById("settingsLocation").value.trim(),
               workingHours: document.getElementById("settingsWorkingHours").value.trim(),
               chatbotLanguage: document.getElementById("settingsChatbotLanguage").value.trim(),

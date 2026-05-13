@@ -5,7 +5,8 @@ const { body, validationResult } = require("express-validator");
 const User = require("../models/User");
 const {
   resolveTrustedRole,
-  normalizeEmailAddress
+  normalizeEmailAddress,
+  isOfficialAdminEmail
 } = require("../utils/authRole");
 const {
   normalizePlan,
@@ -244,13 +245,20 @@ async function signup(req, res) {
       return sendError(res, 409, "An account with this email already exists.");
     }
 
+    if (isOfficialAdminEmail(email)) {
+      return sendError(
+        res,
+        403,
+        "The official AutomateX owner account cannot be created from public signup."
+      );
+    }
+
     const passwordHash = await bcrypt.hash(req.body.password, SALT_ROUNDS);
-    const trustedRole = resolveTrustedRole(email);
     const user = await User.create({
       name: String(req.body.name || "").trim(),
       email,
       passwordHash,
-      role: trustedRole,
+      role: "client",
       businessName: String(req.body.businessName || "").trim(),
       businessType: String(req.body.businessType || "").trim(),
       phone: String(req.body.phone || "").trim(),
