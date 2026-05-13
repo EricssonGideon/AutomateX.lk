@@ -63,6 +63,15 @@
     const FALLBACK_TOKEN_KEY = "automatex_token";
     const ADMIN_USER_KEY = "automatex_admin_user";
     const CLIENT_USER_KEY = "automatex_client_user";
+    const AUTH_STORAGE_KEYS = [
+      ADMIN_TOKEN_KEY,
+      PRIMARY_TOKEN_KEY,
+      FALLBACK_TOKEN_KEY,
+      ADMIN_USER_KEY,
+      CLIENT_USER_KEY
+    ];
+    const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
+    const LOGOUT_MARKER_TTL_MS = 15000;
     const feedback = document.getElementById("feedback");
     const submitButton = document.getElementById("submitButton");
 
@@ -77,28 +86,56 @@
       }
     }
 
-    function clearClientSession() {
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      localStorage.removeItem(PRIMARY_TOKEN_KEY);
-      localStorage.removeItem(FALLBACK_TOKEN_KEY);
-      localStorage.removeItem(ADMIN_USER_KEY);
-      localStorage.removeItem(CLIENT_USER_KEY);
+    function getStoredValue(key) {
+      return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
+    }
+
+    function removeStoredValue(key) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
+
+    function clearLogoutMarker() {
+      removeStoredValue(LOGOUT_MARKER_KEY);
+    }
+
+    function hasRecentLogoutMarker() {
+      const timestamps = [localStorage.getItem(LOGOUT_MARKER_KEY), sessionStorage.getItem(LOGOUT_MARKER_KEY)]
+        .map((value) => Number(value || 0))
+        .filter(Boolean);
+
+      if (!timestamps.length) {
+        return false;
+      }
+
+      if (Date.now() - Math.max(...timestamps) < LOGOUT_MARKER_TTL_MS) {
+        return true;
+      }
+
+      clearLogoutMarker();
+      return false;
+    }
+
+    function clearClientSession(options = {}) {
+      AUTH_STORAGE_KEYS.forEach(removeStoredValue);
+
+      if (!options.preserveLogoutMarker) {
+        clearLogoutMarker();
+      }
     }
 
     function saveAdminSession(token, user) {
+      clearClientSession();
       localStorage.setItem(ADMIN_TOKEN_KEY, token);
       localStorage.setItem(FALLBACK_TOKEN_KEY, token);
       localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
-      localStorage.removeItem(PRIMARY_TOKEN_KEY);
-      localStorage.removeItem(CLIENT_USER_KEY);
     }
 
     function saveClientSession(token, user) {
+      clearClientSession();
       localStorage.setItem(PRIMARY_TOKEN_KEY, token);
       localStorage.setItem(FALLBACK_TOKEN_KEY, token);
       localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(user));
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      localStorage.removeItem(ADMIN_USER_KEY);
     }
 
     function isOfficialAdmin(user) {
@@ -110,7 +147,12 @@
     }
 
     async function verifyExistingClientSession() {
-      const token = localStorage.getItem(PRIMARY_TOKEN_KEY) || localStorage.getItem(FALLBACK_TOKEN_KEY);
+      if (hasRecentLogoutMarker()) {
+        clearClientSession({ preserveLogoutMarker: true });
+        return;
+      }
+
+      const token = getStoredValue(PRIMARY_TOKEN_KEY) || getStoredValue(FALLBACK_TOKEN_KEY);
       if (!token) {
         return;
       }
@@ -144,7 +186,7 @@
         saveClientSession(token, payload.user);
         window.location.href = "/dashboard.html";
       } catch (_error) {
-        clearClientSession();
+        clearClientSession({ preserveLogoutMarker: true });
       }
     }
 
@@ -183,7 +225,7 @@
         }
 
         if (payload.user.role !== "client") {
-          clearClientSession();
+          clearClientSession({ preserveLogoutMarker: true });
           throw new Error("This account cannot access the client dashboard.");
         }
 
@@ -196,7 +238,7 @@
         );
         window.location.href = "/dashboard.html";
       } catch (error) {
-        clearClientSession();
+        clearClientSession({ preserveLogoutMarker: true });
         showMessage(error.message || "Unable to sign in right now.");
       } finally {
         submitButton.disabled = false;

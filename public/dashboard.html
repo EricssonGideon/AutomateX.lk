@@ -625,6 +625,8 @@
     const ADMIN_TOKEN_KEY = "automatex_admin_token";
     const ADMIN_USER_KEY = "automatex_admin_user";
     const USER_KEY = "automatex_client_user";
+    const AUTH_STORAGE_KEYS = [...CLIENT_TOKEN_KEYS, ADMIN_TOKEN_KEY, ADMIN_USER_KEY, USER_KEY];
+    const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
     const LOGIN_URL = "/client-login.html";
     const THEME_KEY = "automatex_dashboard_theme";
     const DEFAULT_MONEY_CURRENCY = "LKR";
@@ -653,9 +655,41 @@
       requests: []
     };
 
+    function getStoredValue(key) {
+      return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
+    }
+
+    function removeStoredValue(key) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
+
+    function clearLogoutMarker() {
+      removeStoredValue(LOGOUT_MARKER_KEY);
+    }
+
+    function markExplicitLogout() {
+      const timestamp = String(Date.now());
+      localStorage.setItem(LOGOUT_MARKER_KEY, timestamp);
+      sessionStorage.setItem(LOGOUT_MARKER_KEY, timestamp);
+    }
+
+    function clearAuthStorage(options = {}) {
+      AUTH_STORAGE_KEYS.forEach(removeStoredValue);
+
+      if (options.markLoggedOut) {
+        markExplicitLogout();
+        return;
+      }
+
+      if (!options.preserveLogoutMarker) {
+        clearLogoutMarker();
+      }
+    }
+
     function getToken() {
-      return CLIENT_TOKEN_KEYS.map((key) => localStorage.getItem(key)).find(Boolean) ||
-        localStorage.getItem(ADMIN_TOKEN_KEY) ||
+      return CLIENT_TOKEN_KEYS.map((key) => getStoredValue(key)).find(Boolean) ||
+        getStoredValue(ADMIN_TOKEN_KEY) ||
         "";
     }
 
@@ -663,18 +697,16 @@
       CLIENT_TOKEN_KEYS.forEach((key) => {
         if (token) {
           localStorage.setItem(key, token);
+          sessionStorage.removeItem(key);
         } else {
-          localStorage.removeItem(key);
+          removeStoredValue(key);
         }
       });
     }
 
     function redirectToLogin() {
-      saveToken("");
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      localStorage.removeItem(ADMIN_USER_KEY);
-      localStorage.removeItem(USER_KEY);
-      window.location.href = LOGIN_URL;
+      clearAuthStorage({ markLoggedOut: true });
+      window.location.replace(LOGIN_URL);
     }
 
     function setFeedback(message, tone = "info") {
@@ -1592,6 +1624,7 @@
       }
 
       state.user = payload.user;
+      clearLogoutMarker();
       localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
       updatePlanBadge();
       renderSettings();

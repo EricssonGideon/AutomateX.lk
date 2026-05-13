@@ -22,8 +22,21 @@
       --accent-soft: rgba(34, 211, 238, 0.14);
       --accent-warm: #fb923c;
       --success: #34d399;
+      --success-surface: rgba(52, 211, 153, 0.12);
+      --success-border: rgba(52, 211, 153, 0.24);
+      --success-text: #bbf7d0;
       --warning: #f59e0b;
+      --warning-surface: rgba(245, 158, 11, 0.12);
+      --warning-border: rgba(245, 158, 11, 0.26);
+      --warning-text: #fde68a;
+      --warning-text-strong: #fcd34d;
       --danger: #fb7185;
+      --danger-surface: rgba(251, 113, 133, 0.12);
+      --danger-border: rgba(251, 113, 133, 0.28);
+      --danger-text: #fecdd3;
+      --info-surface: rgba(34, 211, 238, 0.12);
+      --info-border: rgba(34, 211, 238, 0.24);
+      --info-text: #a5f3fc;
       --shadow: 0 24px 70px rgba(2, 6, 23, 0.36);
       --radius-xl: 28px;
       --radius-lg: 22px;
@@ -47,6 +60,19 @@
       --accent-strong: #0e7490;
       --accent-soft: rgba(8, 145, 178, 0.1);
       --accent-warm: #ea580c;
+      --success-surface: rgba(16, 185, 129, 0.14);
+      --success-border: rgba(5, 150, 105, 0.22);
+      --success-text: #065f46;
+      --warning-surface: rgba(245, 158, 11, 0.16);
+      --warning-border: rgba(180, 83, 9, 0.22);
+      --warning-text: #92400e;
+      --warning-text-strong: #9a3412;
+      --danger-surface: rgba(244, 63, 94, 0.12);
+      --danger-border: rgba(225, 29, 72, 0.2);
+      --danger-text: #9f1239;
+      --info-surface: rgba(8, 145, 178, 0.12);
+      --info-border: rgba(14, 116, 144, 0.22);
+      --info-text: #155e75;
       --shadow: 0 20px 54px rgba(15, 23, 42, 0.12);
     }
 
@@ -288,15 +314,15 @@
       width: 100%;
       min-height: 46px;
       border-radius: 16px;
-      border-color: rgba(251, 113, 133, 0.18);
-      background: rgba(251, 113, 133, 0.08);
-      color: #fda4af;
+      border-color: var(--danger-border);
+      background: var(--danger-surface);
+      color: var(--danger-text);
       box-shadow: none;
     }
 
     .sidebar-logout:hover {
-      border-color: rgba(251, 113, 133, 0.28);
-      background: rgba(251, 113, 133, 0.14);
+      border-color: var(--danger-border);
+      background: var(--danger-surface);
     }
 
     .sidebar-panel,
@@ -395,9 +421,9 @@
     }
 
     .button-danger {
-      border-color: rgba(251, 113, 133, 0.28);
-      background: rgba(251, 113, 133, 0.12);
-      color: #fecdd3;
+      border-color: var(--danger-border);
+      background: var(--danger-surface);
+      color: var(--danger-text);
     }
 
     .button:disabled {
@@ -474,21 +500,21 @@
     }
 
     .banner[data-tone="error"] {
-      border-color: rgba(251, 113, 133, 0.28);
-      background: rgba(251, 113, 133, 0.12);
-      color: #fecdd3;
+      border-color: var(--danger-border);
+      background: var(--danger-surface);
+      color: var(--danger-text);
     }
 
     .banner[data-tone="success"] {
-      border-color: rgba(52, 211, 153, 0.24);
-      background: rgba(52, 211, 153, 0.12);
-      color: #bbf7d0;
+      border-color: var(--success-border);
+      background: var(--success-surface);
+      color: var(--success-text);
     }
 
     .banner[data-tone="warning"] {
-      border-color: rgba(245, 158, 11, 0.26);
-      background: rgba(245, 158, 11, 0.12);
-      color: #fde68a;
+      border-color: var(--warning-border);
+      background: var(--warning-surface);
+      color: var(--warning-text);
     }
 
     .section {
@@ -1017,9 +1043,9 @@
     .badge.pending,
     .badge.sent,
     .badge.open {
-      border-color: rgba(245, 158, 11, 0.28);
-      background: rgba(245, 158, 11, 0.12);
-      color: #fcd34d;
+      border-color: var(--warning-border);
+      background: var(--warning-surface);
+      color: var(--warning-text-strong);
     }
 
     .badge.active,
@@ -1031,9 +1057,9 @@
     .badge.connected,
     .badge.operational,
     .badge.resolved {
-      border-color: rgba(52, 211, 153, 0.24);
-      background: rgba(52, 211, 153, 0.12);
-      color: #bbf7d0;
+      border-color: var(--success-border);
+      background: var(--success-surface);
+      color: var(--success-text);
     }
 
     .badge.new,
@@ -1042,9 +1068,9 @@
     .badge.in_progress,
     .badge.trial,
     .badge.partial {
-      border-color: rgba(34, 211, 238, 0.24);
-      background: rgba(34, 211, 238, 0.12);
-      color: #a5f3fc;
+      border-color: var(--info-border);
+      background: var(--info-surface);
+      color: var(--info-text);
     }
 
     .badge.draft {
@@ -1061,9 +1087,9 @@
     .badge.overdue,
     .badge.disconnected,
     .badge.degraded {
-      border-color: rgba(251, 113, 133, 0.24);
-      background: rgba(251, 113, 133, 0.12);
-      color: #fecdd3;
+      border-color: var(--danger-border);
+      background: var(--danger-surface);
+      color: var(--danger-text);
     }
 
     .badge.closed {
@@ -1110,15 +1136,15 @@
     }
 
     .mini-button.is-warning {
-      border-color: rgba(245, 158, 11, 0.28);
-      background: rgba(245, 158, 11, 0.12);
-      color: #fde68a;
+      border-color: var(--warning-border);
+      background: var(--warning-surface);
+      color: var(--warning-text);
     }
 
     .mini-button.is-danger {
-      border-color: rgba(251, 113, 133, 0.28);
-      background: rgba(251, 113, 133, 0.12);
-      color: #fecdd3;
+      border-color: var(--danger-border);
+      background: var(--danger-surface);
+      color: var(--danger-text);
     }
 
     .empty-state {
@@ -1314,9 +1340,9 @@
     .inline-note {
       padding: 14px 16px;
       border-radius: 16px;
-      border: 1px solid rgba(245, 158, 11, 0.26);
-      background: rgba(245, 158, 11, 0.1);
-      color: #fde68a;
+      border: 1px solid var(--warning-border);
+      background: var(--warning-surface);
+      color: var(--warning-text);
       line-height: 1.55;
     }
 
@@ -2574,6 +2600,14 @@
     const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
     const TOKEN_KEY = "automatex_admin_token";
     const USER_KEY = "automatex_admin_user";
+    const AUTH_STORAGE_KEYS = [
+      "automatex_admin_token",
+      "automatex_client_token",
+      "automatex_token",
+      "automatex_admin_user",
+      "automatex_client_user"
+    ];
+    const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
     const THEME_KEY = "automatex_admin_theme";
     const PLAN_PRICE_MAP = {
       not_assigned: 0,
@@ -2709,14 +2743,45 @@
       drawer: null
     };
 
+    function getStoredValue(key) {
+      return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
+    }
+
+    function removeStoredValue(key) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
+
+    function clearLogoutMarker() {
+      removeStoredValue(LOGOUT_MARKER_KEY);
+    }
+
+    function markExplicitLogout() {
+      const timestamp = String(Date.now());
+      localStorage.setItem(LOGOUT_MARKER_KEY, timestamp);
+      sessionStorage.setItem(LOGOUT_MARKER_KEY, timestamp);
+    }
+
+    function clearAuthStorage(options = {}) {
+      AUTH_STORAGE_KEYS.forEach(removeStoredValue);
+
+      if (options.markLoggedOut) {
+        markExplicitLogout();
+        return;
+      }
+
+      if (!options.preserveLogoutMarker) {
+        clearLogoutMarker();
+      }
+    }
+
     function getToken() {
-      return localStorage.getItem(TOKEN_KEY) || "";
+      return getStoredValue(TOKEN_KEY) || "";
     }
 
     function redirectToLogin() {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-      window.location.href = "/admin-login.html";
+      clearAuthStorage({ markLoggedOut: true });
+      window.location.replace("/admin-login.html");
     }
 
     function redirectNonAdminUser(role) {
@@ -4848,6 +4913,7 @@
       }
 
       state.admin = payload.user;
+      clearLogoutMarker();
       localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
       document.getElementById("adminIdentity").textContent = payload.user.email;
       document.getElementById("adminIdentity").title = payload.user.email;
