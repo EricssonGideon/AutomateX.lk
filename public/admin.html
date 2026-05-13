@@ -133,6 +133,7 @@
       border-right: 1px solid var(--line);
       background: rgba(6, 13, 26, 0.82);
       backdrop-filter: blur(22px);
+      overflow: hidden;
     }
 
     :root[data-theme="light"] .sidebar {
@@ -144,6 +145,7 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
+      flex-shrink: 0;
     }
 
     .sidebar-brand {
@@ -212,9 +214,12 @@
 
     .sidebar-nav {
       display: grid;
+      flex: 1 1 auto;
       gap: 8px;
+      min-height: 0;
       overflow-y: auto;
       padding-right: 4px;
+      align-content: start;
     }
 
     .nav-button {
@@ -274,6 +279,24 @@
       margin-top: auto;
       display: grid;
       gap: 12px;
+      flex-shrink: 0;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .sidebar-logout {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 16px;
+      border-color: rgba(251, 113, 133, 0.18);
+      background: rgba(251, 113, 133, 0.08);
+      color: #fda4af;
+      box-shadow: none;
+    }
+
+    .sidebar-logout:hover {
+      border-color: rgba(251, 113, 133, 0.28);
+      background: rgba(251, 113, 133, 0.14);
     }
 
     .sidebar-panel,
@@ -1554,23 +1577,7 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="sidebar-panel">
-          <small class="kicker">Appearance</small>
-          <label class="field-inline">
-            <span>Dashboard theme</span>
-            <select class="select theme-control" id="themePreferenceSidebar">
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="system">System</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="sidebar-panel">
-          <small class="kicker">Security</small>
-          <p>This admin workspace is restricted to AutomateX company administrators and owner-level platform operators.</p>
-          <button id="logoutButtonSidebar" class="button button-danger" type="button" style="margin-top: 14px; width: 100%;">Logout</button>
-        </div>
+        <button id="logoutButtonSidebar" class="button sidebar-logout" type="button">Logout</button>
       </div>
     </aside>
 
