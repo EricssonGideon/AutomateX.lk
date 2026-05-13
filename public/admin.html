@@ -486,7 +486,10 @@
     .kpi-card {
       display: grid;
       gap: 14px;
+      grid-template-rows: auto auto 1fr;
+      align-content: start;
       padding: 18px;
+      min-height: 188px;
       min-width: 0;
       grid-column: span 3;
     }
@@ -496,10 +499,16 @@
     }
 
     .kpi-card strong {
+      display: block;
+      min-width: 0;
+      max-width: 100%;
       font-size: 2rem;
       line-height: 1;
       letter-spacing: -0.06em;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
     }
 
     .kpi-card strong.is-muted {
@@ -517,6 +526,7 @@
     }
 
     .kpi-copy {
+      min-width: 0;
       color: var(--muted);
       line-height: 1.55;
       font-size: 0.92rem;
@@ -538,7 +548,7 @@
 
     .panel,
     .placeholder-panel {
-      padding: 20px;
+      padding: 22px;
       min-width: 0;
     }
 
@@ -583,16 +593,23 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 14px;
+      min-width: 0;
       padding: 14px 16px;
       background: var(--surface-muted);
       box-shadow: none;
+    }
+
+    .metric-row > div {
+      min-width: 0;
     }
 
     .metric-row strong {
       font-size: 1rem;
       letter-spacing: -0.03em;
       text-align: right;
-      overflow-wrap: anywhere;
+      overflow-wrap: normal;
+      word-break: normal;
+      font-variant-numeric: tabular-nums;
     }
 
     .metric-row small,
@@ -659,11 +676,17 @@
       min-width: 0;
     }
 
+    .preview-top > div {
+      min-width: 0;
+    }
+
     .preview-top strong {
       display: block;
       font-size: 0.98rem;
       letter-spacing: -0.02em;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .preview-top p {
@@ -671,7 +694,10 @@
       color: var(--muted);
       line-height: 1.5;
       font-size: 0.9rem;
-      overflow-wrap: anywhere;
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
     }
 
     .preview-actions {
@@ -691,16 +717,26 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+      max-width: 100%;
       padding: 10px 13px;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: var(--surface);
       color: var(--muted);
       font-size: 0.88rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
 
     .data-chip strong {
+      display: inline-block;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       color: var(--text);
+      font-variant-numeric: tabular-nums;
     }
 
     .filters {
@@ -720,16 +756,64 @@
 
     .table-card {
       overflow: hidden;
+      padding: 10px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0)),
+        var(--surface);
     }
 
     .table-wrap {
       overflow: auto;
+      border-radius: calc(var(--radius-lg) - 4px);
+      background: rgba(2, 6, 23, 0.16);
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+    }
+
+    .table-wrap::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    .table-wrap::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.28);
     }
 
     table {
       width: 100%;
       min-width: 960px;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .admin-table-clients {
+      min-width: 1360px;
+    }
+
+    .admin-table-approvals {
+      min-width: 1120px;
+    }
+
+    .admin-table-packages,
+    .admin-table-payments,
+    .admin-table-reports {
+      min-width: 980px;
+    }
+
+    .admin-table-invoices {
+      min-width: 1200px;
+    }
+
+    .admin-table-bookings,
+    .admin-table-support {
+      min-width: 1100px;
+    }
+
+    .admin-table-inquiries,
+    .admin-table-reviews {
+      min-width: 1160px;
     }
 
     thead {
@@ -742,7 +826,8 @@
 
     th,
     td {
-      padding: 14px 16px;
+      min-width: 0;
+      padding: 15px 18px;
       border-bottom: 1px solid var(--line);
       text-align: left;
       vertical-align: top;
@@ -758,7 +843,47 @@
     }
 
     td {
-      overflow-wrap: anywhere;
+      color: var(--text);
+      line-height: 1.48;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    tbody tr {
+      transition: background 0.18s ease;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    th.col-business,
+    th.col-client,
+    th.col-name,
+    th.col-owner,
+    th.col-title {
+      min-width: 180px;
+    }
+
+    th.col-email {
+      min-width: 220px;
+    }
+
+    th.col-message,
+    th.col-notes,
+    th.col-details {
+      min-width: 240px;
+    }
+
+    th.col-phone,
+    th.col-package,
+    th.col-status,
+    th.col-priority,
+    th.col-date,
+    th.col-money,
+    th.col-rating,
+    th.col-actions {
+      width: 1%;
     }
 
     tbody tr:hover {
@@ -772,20 +897,90 @@
     .cell-title {
       font-weight: 700;
       letter-spacing: -0.02em;
+      min-width: 0;
     }
 
     .cell-subtitle {
-      margin-top: 4px;
+      min-width: 0;
+      margin-top: 6px;
       color: var(--muted);
       font-size: 0.9rem;
-      line-height: 1.5;
+      line-height: 1.45;
+    }
+
+    .cell-divider {
+      color: var(--line-strong);
+      margin: 0 6px;
+    }
+
+    .text-ellipsis {
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .text-note {
+      display: -webkit-box;
+      overflow: hidden;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .text-mono {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .text-business {
+      max-width: 26ch;
+    }
+
+    .text-person {
+      max-width: 20ch;
+    }
+
+    .text-email {
+      max-width: 20ch;
+    }
+
+    .text-phone {
+      max-width: 15ch;
+    }
+
+    .text-package {
+      max-width: 14ch;
+    }
+
+    .text-status {
+      max-width: 12ch;
+    }
+
+    .text-date {
+      max-width: 17ch;
+    }
+
+    .text-currency {
+      max-width: 14ch;
+    }
+
+    .text-invoice {
+      max-width: 16ch;
+    }
+
+    .text-location {
+      max-width: 22ch;
     }
 
     .badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 8px 12px;
+      gap: 6px;
+      padding: 8px 13px;
       border-radius: 999px;
       border: 1px solid var(--line);
       font-size: 11px;
@@ -793,10 +988,12 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .badge.pending,
-    .badge.sent {
+    .badge.sent,
+    .badge.open {
       border-color: rgba(245, 158, 11, 0.28);
       background: rgba(245, 158, 11, 0.12);
       color: #fcd34d;
@@ -809,7 +1006,8 @@
     .badge.approved,
     .badge.published,
     .badge.connected,
-    .badge.operational {
+    .badge.operational,
+    .badge.resolved {
       border-color: rgba(52, 211, 153, 0.24);
       background: rgba(52, 211, 153, 0.12);
       color: #bbf7d0;
@@ -845,13 +1043,32 @@
       color: #fecdd3;
     }
 
+    .badge.closed {
+      border-color: var(--line-strong);
+      background: var(--surface-muted);
+      color: var(--muted);
+    }
+
     .actions {
       display: flex;
+      align-items: center;
+      justify-content: flex-start;
       flex-wrap: wrap;
       gap: 8px;
+      min-width: 0;
+    }
+
+    .actions-cell {
+      width: 1%;
+      white-space: nowrap;
+      vertical-align: middle;
     }
 
     .mini-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
       border-radius: 12px;
       border: 1px solid var(--line-strong);
       background: transparent;
@@ -859,6 +1076,8 @@
       padding: 9px 12px;
       font-size: 0.88rem;
       font-weight: 700;
+      white-space: nowrap;
+      flex: 0 0 auto;
       transition: border-color 0.2s ease, background 0.2s ease;
     }
 
@@ -919,6 +1138,7 @@
     }
 
     .settings-item {
+      min-width: 0;
       padding: 14px 16px;
       border: 1px solid var(--line);
       border-radius: 16px;
@@ -936,10 +1156,13 @@
 
     .settings-item strong {
       display: block;
-      margin-top: 8px;
+      min-width: 0;
+      margin-top: 10px;
       font-size: 1rem;
       letter-spacing: -0.02em;
-      overflow-wrap: anywhere;
+      line-height: 1.45;
+      overflow-wrap: normal;
+      word-break: break-word;
     }
 
     .drawer-shell {
@@ -964,9 +1187,12 @@
       position: absolute;
       top: 0;
       right: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
       width: min(660px, 100%);
       height: 100%;
-      padding: 24px;
+      padding: 28px;
       border-left: 1px solid var(--line);
       background: var(--surface-strong);
       overflow-y: auto;
@@ -978,7 +1204,13 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 18px;
+      margin-bottom: 0;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .drawer-header > div {
+      min-width: 0;
     }
 
     .drawer-header h3 {
@@ -987,26 +1219,43 @@
       letter-spacing: -0.04em;
     }
 
+    .drawer-header p {
+      margin: 10px 0 0;
+      max-width: 54ch;
+    }
+
+    #drawerBody {
+      display: grid;
+      gap: 18px;
+      min-width: 0;
+    }
+
     .drawer-grid {
       display: grid;
-      gap: 14px;
+      gap: 16px;
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .drawer-section {
-      margin-top: 18px;
-      padding-top: 18px;
+      display: grid;
+      gap: 16px;
+      margin-top: 0;
+      padding-top: 20px;
       border-top: 1px solid var(--line);
     }
 
     .field {
       display: grid;
       gap: 8px;
+      min-width: 0;
     }
 
     .field label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
       color: var(--muted);
-      font-size: 0.9rem;
     }
 
     .checkbox-grid {
@@ -1019,10 +1268,16 @@
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      padding: 12px;
+      min-width: 0;
+      padding: 14px;
       border: 1px solid var(--line);
       border-radius: 16px;
       background: var(--surface-muted);
+    }
+
+    .feature-card span {
+      min-width: 0;
+      line-height: 1.45;
     }
 
     .drawer-actions {
@@ -1030,7 +1285,7 @@
       flex-wrap: wrap;
       justify-content: flex-end;
       gap: 10px;
-      margin-top: 22px;
+      margin-top: 4px;
     }
 
     .inline-note {
@@ -1176,6 +1431,14 @@
       .placeholder-panel,
       .kpi-card {
         padding: 16px;
+      }
+
+      .kpi-card {
+        min-height: 156px;
+      }
+
+      .table-card {
+        padding: 8px;
       }
 
       .drawer {
@@ -1498,20 +1761,20 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-clients">
                 <thead>
                   <tr>
-                    <th>Business Name</th>
-                    <th>Owner Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Package</th>
-                    <th>Monthly Fee</th>
-                    <th>Payment Status</th>
-                    <th>Account Status</th>
-                    <th>Next Payment</th>
-                    <th>Created</th>
-                    <th>Actions</th>
+                    <th class="col-business">Business Name</th>
+                    <th class="col-owner">Owner Name</th>
+                    <th class="col-email">Email</th>
+                    <th class="col-phone">Phone</th>
+                    <th class="col-package">Package</th>
+                    <th class="col-money">Monthly Fee</th>
+                    <th class="col-status">Payment Status</th>
+                    <th class="col-status">Account Status</th>
+                    <th class="col-date">Next Payment</th>
+                    <th class="col-date">Created</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="clientsTableBody"></tbody>
@@ -1540,18 +1803,18 @@
 
           <div class="table-card" style="margin-top: 16px;">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-approvals">
                 <thead>
                   <tr>
-                    <th>Owner</th>
-                    <th>Business</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Type</th>
-                    <th>Location</th>
-                    <th>Signed Up</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th class="col-owner">Owner</th>
+                    <th class="col-business">Business</th>
+                    <th class="col-email">Email</th>
+                    <th class="col-phone">Phone</th>
+                    <th class="col-package">Type</th>
+                    <th class="col-details">Location</th>
+                    <th class="col-date">Signed Up</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="pendingApprovalsTableBody"></tbody>
@@ -1600,16 +1863,16 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-packages">
                 <thead>
                   <tr>
-                    <th>Business</th>
-                    <th>Package</th>
-                    <th>Account Status</th>
-                    <th>Payment</th>
-                    <th>Monthly Value</th>
-                    <th>Features</th>
-                    <th>Actions</th>
+                    <th class="col-business">Business</th>
+                    <th class="col-package">Package</th>
+                    <th class="col-status">Account Status</th>
+                    <th class="col-status">Payment</th>
+                    <th class="col-money">Monthly Value</th>
+                    <th class="col-date">Features</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="packageClientsTableBody"></tbody>
@@ -1677,18 +1940,18 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-invoices">
                 <thead>
                   <tr>
-                    <th>Invoice Number</th>
-                    <th>Client / Business</th>
-                    <th>Title</th>
-                    <th>Total Amount</th>
-                    <th>Paid Amount</th>
-                    <th>Balance</th>
-                    <th>Status</th>
-                    <th>Due Date</th>
-                    <th>Actions</th>
+                    <th class="col-title">Invoice Number</th>
+                    <th class="col-business">Client / Business</th>
+                    <th class="col-title">Title</th>
+                    <th class="col-money">Total Amount</th>
+                    <th class="col-money">Paid Amount</th>
+                    <th class="col-money">Balance</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-date">Due Date</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="invoicesTableBody"></tbody>
@@ -1740,16 +2003,16 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-payments">
                 <thead>
                   <tr>
-                    <th>Business</th>
-                    <th>Package</th>
-                    <th>Monthly Fee</th>
-                    <th>Payment Status</th>
-                    <th>Next Payment</th>
-                    <th>Account Status</th>
-                    <th>Actions</th>
+                    <th class="col-business">Business</th>
+                    <th class="col-package">Package</th>
+                    <th class="col-money">Monthly Fee</th>
+                    <th class="col-status">Payment Status</th>
+                    <th class="col-date">Next Payment</th>
+                    <th class="col-status">Account Status</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="paymentsTableBody"></tbody>
@@ -1793,16 +2056,16 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-bookings">
                 <thead>
                   <tr>
-                    <th>Customer</th>
-                    <th>Business</th>
-                    <th>Service</th>
-                    <th>Date & Time</th>
-                    <th>Status</th>
-                    <th>Admin Notes</th>
-                    <th>Actions</th>
+                    <th class="col-name">Customer</th>
+                    <th class="col-business">Business</th>
+                    <th class="col-title">Service</th>
+                    <th class="col-date">Date & Time</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-notes">Admin Notes</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="bookingsTableBody"></tbody>
@@ -1846,16 +2109,16 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-inquiries">
                 <thead>
                   <tr>
-                    <th>Lead</th>
-                    <th>Business</th>
-                    <th>Message</th>
-                    <th>Status</th>
-                    <th>Source</th>
-                    <th>Admin Notes</th>
-                    <th>Actions</th>
+                    <th class="col-name">Lead</th>
+                    <th class="col-business">Business</th>
+                    <th class="col-message">Message</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-title">Source</th>
+                    <th class="col-notes">Admin Notes</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="inquiriesTableBody"></tbody>
@@ -1905,16 +2168,16 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-reviews">
                 <thead>
                   <tr>
-                    <th>Reviewer</th>
-                    <th>Business</th>
-                    <th>Rating</th>
-                    <th>Message</th>
-                    <th>Status</th>
-                    <th>Admin Notes</th>
-                    <th>Actions</th>
+                    <th class="col-name">Reviewer</th>
+                    <th class="col-business">Business</th>
+                    <th class="col-rating">Rating</th>
+                    <th class="col-message">Message</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-notes">Admin Notes</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="reviewsTableBody"></tbody>
@@ -1971,16 +2234,16 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-support">
                 <thead>
                   <tr>
-                    <th>Client / Business</th>
-                    <th>Type</th>
-                    <th>Subject</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
+                    <th class="col-business">Client / Business</th>
+                    <th class="col-title">Type</th>
+                    <th class="col-message">Subject</th>
+                    <th class="col-priority">Priority</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-date">Created</th>
+                    <th class="col-actions">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="supportRequestsTableBody"></tbody>
@@ -2056,13 +2319,13 @@
 
           <div class="table-card">
             <div class="table-wrap">
-              <table>
+              <table class="admin-table admin-table-reports">
                 <thead>
                   <tr>
-                    <th>Activity</th>
-                    <th>Details</th>
-                    <th>Status</th>
-                    <th>Date</th>
+                    <th class="col-title">Activity</th>
+                    <th class="col-details">Details</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-date">Date</th>
                   </tr>
                 </thead>
                 <tbody id="reportsActivityTableBody"></tbody>
@@ -2502,17 +2765,19 @@
       return new Intl.NumberFormat("en-LK", {
         style: "currency",
         currency: normalizeCurrencyCode(state.appSettings && state.appSettings.defaultCurrency),
+        currencyDisplay: "code",
         maximumFractionDigits: 0
-      }).format(toNumber(value));
+      }).format(toNumber(value)).replace(/\u00A0/g, " ");
     }
 
     function formatInvoiceCurrency(value, currency = "LKR") {
       return new Intl.NumberFormat("en-LK", {
         style: "currency",
         currency: normalizeCurrencyCode(currency),
+        currencyDisplay: "code",
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
-      }).format(toNumber(value));
+      }).format(toNumber(value)).replace(/\u00A0/g, " ");
     }
 
     function formatDate(value) {
@@ -2625,6 +2890,28 @@
       return String(value || "")
         .replace(/_/g, " ")
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    function formatDisplayValue(value, fallback = "—") {
+      if (value === null || value === undefined) {
+        return fallback;
+      }
+
+      const normalized = String(value).trim();
+      return normalized ? normalized : fallback;
+    }
+
+    function buildTitleAttribute(value) {
+      const titleText = formatDisplayValue(value, "");
+      return titleText ? ` title="${escapeHtml(titleText)}"` : "";
+    }
+
+    function renderTextValue(value, classes = "", options = {}) {
+      const display = formatDisplayValue(value, options.fallback);
+      const titleSource = options.title === false ? "" : (options.titleValue ?? value);
+      const className = classes ? ` class="${classes}"` : "";
+
+      return `<span${className}${buildTitleAttribute(titleSource)}>${escapeHtml(display)}</span>`;
     }
 
     function ratingStars(value) {
@@ -3404,7 +3691,7 @@
             <div class="cell-title">${escapeHtml(row.label)}</div>
             <small>${escapeHtml(row.hint || "")}</small>
           </div>
-          <strong>${escapeHtml(row.value)}</strong>
+          <strong${buildTitleAttribute(row.value)}>${escapeHtml(row.value)}</strong>
         </div>
       `).join("");
     }
@@ -3491,7 +3778,7 @@
       document.getElementById("dashboardKpiGrid").innerHTML = cards.map((card) => `
         <article class="kpi-card">
           <div class="kpi-label">${escapeHtml(card.label)}</div>
-          <strong class="${card.muted ? "is-muted" : ""}">${escapeHtml(card.value)}</strong>
+          <strong class="${card.muted ? "is-muted" : ""}"${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
           <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
@@ -3530,12 +3817,12 @@
         <article class="preview-item">
           <div class="preview-top">
             <div>
-              <strong>${escapeHtml(client.businessName || client.name)}</strong>
-              <p>${escapeHtml(client.name)}${client.businessType ? ` • ${escapeHtml(client.businessType)}` : ""}</p>
+              <strong${buildTitleAttribute(client.businessName || client.name)}>${escapeHtml(client.businessName || client.name)}</strong>
+              <p${buildTitleAttribute([client.name, client.businessType].filter(Boolean).join(" • "))}>${escapeHtml(client.name)}${client.businessType ? ` • ${escapeHtml(client.businessType)}` : ""}</p>
             </div>
-            <span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span>
+            <span class="${badgeClass(client.accountStatus)}" title="${escapeHtml(formatStatusLabel(client.accountStatus))}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span>
           </div>
-          <div class="preview-meta">Signed up ${escapeHtml(formatShortDate(client.createdAt))} • ${escapeHtml(client.email)}</div>
+          <div class="preview-meta"${buildTitleAttribute(`Signed up ${formatDate(client.createdAt)} • ${client.email || "—"}`)}>Signed up ${escapeHtml(formatShortDate(client.createdAt))} • ${escapeHtml(client.email || "—")}</div>
           <div class="preview-actions">
             <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
             <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
@@ -3549,12 +3836,12 @@
         <article class="preview-item">
           <div class="preview-top">
             <div>
-              <strong>${escapeHtml(client.businessName || client.name)}</strong>
-              <p>${escapeHtml(client.email)}</p>
+              <strong${buildTitleAttribute(client.businessName || client.name)}>${escapeHtml(client.businessName || client.name)}</strong>
+              <p${buildTitleAttribute(client.email || "—")}>${escapeHtml(client.email || "—")}</p>
             </div>
-            <span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span>
+            <span class="${badgeClass(client.accountStatus)}" title="${escapeHtml(formatStatusLabel(client.accountStatus))}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span>
           </div>
-          <div class="preview-meta">${escapeHtml(formatPlanLabel(client.plan))} • ${escapeHtml(formatShortDate(client.createdAt))}</div>
+          <div class="preview-meta"${buildTitleAttribute(`${formatPlanLabel(client.plan)} • ${formatDate(client.createdAt)}`)}>${escapeHtml(formatPlanLabel(client.plan))} • ${escapeHtml(formatShortDate(client.createdAt))}</div>
           <div class="preview-actions">
             <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="${client.accountStatus === "pending" ? "review" : "manage"}">Open Client</button>
           </div>
@@ -3567,12 +3854,12 @@
         <article class="preview-item">
           <div class="preview-top">
             <div>
-              <strong>${escapeHtml(booking.name)}</strong>
-              <p>${escapeHtml(booking.clientBusinessName || booking.clientName || "Client")} • ${escapeHtml(booking.service || "General booking")}</p>
+              <strong${buildTitleAttribute(booking.name || "—")}>${escapeHtml(booking.name)}</strong>
+              <p${buildTitleAttribute([booking.clientBusinessName || booking.clientName || "Client", booking.service || "General booking"].join(" • "))}>${escapeHtml(booking.clientBusinessName || booking.clientName || "Client")} • ${escapeHtml(booking.service || "General booking")}</p>
             </div>
-            <span class="${badgeClass(booking.status)}">${escapeHtml(formatStatusLabel(booking.status))}</span>
+            <span class="${badgeClass(booking.status)}" title="${escapeHtml(formatStatusLabel(booking.status))}">${escapeHtml(formatStatusLabel(booking.status))}</span>
           </div>
-          <div class="preview-meta">${escapeHtml(booking.date)} • ${escapeHtml(booking.time)}</div>
+          <div class="preview-meta"${buildTitleAttribute([booking.date, booking.time].filter(Boolean).join(" • ") || "—")}>${escapeHtml(booking.date || "—")}${booking.time ? ` • ${escapeHtml(booking.time)}` : ""}</div>
           <div class="preview-actions">
             <button class="mini-button" type="button" data-booking-id="${escapeHtml(booking._id)}">Open Booking</button>
           </div>
@@ -3585,12 +3872,12 @@
         <article class="preview-item">
           <div class="preview-top">
             <div>
-              <strong>${escapeHtml(inquiry.name)}</strong>
-              <p>${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform lead")}</p>
+              <strong${buildTitleAttribute(inquiry.name || "—")}>${escapeHtml(inquiry.name)}</strong>
+              <p${buildTitleAttribute(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform lead")}>${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform lead")}</p>
             </div>
-            <span class="${badgeClass(inquiry.status)}">${escapeHtml(formatStatusLabel(inquiry.status))}</span>
+            <span class="${badgeClass(inquiry.status)}" title="${escapeHtml(formatStatusLabel(inquiry.status))}">${escapeHtml(formatStatusLabel(inquiry.status))}</span>
           </div>
-          <div class="preview-meta">${escapeHtml(formatShortDate(inquiry.createdAt))} • ${escapeHtml((inquiry.message || "").slice(0, 80))}${String(inquiry.message || "").length > 80 ? "..." : ""}</div>
+          <div class="preview-meta"${buildTitleAttribute(`${formatDate(inquiry.createdAt)} • ${inquiry.message || "—"}`)}>${escapeHtml(formatShortDate(inquiry.createdAt))} • ${escapeHtml((inquiry.message || "").slice(0, 80))}${String(inquiry.message || "").length > 80 ? "..." : ""}</div>
           <div class="preview-actions">
             <button class="mini-button" type="button" data-inquiry-id="${escapeHtml(inquiry._id)}">Open Inquiry</button>
           </div>
@@ -3605,12 +3892,12 @@
         <article class="preview-item">
           <div class="preview-top">
             <div>
-              <strong>${escapeHtml(review.name)}</strong>
-              <p>${escapeHtml(review.clientBusinessName || review.clientName || "Client")} • ${escapeHtml(ratingStars(review.rating))}</p>
+              <strong${buildTitleAttribute(review.name || "—")}>${escapeHtml(review.name)}</strong>
+              <p${buildTitleAttribute(`${review.clientBusinessName || review.clientName || "Client"} • ${ratingStars(review.rating)}`)}>${escapeHtml(review.clientBusinessName || review.clientName || "Client")} • ${escapeHtml(ratingStars(review.rating))}</p>
             </div>
-            <span class="${badgeClass(displayStatus)}">${escapeHtml(formatStatusLabel(displayStatus))}</span>
+            <span class="${badgeClass(displayStatus)}" title="${escapeHtml(formatStatusLabel(displayStatus))}">${escapeHtml(formatStatusLabel(displayStatus))}</span>
           </div>
-          <div class="preview-meta">${escapeHtml((review.text || "").slice(0, 88))}${String(review.text || "").length > 88 ? "..." : ""}</div>
+          <div class="preview-meta"${buildTitleAttribute(review.text || "—")}>${escapeHtml((review.text || "").slice(0, 88))}${String(review.text || "").length > 88 ? "..." : ""}</div>
           <div class="preview-actions">
             <button class="mini-button" type="button" data-review-id="${escapeHtml(review._id)}">Open Review</button>
           </div>
@@ -3672,22 +3959,22 @@
       setTableState("clientsTableBody", "clientsEmptyState", clients, (client) => `
         <tr class="${client.accountStatus === "pending" ? "pending-row" : ""}">
           <td>
-            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.businessType || "Business type not set")}</div>
+            <div class="cell-title">${renderTextValue(client.businessName || client.name, "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue(client.businessType || "Business type not set", "text-ellipsis", { titleValue: client.businessType || "Business type not set" })}</div>
           </td>
-          <td>${escapeHtml(client.name || "—")}</td>
+          <td>${renderTextValue(client.name || "—", "text-ellipsis text-person")}</td>
           <td>
-            <div class="cell-title">${escapeHtml(client.email)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.location || "Location not set")}</div>
+            <div class="cell-title">${renderTextValue(client.email || "—", "text-ellipsis text-email text-mono")}</div>
+            <div class="cell-subtitle">${renderTextValue(client.location || "Location not set", "text-ellipsis text-location")}</div>
           </td>
-          <td>${escapeHtml(client.phone || "—")}</td>
-          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
-          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
-          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
-          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td>${escapeHtml(formatShortDate(client.nextPaymentDate))}</td>
-          <td>${escapeHtml(formatShortDate(client.createdAt))}</td>
-          <td>
+          <td>${renderTextValue(client.phone || "—", "text-ellipsis text-phone text-mono")}</td>
+          <td>${renderTextValue(formatPlanLabel(client.plan), "text-ellipsis text-package", { titleValue: formatPlanLabel(client.plan) })}</td>
+          <td>${renderTextValue(formatCurrency(client.monthlyFee), "text-ellipsis text-currency text-mono")}</td>
+          <td><span class="${badgeClass(client.paymentStatus)}" title="${escapeHtml(formatStatusLabel(client.paymentStatus))}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td><span class="${badgeClass(client.accountStatus)}" title="${escapeHtml(formatStatusLabel(client.accountStatus))}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td>${renderTextValue(formatShortDate(client.nextPaymentDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(client.nextPaymentDate) })}</td>
+          <td>${renderTextValue(formatShortDate(client.createdAt), "text-ellipsis text-date text-mono", { titleValue: formatDate(client.createdAt) })}</td>
+          <td class="actions-cell">
             <div class="actions">
               ${client.accountStatus === "pending"
                 ? `
@@ -3717,18 +4004,18 @@
 
       setTableState("pendingApprovalsTableBody", "pendingApprovalsEmptyState", pendingApprovals, (client) => `
         <tr class="pending-row">
-          <td>${escapeHtml(client.name || "—")}</td>
+          <td>${renderTextValue(client.name || "—", "text-ellipsis text-person")}</td>
           <td>
-            <div class="cell-title">${escapeHtml(client.businessName || "Business name not set")}</div>
-            <div class="cell-subtitle">${escapeHtml(formatPlanLabel(client.plan))}</div>
+            <div class="cell-title">${renderTextValue(client.businessName || "Business name not set", "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue(formatPlanLabel(client.plan), "text-ellipsis text-package", { titleValue: formatPlanLabel(client.plan) })}</div>
           </td>
-          <td>${escapeHtml(client.email || "—")}</td>
-          <td>${escapeHtml(client.phone || "—")}</td>
-          <td>${escapeHtml(client.businessType || "—")}</td>
-          <td>${escapeHtml(client.location || "—")}</td>
-          <td>${escapeHtml(formatDate(client.createdAt))}</td>
-          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td>
+          <td>${renderTextValue(client.email || "—", "text-ellipsis text-email text-mono")}</td>
+          <td>${renderTextValue(client.phone || "—", "text-ellipsis text-phone text-mono")}</td>
+          <td>${renderTextValue(client.businessType || "—", "text-ellipsis")}</td>
+          <td>${renderTextValue(client.location || "—", "text-ellipsis text-location")}</td>
+          <td>${renderTextValue(formatDate(client.createdAt), "text-ellipsis text-date text-mono")}</td>
+          <td><span class="${badgeClass(client.accountStatus)}" title="${escapeHtml(formatStatusLabel(client.accountStatus))}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button is-warning" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="approve">Approve</button>
               <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="review">Review</button>
@@ -3746,7 +4033,7 @@
       document.getElementById("packageKpiGrid").innerHTML = packageAnalytics.map((entry) => `
         <article class="kpi-card">
           <div class="kpi-label">${escapeHtml(formatPlanLabel(entry.plan))}</div>
-          <strong>${escapeHtml(entry.active)}</strong>
+          <strong${buildTitleAttribute(entry.active)}>${escapeHtml(entry.active)}</strong>
           <div class="kpi-copy">${escapeHtml(entry.total)} total clients • ${escapeHtml(formatCurrency(entry.estimatedRevenue))} estimated monthly value</div>
         </article>
       `).join("");
@@ -3786,15 +4073,15 @@
       setTableState("packageClientsTableBody", "packageClientsEmptyState", rows, (client) => `
         <tr class="${client.accountStatus === "pending" ? "pending-row" : ""}">
           <td>
-            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
+            <div class="cell-title">${renderTextValue(client.businessName || client.name, "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue(client.email || "—", "text-ellipsis text-email text-mono")}</div>
           </td>
-          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
-          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
-          <td>${escapeHtml(formatCurrency(estimateClientFee(client)))}</td>
-          <td>${escapeHtml((client.allowedFeatures || []).length)}</td>
-          <td>
+          <td>${renderTextValue(formatPlanLabel(client.plan), "text-ellipsis text-package", { titleValue: formatPlanLabel(client.plan) })}</td>
+          <td><span class="${badgeClass(client.accountStatus)}" title="${escapeHtml(formatStatusLabel(client.accountStatus))}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td><span class="${badgeClass(client.paymentStatus)}" title="${escapeHtml(formatStatusLabel(client.paymentStatus))}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td>${renderTextValue(formatCurrency(estimateClientFee(client)), "text-ellipsis text-currency text-mono")}</td>
+          <td>${renderTextValue((client.allowedFeatures || []).length, "text-ellipsis text-mono", { title: false })}</td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage</button>
             </div>
@@ -3846,7 +4133,7 @@
       ].map((card) => `
         <article class="kpi-card">
           <div class="kpi-label">${escapeHtml(card.label)}</div>
-          <strong>${escapeHtml(card.value)}</strong>
+          <strong${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
           <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
@@ -3895,23 +4182,23 @@
       setTableState("invoicesTableBody", "invoicesEmptyState", invoices, (invoice) => `
         <tr class="${invoice.status === "overdue" ? "pending-row" : ""}">
           <td>
-            <div class="cell-title">${escapeHtml(invoice.invoiceNumber)}</div>
-            <div class="cell-subtitle">Issued ${escapeHtml(formatShortDate(invoice.issueDate))}</div>
+            <div class="cell-title">${renderTextValue(invoice.invoiceNumber || "—", "text-ellipsis text-invoice text-mono")}</div>
+            <div class="cell-subtitle">${renderTextValue(`Issued ${formatShortDate(invoice.issueDate)}`, "text-ellipsis text-date text-mono", { titleValue: `Issued ${formatDate(invoice.issueDate)}` })}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(invoice.businessName || invoice.clientName || "Client")}</div>
-            <div class="cell-subtitle">${escapeHtml(invoice.clientName || "—")} • ${escapeHtml(invoice.clientEmail || "—")}</div>
+            <div class="cell-title">${renderTextValue(invoice.businessName || invoice.clientName || "Client", "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue([invoice.clientName || "—", invoice.clientEmail || "—"].join(" • "), "text-ellipsis", { titleValue: [invoice.clientName, invoice.clientEmail].filter(Boolean).join(" • ") || "—" })}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(invoice.title || "Invoice")}</div>
-            <div class="cell-subtitle">${escapeHtml(invoice.description || "No description added")}</div>
+            <div class="cell-title">${renderTextValue(invoice.title || "Invoice", "text-ellipsis")}</div>
+            <div class="cell-subtitle">${renderTextValue(invoice.description || "No description added", "text-note", { titleValue: invoice.description || "No description added" })}</div>
           </td>
-          <td>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</td>
-          <td>${escapeHtml(formatInvoiceCurrency(invoice.paidAmount, invoice.currency))}</td>
-          <td>${escapeHtml(formatInvoiceCurrency(invoice.balance, invoice.currency))}</td>
-          <td><span class="${badgeClass(invoice.status)}">${escapeHtml(formatStatusLabel(invoice.status))}</span></td>
-          <td>${escapeHtml(formatShortDate(invoice.dueDate))}</td>
-          <td>
+          <td>${renderTextValue(formatInvoiceCurrency(invoice.totalAmount, invoice.currency), "text-ellipsis text-currency text-mono")}</td>
+          <td>${renderTextValue(formatInvoiceCurrency(invoice.paidAmount, invoice.currency), "text-ellipsis text-currency text-mono")}</td>
+          <td>${renderTextValue(formatInvoiceCurrency(invoice.balance, invoice.currency), "text-ellipsis text-currency text-mono")}</td>
+          <td><span class="${badgeClass(invoice.status)}" title="${escapeHtml(formatStatusLabel(invoice.status))}">${escapeHtml(formatStatusLabel(invoice.status))}</span></td>
+          <td>${renderTextValue(formatShortDate(invoice.dueDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(invoice.dueDate) })}</td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="view">View</button>
               <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="edit">Edit</button>
@@ -3961,7 +4248,7 @@
       ].map((card) => `
         <article class="kpi-card is-wide">
           <div class="kpi-label">${escapeHtml(card.label)}</div>
-          <strong>${escapeHtml(card.value)}</strong>
+          <strong${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
           <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
@@ -4005,15 +4292,15 @@
       setTableState("paymentsTableBody", "paymentsEmptyState", billingRows, (client) => `
         <tr class="${client.paymentStatus === "overdue" ? "pending-row" : ""}">
           <td>
-            <div class="cell-title">${escapeHtml(client.businessName || client.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(client.email)}</div>
+            <div class="cell-title">${renderTextValue(client.businessName || client.name, "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue(client.email || "—", "text-ellipsis text-email text-mono")}</div>
           </td>
-          <td>${escapeHtml(formatPlanLabel(client.plan))}</td>
-          <td>${escapeHtml(formatCurrency(client.monthlyFee))}</td>
-          <td><span class="${badgeClass(client.paymentStatus)}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
-          <td>${escapeHtml(formatShortDate(client.nextPaymentDate))}</td>
-          <td><span class="${badgeClass(client.accountStatus)}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
-          <td>
+          <td>${renderTextValue(formatPlanLabel(client.plan), "text-ellipsis text-package", { titleValue: formatPlanLabel(client.plan) })}</td>
+          <td>${renderTextValue(formatCurrency(client.monthlyFee), "text-ellipsis text-currency text-mono")}</td>
+          <td><span class="${badgeClass(client.paymentStatus)}" title="${escapeHtml(formatStatusLabel(client.paymentStatus))}">${escapeHtml(formatStatusLabel(client.paymentStatus))}</span></td>
+          <td>${renderTextValue(formatShortDate(client.nextPaymentDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(client.nextPaymentDate) })}</td>
+          <td><span class="${badgeClass(client.accountStatus)}" title="${escapeHtml(formatStatusLabel(client.accountStatus))}">${escapeHtml(formatStatusLabel(client.accountStatus))}</span></td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-client-id="${escapeHtml(client.id)}" data-client-action="manage">Manage Billing</button>
             </div>
@@ -4028,21 +4315,21 @@
       setTableState("bookingsTableBody", "bookingsEmptyState", bookings, (booking) => `
         <tr>
           <td>
-            <div class="cell-title">${escapeHtml(booking.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(booking.email)}${booking.phone ? ` • ${escapeHtml(booking.phone)}` : ""}</div>
+            <div class="cell-title">${renderTextValue(booking.name || "—", "text-ellipsis text-person")}</div>
+            <div class="cell-subtitle">${renderTextValue([booking.email || "—", booking.phone].filter(Boolean).join(" • "), "text-ellipsis", { titleValue: [booking.email, booking.phone].filter(Boolean).join(" • ") || "—" })}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(booking.clientBusinessName || booking.clientName || "Client")}</div>
-            <div class="cell-subtitle">${escapeHtml(booking.clientEmail || "")}</div>
+            <div class="cell-title">${renderTextValue(booking.clientBusinessName || booking.clientName || "Client", "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue(booking.clientEmail || "—", "text-ellipsis text-email text-mono")}</div>
           </td>
-          <td>${escapeHtml(booking.service || "General booking")}</td>
+          <td>${renderTextValue(booking.service || "General booking", "text-ellipsis")}</td>
           <td>
-            <div class="cell-title">${escapeHtml(booking.date)}</div>
-            <div class="cell-subtitle">${escapeHtml(booking.time)}</div>
+            <div class="cell-title">${renderTextValue(booking.date || "—", "text-ellipsis text-date text-mono")}</div>
+            <div class="cell-subtitle">${renderTextValue(booking.time || "—", "text-ellipsis text-mono")}</div>
           </td>
-          <td><span class="${badgeClass(booking.status)}">${escapeHtml(formatStatusLabel(booking.status))}</span></td>
-          <td>${escapeHtml(booking.adminNotes || "—")}</td>
-          <td>
+          <td><span class="${badgeClass(booking.status)}" title="${escapeHtml(formatStatusLabel(booking.status))}">${escapeHtml(formatStatusLabel(booking.status))}</span></td>
+          <td>${renderTextValue(booking.adminNotes || "—", "text-note", { titleValue: booking.adminNotes || "—" })}</td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-booking-id="${escapeHtml(booking._id)}">Edit</button>
             </div>
@@ -4057,18 +4344,18 @@
       setTableState("inquiriesTableBody", "inquiriesEmptyState", inquiries, (inquiry) => `
         <tr>
           <td>
-            <div class="cell-title">${escapeHtml(inquiry.name)}</div>
-            <div class="cell-subtitle">${escapeHtml(inquiry.email)}</div>
+            <div class="cell-title">${renderTextValue(inquiry.name || "—", "text-ellipsis text-person")}</div>
+            <div class="cell-subtitle">${renderTextValue(inquiry.email || "—", "text-ellipsis text-email text-mono")}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform inquiry")}</div>
-            <div class="cell-subtitle">${escapeHtml(inquiry.clientEmail || "")}</div>
+            <div class="cell-title">${renderTextValue(inquiry.clientBusinessName || inquiry.clientName || inquiry.source || "Platform inquiry", "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue(inquiry.clientEmail || "—", "text-ellipsis text-email text-mono")}</div>
           </td>
-          <td>${escapeHtml(inquiry.message)}</td>
-          <td><span class="${badgeClass(inquiry.status)}">${escapeHtml(formatStatusLabel(inquiry.status))}</span></td>
-          <td>${escapeHtml(inquiry.source || "website")}</td>
-          <td>${escapeHtml(inquiry.adminNotes || "—")}</td>
-          <td>
+          <td>${renderTextValue(inquiry.message || "—", "text-note", { titleValue: inquiry.message || "—" })}</td>
+          <td><span class="${badgeClass(inquiry.status)}" title="${escapeHtml(formatStatusLabel(inquiry.status))}">${escapeHtml(formatStatusLabel(inquiry.status))}</span></td>
+          <td>${renderTextValue(inquiry.source || "website", "text-ellipsis")}</td>
+          <td>${renderTextValue(inquiry.adminNotes || "—", "text-note", { titleValue: inquiry.adminNotes || "—" })}</td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-inquiry-id="${escapeHtml(inquiry._id)}">Edit</button>
             </div>
@@ -4086,18 +4373,18 @@
         return `
           <tr>
             <td>
-              <div class="cell-title">${escapeHtml(review.name)}</div>
-              <div class="cell-subtitle">${escapeHtml(review.role || "Customer")}</div>
+              <div class="cell-title">${renderTextValue(review.name || "—", "text-ellipsis text-person")}</div>
+              <div class="cell-subtitle">${renderTextValue(review.role || "Customer", "text-ellipsis")}</div>
             </td>
             <td>
-              <div class="cell-title">${escapeHtml(review.clientBusinessName || review.clientName || "Client")}</div>
-              <div class="cell-subtitle">${escapeHtml(review.clientEmail || "")}</div>
+              <div class="cell-title">${renderTextValue(review.clientBusinessName || review.clientName || "Client", "text-ellipsis text-business")}</div>
+              <div class="cell-subtitle">${renderTextValue(review.clientEmail || "—", "text-ellipsis text-email text-mono")}</div>
             </td>
-            <td>${escapeHtml(ratingStars(review.rating))}</td>
-            <td>${escapeHtml(review.text)}</td>
-            <td><span class="${badgeClass(displayStatus)}">${escapeHtml(formatStatusLabel(displayStatus))}</span></td>
-            <td>${escapeHtml(review.adminNotes || "—")}</td>
-            <td>
+            <td>${renderTextValue(ratingStars(review.rating), "text-ellipsis")}</td>
+            <td>${renderTextValue(review.text || "—", "text-note", { titleValue: review.text || "—" })}</td>
+            <td><span class="${badgeClass(displayStatus)}" title="${escapeHtml(formatStatusLabel(displayStatus))}">${escapeHtml(formatStatusLabel(displayStatus))}</span></td>
+            <td>${renderTextValue(review.adminNotes || "—", "text-note", { titleValue: review.adminNotes || "—" })}</td>
+            <td class="actions-cell">
               <div class="actions">
                 <button class="mini-button" type="button" data-review-id="${escapeHtml(review._id)}">Moderate</button>
               </div>
@@ -4145,7 +4432,7 @@
       ].map((card) => `
         <article class="kpi-card">
           <div class="kpi-label">${escapeHtml(card.label)}</div>
-          <strong>${escapeHtml(card.value)}</strong>
+          <strong${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
           <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
@@ -4153,21 +4440,21 @@
       setTableState("supportRequestsTableBody", "supportRequestsEmptyState", requests, (request) => `
         <tr class="${request.priority === "urgent" || request.status === "open" ? "pending-row" : ""}">
           <td>
-            <div class="cell-title">${escapeHtml(request.businessName || request.clientName || "Client")}</div>
-            <div class="cell-subtitle">${escapeHtml(request.clientName || "—")} • ${escapeHtml(request.clientEmail || "—")}</div>
+            <div class="cell-title">${renderTextValue(request.businessName || request.clientName || "Client", "text-ellipsis text-business")}</div>
+            <div class="cell-subtitle">${renderTextValue([request.clientName || "—", request.clientEmail || "—"].join(" • "), "text-ellipsis", { titleValue: [request.clientName, request.clientEmail].filter(Boolean).join(" • ") || "—" })}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(formatRequestTypeLabel(request.type))}</div>
-            <div class="cell-subtitle">${escapeHtml(formatRequestedPackageLabel(request.requestedPackage))}</div>
+            <div class="cell-title">${renderTextValue(formatRequestTypeLabel(request.type), "text-ellipsis")}</div>
+            <div class="cell-subtitle">${renderTextValue(formatRequestedPackageLabel(request.requestedPackage), "text-ellipsis text-package")}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(request.subject || "Request")}</div>
-            <div class="cell-subtitle">${escapeHtml((request.message || "").slice(0, 90))}${String(request.message || "").length > 90 ? "..." : ""}</div>
+            <div class="cell-title">${renderTextValue(request.subject || "Request", "text-ellipsis")}</div>
+            <div class="cell-subtitle">${renderTextValue(`${(request.message || "").slice(0, 90)}${String(request.message || "").length > 90 ? "..." : ""}` || "—", "text-note", { titleValue: request.message || "—" })}</div>
           </td>
-          <td><span class="${requestPriorityBadgeClass(request.priority)}">${escapeHtml(formatStatusLabel(request.priority))}</span></td>
-          <td><span class="${badgeClass(request.status)}">${escapeHtml(formatStatusLabel(request.status))}</span></td>
-          <td>${escapeHtml(formatShortDate(request.createdAt))}</td>
-          <td>
+          <td><span class="${requestPriorityBadgeClass(request.priority)}" title="${escapeHtml(formatStatusLabel(request.priority))}">${escapeHtml(formatStatusLabel(request.priority))}</span></td>
+          <td><span class="${badgeClass(request.status)}" title="${escapeHtml(formatStatusLabel(request.status))}">${escapeHtml(formatStatusLabel(request.status))}</span></td>
+          <td>${renderTextValue(formatShortDate(request.createdAt), "text-ellipsis text-date text-mono", { titleValue: formatDate(request.createdAt) })}</td>
+          <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-request-id="${escapeHtml(request.id)}" data-request-action="manage">Manage</button>
               ${["open", "in_progress"].includes(request.status)
@@ -4233,7 +4520,7 @@
       ].map((card) => `
         <article class="kpi-card">
           <div class="kpi-label">${escapeHtml(card.label)}</div>
-          <strong>${escapeHtml(card.value)}</strong>
+          <strong${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
           <div class="kpi-copy">${escapeHtml(card.copy)}</div>
         </article>
       `).join("");
@@ -4396,14 +4683,14 @@
       setTableState("reportsActivityTableBody", "reportsActivityEmptyState", activityFeed, (entry) => `
         <tr>
           <td>
-            <div class="cell-title">${escapeHtml(entry.type)}</div>
-            <div class="cell-subtitle">${escapeHtml(entry.title || "Activity")}</div>
+            <div class="cell-title">${renderTextValue(entry.type || "Activity", "text-ellipsis")}</div>
+            <div class="cell-subtitle">${renderTextValue(entry.title || "Activity", "text-ellipsis")}</div>
           </td>
           <td>
-            <div class="cell-title">${escapeHtml(entry.details || "No additional details available.")}</div>
+            <div class="cell-title">${renderTextValue(entry.details || "No additional details available.", "text-note", { titleValue: entry.details || "No additional details available." })}</div>
           </td>
-          <td><span class="${badgeClass(entry.status)}">${escapeHtml(formatStatusLabel(entry.status))}</span></td>
-          <td>${escapeHtml(formatDate(entry.date))}</td>
+          <td><span class="${badgeClass(entry.status)}" title="${escapeHtml(formatStatusLabel(entry.status))}">${escapeHtml(formatStatusLabel(entry.status))}</span></td>
+          <td>${renderTextValue(formatDate(entry.date), "text-ellipsis text-date text-mono")}</td>
         </tr>
       `, "No recent activity is available for the current reporting window.");
     }
@@ -4434,7 +4721,7 @@
       ].map((item) => `
         <div class="settings-item">
           <span>${escapeHtml(item.label)}</span>
-          <strong>${escapeHtml(item.value)}</strong>
+          <strong>${renderTextValue(item.value, "text-ellipsis")}</strong>
         </div>
       `).join("");
 
@@ -4492,7 +4779,7 @@
       ].map((item) => `
         <div class="settings-item">
           <span>${escapeHtml(item.label)}</span>
-          <strong>${escapeHtml(item.value)}</strong>
+          <strong>${renderTextValue(item.value, "text-ellipsis")}</strong>
         </div>
       `).join("");
 
@@ -4556,6 +4843,7 @@
       state.admin = payload.user;
       localStorage.setItem(USER_KEY, JSON.stringify(payload.user));
       document.getElementById("adminIdentity").textContent = payload.user.email;
+      document.getElementById("adminIdentity").title = payload.user.email;
     }
 
     async function loadStats() {
@@ -4621,6 +4909,8 @@
       document.getElementById("drawerEyebrow").textContent = config.eyebrow;
       document.getElementById("drawerTitle").textContent = config.title;
       document.getElementById("drawerSubtitle").textContent = config.subtitle;
+      document.getElementById("drawerTitle").title = config.title || "";
+      document.getElementById("drawerSubtitle").title = config.subtitle || "";
       document.getElementById("drawerBody").innerHTML = config.body;
       document.getElementById("drawerShell").classList.add("is-open");
       attachDrawerHandlers();
@@ -4650,9 +4940,9 @@
             : ""}
 
           <div class="chip-row" style="margin-top: ${approvalMode ? "16px" : "0"};">
-            <span class="data-chip"><strong>${escapeHtml(formatShortDate(client.createdAt))}</strong>Signup Date</span>
-            <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(client.accountStatus))}</strong>Current Status</span>
-            <span class="data-chip"><strong>${escapeHtml(client.location || "Not set")}</strong>Location</span>
+            <span class="data-chip"><strong>${renderTextValue(formatShortDate(client.createdAt), "text-ellipsis text-date text-mono", { titleValue: formatDate(client.createdAt) })}</strong>Signup Date</span>
+            <span class="data-chip"><strong>${renderTextValue(formatStatusLabel(client.accountStatus), "text-ellipsis text-status", { titleValue: formatStatusLabel(client.accountStatus) })}</strong>Current Status</span>
+            <span class="data-chip"><strong>${renderTextValue(client.location || "Not set", "text-ellipsis text-location")}</strong>Location</span>
           </div>
 
           <div class="drawer-grid" style="margin-top: 16px;">
@@ -5054,28 +5344,28 @@
 
       return `
         <div class="chip-row">
-          <span class="data-chip"><strong>${escapeHtml(invoice.invoiceNumber)}</strong>Invoice Number</span>
-          <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(invoice.status))}</strong>Status</span>
-          <span class="data-chip"><strong>${escapeHtml(formatShortDate(invoice.issueDate))}</strong>Issue Date</span>
-          <span class="data-chip"><strong>${escapeHtml(formatShortDate(invoice.dueDate))}</strong>Due Date</span>
+          <span class="data-chip"><strong>${renderTextValue(invoice.invoiceNumber || "—", "text-ellipsis text-invoice text-mono")}</strong>Invoice Number</span>
+          <span class="data-chip"><strong>${renderTextValue(formatStatusLabel(invoice.status), "text-ellipsis text-status")}</strong>Status</span>
+          <span class="data-chip"><strong>${renderTextValue(formatShortDate(invoice.issueDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(invoice.issueDate) })}</strong>Issue Date</span>
+          <span class="data-chip"><strong>${renderTextValue(formatShortDate(invoice.dueDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(invoice.dueDate) })}</strong>Due Date</span>
         </div>
 
         <div class="settings-grid" style="margin-top: 18px;">
           <div class="settings-item">
             <span>Client</span>
-            <strong>${escapeHtml(invoice.clientName || "—")}</strong>
+            <strong>${renderTextValue(invoice.clientName || "—", "text-ellipsis text-person")}</strong>
           </div>
           <div class="settings-item">
             <span>Business</span>
-            <strong>${escapeHtml(invoice.businessName || "—")}</strong>
+            <strong>${renderTextValue(invoice.businessName || "—", "text-ellipsis text-business")}</strong>
           </div>
           <div class="settings-item">
             <span>Total Amount</span>
-            <strong>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</strong>
+            <strong>${renderTextValue(formatInvoiceCurrency(invoice.totalAmount, invoice.currency), "text-ellipsis text-currency text-mono")}</strong>
           </div>
           <div class="settings-item">
             <span>Balance</span>
-            <strong>${escapeHtml(formatInvoiceCurrency(invoice.balance, invoice.currency))}</strong>
+            <strong>${renderTextValue(formatInvoiceCurrency(invoice.balance, invoice.currency), "text-ellipsis text-currency text-mono")}</strong>
           </div>
         </div>
 
@@ -5324,9 +5614,9 @@
           <input type="hidden" name="invoiceId" value="${escapeHtml(invoice.id)}">
 
           <div class="chip-row">
-            <span class="data-chip"><strong>${escapeHtml(invoice.invoiceNumber)}</strong>Invoice Number</span>
-            <span class="data-chip"><strong>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount, invoice.currency))}</strong>Total</span>
-            <span class="data-chip"><strong>${escapeHtml(formatInvoiceCurrency(invoice.balance, invoice.currency))}</strong>Balance</span>
+            <span class="data-chip"><strong>${renderTextValue(invoice.invoiceNumber || "—", "text-ellipsis text-invoice text-mono")}</strong>Invoice Number</span>
+            <span class="data-chip"><strong>${renderTextValue(formatInvoiceCurrency(invoice.totalAmount, invoice.currency), "text-ellipsis text-currency text-mono")}</strong>Total</span>
+            <span class="data-chip"><strong>${renderTextValue(formatInvoiceCurrency(invoice.balance, invoice.currency), "text-ellipsis text-currency text-mono")}</strong>Balance</span>
           </div>
 
           <div class="drawer-grid" style="margin-top: 18px;">
@@ -5502,28 +5792,28 @@
           <input type="hidden" name="requestId" value="${escapeHtml(request.id)}">
 
           <div class="chip-row">
-            <span class="data-chip"><strong>${escapeHtml(formatRequestTypeLabel(request.type))}</strong>Request Type</span>
-            <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(request.priority))}</strong>Priority</span>
-            <span class="data-chip"><strong>${escapeHtml(formatStatusLabel(request.status))}</strong>Status</span>
-            <span class="data-chip"><strong>${escapeHtml(formatShortDate(request.createdAt))}</strong>Created</span>
+            <span class="data-chip"><strong>${renderTextValue(formatRequestTypeLabel(request.type), "text-ellipsis")}</strong>Request Type</span>
+            <span class="data-chip"><strong>${renderTextValue(formatStatusLabel(request.priority), "text-ellipsis text-status")}</strong>Priority</span>
+            <span class="data-chip"><strong>${renderTextValue(formatStatusLabel(request.status), "text-ellipsis text-status")}</strong>Status</span>
+            <span class="data-chip"><strong>${renderTextValue(formatShortDate(request.createdAt), "text-ellipsis text-date text-mono", { titleValue: formatDate(request.createdAt) })}</strong>Created</span>
           </div>
 
           <div class="settings-grid" style="margin-top: 18px;">
             <div class="settings-item">
               <span>Business</span>
-              <strong>${escapeHtml(request.businessName || "—")}</strong>
+              <strong>${renderTextValue(request.businessName || "—", "text-ellipsis text-business")}</strong>
             </div>
             <div class="settings-item">
               <span>Client</span>
-              <strong>${escapeHtml(request.clientName || "—")}</strong>
+              <strong>${renderTextValue(request.clientName || "—", "text-ellipsis text-person")}</strong>
             </div>
             <div class="settings-item">
               <span>Email</span>
-              <strong>${escapeHtml(request.clientEmail || "—")}</strong>
+              <strong>${renderTextValue(request.clientEmail || "—", "text-ellipsis text-email text-mono")}</strong>
             </div>
             <div class="settings-item">
               <span>Requested Package</span>
-              <strong>${escapeHtml(formatRequestedPackageLabel(request.requestedPackage))}</strong>
+              <strong>${renderTextValue(formatRequestedPackageLabel(request.requestedPackage), "text-ellipsis text-package")}</strong>
             </div>
           </div>
 
