@@ -20,8 +20,9 @@ const {
 } = require("../utils/account");
 const { sendWelcomeEmail } = require("../utils/email");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
+const { getJwtSecret } = require("../utils/env");
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
+const JWT_SECRET = getJwtSecret();
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
 const SALT_ROUNDS = 12;
 const CLIENT_PROFILE_FIELDS = new Set([

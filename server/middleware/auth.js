@@ -11,8 +11,9 @@ const {
   normalizePaymentStatus,
   resolveAllowedFeatures
 } = require("../utils/account");
+const { getJwtSecret } = require("../utils/env");
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
+const JWT_SECRET = getJwtSecret();
 
 /**
  * Verifies a bearer token and attaches the decoded user payload to the request.

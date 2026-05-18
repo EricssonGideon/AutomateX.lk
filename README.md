@@ -28,7 +28,7 @@ npm install
 ```
 
 4. Copy `.env.example` to `.env`.
-5. Set your MongoDB connection string in `.env`.
+5. Set your MongoDB connection string and `JWT_SECRET` in `.env`.
 6. Start the server:
 
 ```bash
@@ -41,7 +41,7 @@ Or for production:
 npm start
 ```
 
-7. Open [http://localhost:5000](http://localhost:5000)
+7. Open your local server URL, for example [http://localhost:5001/login.html](http://localhost:5001/login.html) when `PORT=5001`.
 
 ## API
 
@@ -73,3 +73,11 @@ Example request body:
 - Weekend dates are blocked in the frontend calendar.
 - Duplicate bookings for the same date and time are prevented in the API and the database index.
 - If you open `index.html` directly without running the Node server, the booking form UI will appear, but live booking submission will not work because the API will not be running.
+
+## DEV_NOTES
+
+- Do not open `login.html`, `admin-login.html`, or `client-login.html` with `file://`. Real authentication needs the backend API.
+- Start the backend server first with a valid `.env` file and a working MongoDB connection.
+- For local auth testing, use `http://localhost:5001/login.html` when `PORT=5001`, or the matching local server URL for your configured port.
+- Real signup and login require both the backend server and MongoDB to be connected.
+- `JWT_SECRET` is required locally. The app no longer falls back to a default development secret.

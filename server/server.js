@@ -6,11 +6,11 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const mongoose = require("mongoose");
 
+dotenv.config();
+
 const apiRoutes = require("./routes");
 const { apiLimiter, handleCorsError } = require("./middleware/rateLimit");
 const { connectToDatabase } = require("./utils/db");
-
-dotenv.config();
 
 const app = express();
 const publicDirectory = path.join(__dirname, "..", "public");
