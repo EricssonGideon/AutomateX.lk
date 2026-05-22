@@ -1315,7 +1315,7 @@ async function sendChat() {
   } catch (_error) {
     removeTypingIndicator();
     pushConversationEntry("user", value);
-    const fallback = "Sorry, I'm having trouble. Please WhatsApp us.";
+    const fallback = "Thanks for your message. I can still help you with AutomateX services. Please tell me your business type, what you need - website, system, automation, or chatbot - and your WhatsApp number so our team can guide you.";
     addMessage(fallback, "bot", "https://wa.me/94711861722");
     pushConversationEntry("assistant", fallback);
   }
