@@ -20,6 +20,34 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const isProduction = process.env.NODE_ENV === "production";
+const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
+
+function isSameOriginRequest(req, origin) {
+  const host = req.get("host");
+
+  if (!host) {
+    return false;
+  }
+
+  return origin === `${req.protocol}://${host}`;
+}
+
+function isAllowedCorsOrigin(req, origin) {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  if (isSameOriginRequest(req, origin)) {
+    return true;
+  }
+
+  return !isProduction && localOriginPattern.test(origin);
+}
 
 function logStructuredError(payload) {
   console.error(JSON.stringify({
@@ -30,19 +58,23 @@ function logStructuredError(payload) {
   }));
 }
 
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+function corsOptionsDelegate(req, callback) {
+  callback(null, {
+    origin(requestOrigin, originCallback) {
+      if (isAllowedCorsOrigin(req, requestOrigin)) {
+        return originCallback(null, true);
+      }
 
-    return callback(new Error("Origin not allowed by CORS."));
-  }
-};
+      return originCallback(new Error("Origin not allowed by CORS."));
+    },
+    preflightContinue: false,
+    optionsSuccessStatus: 204
+  });
+}
 
 app.use(helmet());
 app.use(morgan("combined"));
-app.use(cors(corsOptions));
+app.use(cors(corsOptionsDelegate));
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
