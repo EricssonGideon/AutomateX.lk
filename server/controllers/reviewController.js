@@ -35,21 +35,18 @@ const reviewValidators = [
     .notEmpty()
     .withMessage("Name is required.")
     .isLength({ max: 100 })
-    .withMessage("Name must be 100 characters or fewer.")
-    .escape(),
+    .withMessage("Name must be 100 characters or fewer."),
   body("role")
     .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 100 })
-    .withMessage("Role must be 100 characters or fewer.")
-    .escape(),
+    .withMessage("Role must be 100 characters or fewer."),
   body("text")
     .trim()
     .notEmpty()
     .withMessage("Review text is required.")
     .isLength({ max: 280 })
-    .withMessage("Review must be 280 characters or fewer.")
-    .escape(),
+    .withMessage("Review must be 280 characters or fewer."),
   body("rating")
     .toInt()
     .isInt({ min: 1, max: 5 })

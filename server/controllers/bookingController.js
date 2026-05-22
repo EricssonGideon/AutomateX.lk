@@ -100,8 +100,7 @@ const bookingValidators = [
     .notEmpty()
     .withMessage("Name is required.")
     .isLength({ max: 100 })
-    .withMessage("Name must be 100 characters or fewer.")
-    .escape(),
+    .withMessage("Name must be 100 characters or fewer."),
   body("email")
     .trim()
     .notEmpty()
@@ -113,14 +112,12 @@ const bookingValidators = [
     .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 30 })
-    .withMessage("Phone must be 30 characters or fewer.")
-    .escape(),
+    .withMessage("Phone must be 30 characters or fewer."),
   body("service")
     .optional({ checkFalsy: true })
     .trim()
     .isLength({ max: 100 })
-    .withMessage("Service must be 100 characters or fewer.")
-    .escape(),
+    .withMessage("Service must be 100 characters or fewer."),
   body("date")
     .trim()
     .notEmpty()

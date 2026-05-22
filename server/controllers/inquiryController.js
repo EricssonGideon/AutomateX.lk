@@ -57,8 +57,7 @@ const inquiryValidators = [
     .notEmpty()
     .withMessage("Name is required.")
     .isLength({ max: 100 })
-    .withMessage("Name must be 100 characters or fewer.")
-    .escape(),
+    .withMessage("Name must be 100 characters or fewer."),
   body("email")
     .trim()
     .notEmpty()
@@ -71,8 +70,7 @@ const inquiryValidators = [
     .notEmpty()
     .withMessage("Project details are required.")
     .isLength({ max: 2000 })
-    .withMessage("Project details must be 2000 characters or fewer.")
-    .escape(),
+    .withMessage("Project details must be 2000 characters or fewer."),
   body("publicProfileUrl")
     .optional({ checkFalsy: true })
     .trim()
