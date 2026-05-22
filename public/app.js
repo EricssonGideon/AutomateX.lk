@@ -562,10 +562,25 @@ const chatBox = document.getElementById("chatBox");
 const chatMessages = document.getElementById("chatMessages");
 const chatToggle = document.getElementById("chatToggle");
 const chatBadge = document.getElementById("chatBadge");
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+const chatMic = document.getElementById("chatMic");
+const chatVoiceStatus = document.getElementById("chatVoiceStatus");
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const voiceRecognitionLanguages = {
+  en: "en-US",
+  si: "si-LK",
+  ta: "ta-LK"
+};
 let chatOpen = false;
 let badgeDismissed = false;
 let conversationHistory = [];
 let typingIndicatorNode = null;
+let voiceRecognition = null;
+let voiceListening = false;
+let voiceTranscript = "";
+let voiceShouldSend = false;
+let voiceCancelled = false;
 
 function getChatAuthToken() {
   return (
@@ -576,9 +591,12 @@ function getChatAuthToken() {
   );
 }
 
-function addMessage(text, from = "bot", link = null) {
+function addMessage(text, from = "bot", link = null, options = {}) {
   const wrapper = document.createElement("div");
   wrapper.className = `chat-msg chat-msg-${from}`;
+  if (options.variant) {
+    wrapper.classList.add(`chat-msg-${options.variant}`);
+  }
 
   if (link) {
     const anchor = document.createElement("a");
@@ -612,6 +630,622 @@ function removeTypingIndicator() {
   typingIndicatorNode = null;
 }
 
+function setVoiceStatus(message = "", type = "info") {
+  chatVoiceStatus.textContent = message;
+  chatVoiceStatus.dataset.type = type;
+  chatVoiceStatus.classList.toggle("hidden", !message);
+}
+
+function setMicListeningState(isListening) {
+  voiceListening = isListening;
+  chatMic.classList.toggle("is-listening", isListening);
+  chatMic.setAttribute("aria-label", isListening ? "Cancel voice chat" : "Start voice chat");
+  chatMic.title = isListening ? "Cancel voice chat" : "Start voice chat";
+}
+
+function stopVoiceRecognition({ send = false, cancelled = false } = {}) {
+  if (!voiceRecognition || !voiceListening) {
+    return;
+  }
+
+  voiceShouldSend = send;
+  voiceCancelled = cancelled;
+  voiceRecognition.stop();
+}
+
+function handleVoiceUnsupported() {
+  chatMic.classList.add("is-unsupported");
+  chatMic.setAttribute("aria-disabled", "true");
+  chatMic.title = "Voice chat is not supported in this browser.";
+  setVoiceStatus("Voice chat is not supported in this browser. Please type your message.", "error");
+}
+
+function createVoiceRecognition() {
+  if (!SpeechRecognition) {
+    return null;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = voiceRecognitionLanguages.en;
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    voiceTranscript = "";
+    voiceShouldSend = false;
+    voiceCancelled = false;
+    setMicListeningState(true);
+    setVoiceStatus("Listening...", "listening");
+  };
+
+  recognition.onresult = (event) => {
+    let interimTranscript = "";
+    let finalTranscript = "";
+
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index][0].transcript.trim();
+      if (event.results[index].isFinal) {
+        finalTranscript += `${transcript} `;
+      } else {
+        interimTranscript += `${transcript} `;
+      }
+    }
+
+    voiceTranscript = `${voiceTranscript} ${finalTranscript}`.trim();
+    const visibleTranscript = (voiceTranscript || interimTranscript).trim();
+    if (visibleTranscript) {
+      chatInput.value = visibleTranscript;
+    }
+
+    if (finalTranscript.trim()) {
+      voiceShouldSend = true;
+    }
+  };
+
+  recognition.onerror = (event) => {
+    voiceShouldSend = false;
+    voiceCancelled = true;
+
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      setVoiceStatus("Microphone access was blocked. Please allow microphone access to use voice chat.", "error");
+      return;
+    }
+
+    if (event.error === "no-speech") {
+      setVoiceStatus("No speech detected. Please try again.", "error");
+      return;
+    }
+
+    setVoiceStatus("Voice chat could not start. Please type your message.", "error");
+  };
+
+  recognition.onend = () => {
+    const shouldSend = voiceShouldSend && !voiceCancelled && chatInput.value.trim();
+    setMicListeningState(false);
+
+    if (shouldSend) {
+      setVoiceStatus("", "info");
+      sendChat();
+      return;
+    }
+
+    if (voiceCancelled && !chatVoiceStatus.textContent) {
+      setVoiceStatus("", "info");
+    }
+  };
+
+  return recognition;
+}
+
+function startVoiceRecognition() {
+  if (!SpeechRecognition) {
+    handleVoiceUnsupported();
+    return;
+  }
+
+  if (voiceListening) {
+    stopVoiceRecognition({ cancelled: true });
+    setVoiceStatus("", "info");
+    return;
+  }
+
+  if (chatInput.disabled || chatSend.disabled) {
+    return;
+  }
+
+  voiceRecognition = createVoiceRecognition();
+
+  try {
+    voiceRecognition.start();
+  } catch {
+    setMicListeningState(false);
+    setVoiceStatus("Voice chat could not start. Please type your message.", "error");
+  }
+}
+
+const recommendationCatalog = {
+  starter: {
+    name: "AutomateX Starter Solution",
+    price: "LKR 25,000 launch offer",
+    summary: "Best for small businesses that need a simple professional online presence.",
+    features: [
+      "Business website with up to 5 pages",
+      "Mobile responsive design",
+      "WhatsApp integration",
+      "Basic SEO and Google Maps setup",
+      "Contact form"
+    ]
+  },
+  standard: {
+    name: "AutomateX Standard Solution",
+    price: "LKR 55,000 limited-time pricing",
+    summary: "Best for growing businesses that need website, lead capture, WhatsApp, and operational tracking.",
+    features: [
+      "Everything in Starter",
+      "Lead capture and inquiry flow",
+      "WhatsApp contact path",
+      "Basic CRM and sales dashboard",
+      "Booking, invoice, or admin tracking setup"
+    ]
+  },
+  pro: {
+    name: "AutomateX Pro Solution",
+    price: "LKR 120,000+ depending on scope",
+    summary: "Best for businesses that need advanced automation, AI chatbot, dashboards, and custom workflows.",
+    features: [
+      "Everything in Standard",
+      "AI chatbot for web and WhatsApp",
+      "Advanced analytics dashboard",
+      "Automation workflow stack",
+      "Custom integrations and multi-user support"
+    ]
+  },
+  posStarter: {
+    name: "AutomateX POS Starter",
+    price: "Starting price depends on your requirements.",
+    summary: "Best for retail shops that need simple billing and daily sales control.",
+    features: [
+      "Billing workflow",
+      "Product and price setup",
+      "Daily sales summary",
+      "Basic inventory view",
+      "Upgrade path to barcode and dashboard features"
+    ]
+  },
+  posStandard: {
+    name: "AutomateX POS Standard",
+    price: "Starting price depends on your requirements.",
+    summary: "Best for retail shops that need billing, barcode, inventory, and sales tracking.",
+    features: [
+      "POS system with billing and barcode",
+      "Inventory management",
+      "Sales dashboard",
+      "Invoice support",
+      "Basic CRM or customer tracking"
+    ]
+  },
+  hotelBooking: {
+    name: "AutomateX Hotel Website + Booking System",
+    price: "Starting price depends on your requirements.",
+    summary: "Best for hotels, villas, and stays that need booking inquiries and room/service presentation.",
+    features: [
+      "Hotel or villa website",
+      "Room and service sections",
+      "Booking inquiry flow",
+      "WhatsApp contact button",
+      "Admin inquiry tracking can be added later"
+    ]
+  },
+  ecommerce: {
+    name: "AutomateX Ecommerce Website",
+    price: "Starting price depends on your catalog, payment, and delivery needs.",
+    summary: "Best for businesses that sell products online.",
+    features: [
+      "Product catalog",
+      "Order inquiry or checkout flow",
+      "WhatsApp sales support",
+      "Mobile-first shopping experience",
+      "Admin order/product management can be scoped"
+    ]
+  },
+  whatsapp: {
+    name: "AutomateX WhatsApp Automation",
+    price: "From LKR 45,000",
+    summary: "Best for businesses that need faster replies, lead triage, and follow-up prompts.",
+    features: [
+      "Auto replies",
+      "Lead triage questions",
+      "Follow-up prompts",
+      "Team routing",
+      "Website inquiry connection can be added"
+    ]
+  },
+  aiAssistant: {
+    name: "AutomateX AI Assistant Setup",
+    price: "From LKR 95,000",
+    summary: "Best for businesses that want a customer support assistant or FAQ bot tuned to their services.",
+    features: [
+      "Business-specific FAQ assistant",
+      "Customer support chat flow",
+      "Lead qualification prompts",
+      "Website chatbot setup",
+      "WhatsApp AI can be scoped if needed"
+    ]
+  },
+  uiRefresh: {
+    name: "AutomateX Brand-Focused UI Refresh",
+    price: "Starting price depends on your current website.",
+    summary: "Best for businesses with an existing website that needs a more premium, trustworthy look.",
+    features: [
+      "Modern visual refresh",
+      "Clearer service presentation",
+      "Better call-to-action flow",
+      "Mobile polish",
+      "Trust-focused page improvements"
+    ]
+  },
+  launchSupport: {
+    name: "AutomateX Launch Support",
+    price: "Starting price depends on launch scope.",
+    summary: "Best for businesses preparing a new digital launch or campaign.",
+    features: [
+      "Launch planning",
+      "Landing page support",
+      "Lead capture setup",
+      "WhatsApp inquiry path",
+      "Post-launch improvement checklist"
+    ]
+  }
+};
+
+let recommendationState = {
+  active: false,
+  answers: {},
+  lastRecommendationKey: null
+};
+
+function normalizeRecommendationText(text) {
+  return String(text || "").toLowerCase().replace(/[^\w\s+-]/g, " ");
+}
+
+function textHasAny(text, keywords) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function detectRecommendationIntent(rawText) {
+  const text = normalizeRecommendationText(rawText);
+  return textHasAny(text, [
+    "recommend",
+    "package",
+    "what is good",
+    "what is best",
+    "good for me",
+    "need a website",
+    "need website",
+    "want a website",
+    "want website",
+    "build a website",
+    "business software",
+    "improve my business",
+    "retail",
+    "shop",
+    "store",
+    "supermarket",
+    "grocery",
+    "pos",
+    "billing",
+    "inventory",
+    "hotel",
+    "booking system",
+    "ecommerce",
+    "online store",
+    "sell products",
+    "whatsapp automation",
+    "ai chatbot",
+    "admin dashboard",
+    "crm"
+  ]);
+}
+
+function detectRecommendationCommand(rawText) {
+  const text = normalizeRecommendationText(rawText);
+  if (textHasAny(text, ["compare", "comparison", "difference"])) {
+    return "compare";
+  }
+  if (textHasAny(text, ["cheaper", "low budget", "less expensive", "starter option"])) {
+    return "cheaper";
+  }
+  if (textHasAny(text, ["advanced", "upgrade", "more powerful", "pro option"])) {
+    return "advanced";
+  }
+  if (textHasAny(text, ["included", "include", "features", "what do i get", "what is inside"])) {
+    return "included";
+  }
+  return "";
+}
+
+function updateRecommendationAnswers(rawText) {
+  const text = normalizeRecommendationText(rawText);
+  const answers = recommendationState.answers;
+
+  if (textHasAny(text, ["hotel", "villa", "guest house", "resort", "room"])) {
+    answers.businessType = "hotel";
+  } else if (textHasAny(text, ["retail", "shop", "store", "supermarket", "grocery", "pharmacy"])) {
+    answers.businessType = "retail";
+  } else if (textHasAny(text, ["restaurant", "cafe", "food"])) {
+    answers.businessType = "restaurant";
+  } else if (textHasAny(text, ["salon", "clinic", "agency", "consultant", "service business"])) {
+    answers.businessType = "service";
+  }
+
+  answers.goals = answers.goals || [];
+  const goalMap = [
+    { key: "website", words: ["website", "site", "online presence", "landing page"] },
+    { key: "leads", words: ["lead", "inquiry", "enquiry", "contact form", "customer inquiries"] },
+    { key: "booking", words: ["booking", "appointment", "reservation", "room"] },
+    { key: "sales", words: ["sales", "orders", "sell", "products", "ecommerce", "online store"] },
+    { key: "automation", words: ["automation", "automate", "workflow", "follow up"] },
+    { key: "support", words: ["support", "faq", "customer service"] },
+    { key: "pos", words: ["pos", "billing", "barcode", "inventory", "invoice"] },
+    { key: "chatbot", words: ["ai chatbot", "chatbot", "ai assistant", "bot"] },
+    { key: "whatsapp", words: ["whatsapp", "messaging"] },
+    { key: "dashboard", words: ["dashboard", "admin", "crm", "tracking"] },
+    { key: "uiRefresh", words: ["redesign", "refresh", "improve my website", "modernize", "make it premium"] },
+    { key: "launch", words: ["launch", "campaign", "go live"] }
+  ];
+
+  goalMap.forEach((goal) => {
+    if (textHasAny(text, goal.words) && !answers.goals.includes(goal.key)) {
+      answers.goals.push(goal.key);
+    }
+  });
+
+  if (textHasAny(text, ["yes whatsapp", "need whatsapp", "with whatsapp", "whatsapp integration"])) {
+    answers.needsWhatsApp = true;
+  } else if (textHasAny(text, ["no whatsapp", "without whatsapp"])) {
+    answers.needsWhatsApp = false;
+  }
+
+  if (textHasAny(text, ["admin", "dashboard", "crm", "track", "tracking", "manage leads", "inquiry tracking"])) {
+    answers.needsDashboard = true;
+  } else if (textHasAny(text, ["no dashboard", "without dashboard"])) {
+    answers.needsDashboard = false;
+  }
+
+  if (textHasAny(text, ["low budget", "cheap", "cheaper", "small budget", "basic", "starter", "simple"])) {
+    answers.budget = "low";
+  } else if (textHasAny(text, ["mid", "standard", "growing", "medium"])) {
+    answers.budget = "mid";
+  } else if (textHasAny(text, ["advanced", "pro", "large", "high budget", "scale"])) {
+    answers.budget = "advanced";
+  }
+}
+
+function countRecommendationSignals() {
+  const answers = recommendationState.answers;
+  let count = 0;
+  if (answers.businessType) count += 1;
+  if (answers.goals && answers.goals.length) count += 1;
+  if (typeof answers.needsWhatsApp === "boolean") count += 1;
+  if (typeof answers.needsDashboard === "boolean") count += 1;
+  if (answers.budget) count += 1;
+  return count;
+}
+
+function buildRecommendationQuestions() {
+  const answers = recommendationState.answers;
+  const questions = [];
+
+  if (!answers.businessType) {
+    questions.push("What type of business do you have?");
+  }
+  if (!answers.goals || !answers.goals.length) {
+    questions.push("What is your main goal: website, leads, booking, sales, automation, or support?");
+  }
+  if (typeof answers.needsWhatsApp !== "boolean") {
+    questions.push("Do you need WhatsApp integration?");
+  }
+  if (typeof answers.needsDashboard !== "boolean" && questions.length < 4) {
+    questions.push("Do you need an admin dashboard or inquiry tracking?");
+  }
+  if (!answers.budget && questions.length < 4) {
+    questions.push("What is your approximate budget range: low, mid-range, or advanced?");
+  }
+
+  return `I can recommend the best AutomateX package. To guide you properly, please answer these:\n\n${questions
+    .slice(0, 4)
+    .map((question, index) => `${index + 1}. ${question}`)
+    .join("\n")}`;
+}
+
+function hasEnoughRecommendationInfo() {
+  const { answers } = recommendationState;
+  const goals = answers.goals || [];
+
+  if (answers.businessType === "hotel" && (goals.includes("booking") || goals.includes("website"))) {
+    return true;
+  }
+  if (answers.businessType === "retail" && goals.includes("pos")) {
+    return true;
+  }
+  if (goals.includes("sales")) {
+    return true;
+  }
+  if (goals.includes("whatsapp") || goals.includes("chatbot") || goals.includes("uiRefresh") || goals.includes("launch")) {
+    return countRecommendationSignals() >= 2;
+  }
+  if (goals.includes("website")) {
+    return countRecommendationSignals() >= 2;
+  }
+
+  return countRecommendationSignals() >= 3;
+}
+
+function selectRecommendationKey() {
+  const { answers } = recommendationState;
+  const goals = answers.goals || [];
+  const isLowBudget = answers.budget === "low";
+
+  if (answers.businessType === "retail" && goals.includes("pos")) {
+    return isLowBudget ? "posStarter" : "posStandard";
+  }
+  if (answers.businessType === "hotel" && (goals.includes("booking") || goals.includes("website") || goals.includes("leads"))) {
+    return "hotelBooking";
+  }
+  if (goals.includes("sales")) {
+    return "ecommerce";
+  }
+  if (goals.includes("chatbot") && (goals.includes("automation") || goals.includes("dashboard") || answers.needsDashboard)) {
+    return "pro";
+  }
+  if (goals.includes("chatbot")) {
+    return "aiAssistant";
+  }
+  if (goals.includes("whatsapp") && !goals.includes("website")) {
+    return "whatsapp";
+  }
+  if (goals.includes("uiRefresh")) {
+    return "uiRefresh";
+  }
+  if (goals.includes("launch")) {
+    return "launchSupport";
+  }
+  if (goals.includes("automation") || goals.includes("dashboard") || answers.needsDashboard) {
+    return answers.budget === "advanced" ? "pro" : "standard";
+  }
+  if (goals.includes("website") && (answers.needsWhatsApp || goals.includes("leads"))) {
+    return isLowBudget ? "starter" : "standard";
+  }
+  if (goals.includes("website")) {
+    return isLowBudget ? "starter" : "standard";
+  }
+
+  return isLowBudget ? "starter" : "standard";
+}
+
+function buildRecommendationReply(packageKey) {
+  const selectedPackage = recommendationCatalog[packageKey];
+  const { answers } = recommendationState;
+  const goals = answers.goals || [];
+  const why = [];
+
+  if (answers.businessType) {
+    why.push(`You run a ${answers.businessType} business`);
+  }
+  if (goals.includes("website")) {
+    why.push("You need a professional online presence");
+  }
+  if (goals.includes("leads")) {
+    why.push("You need customer inquiries from your website");
+  }
+  if (goals.includes("booking")) {
+    why.push("A booking or inquiry flow will reduce manual follow-up");
+  }
+  if (goals.includes("pos")) {
+    why.push("Billing, inventory, and sales tracking are core operational needs");
+  }
+  if (goals.includes("chatbot")) {
+    why.push("An AI assistant can answer customer questions faster");
+  }
+  if (goals.includes("automation")) {
+    why.push("Automation can reduce repetitive daily work");
+  }
+  if (answers.needsWhatsApp || goals.includes("whatsapp")) {
+    why.push("WhatsApp contact can help convert visitors faster");
+  }
+  if (answers.needsDashboard || goals.includes("dashboard")) {
+    why.push("Admin tracking can help manage leads and operations");
+  }
+  if (!why.length) {
+    why.push(selectedPackage.summary);
+  }
+
+  recommendationState.lastRecommendationKey = packageKey;
+
+  return `Recommended Solution:\n${selectedPackage.name}\n\nWhy this fits you:\n${why
+    .slice(0, 4)
+    .map((item) => `- ${item}`)
+    .join("\n")}\n\nSuggested Features:\n${selectedPackage.features
+    .slice(0, 5)
+    .map((feature) => `- ${feature}`)
+    .join("\n")}\n\nInvestment Note:\n${selectedPackage.price}\n\nNext Step:\nPlease share your name, business type, WhatsApp number, and a short requirement summary so the AutomateX team can contact you.`;
+}
+
+function buildIncludedReply(packageKey) {
+  const selectedPackage = recommendationCatalog[packageKey || recommendationState.lastRecommendationKey || "standard"];
+  return `${selectedPackage.name} includes:\n\n${selectedPackage.features.map((feature) => `- ${feature}`).join("\n")}\n\nInvestment Note:\n${selectedPackage.price}`;
+}
+
+function buildComparisonReply() {
+  return `Quick Package Comparison:\n\nStarter Solution:\n- Best for a simple professional website\n- Includes responsive website, WhatsApp integration, SEO basics, Google Maps, and contact form\n\nStandard Solution:\n- Best for website + lead capture + WhatsApp + admin-style tracking\n- Includes stronger inquiry flow, basic CRM, sales dashboard, booking/invoice options, and 3 months support\n\nPro Solution:\n- Best for advanced automation, AI chatbot, dashboards, and custom systems\n- Includes AI chatbot, analytics dashboard, workflow automation, integrations, and multi-user support\n\nI recommend starting with one best-fit option first, then upgrading only if your workflow needs it.`;
+}
+
+function buildAdjacentRecommendation(direction) {
+  const currentKey = recommendationState.lastRecommendationKey || selectRecommendationKey();
+  const cheaperMap = {
+    pro: "standard",
+    standard: "starter",
+    starter: "starter",
+    posStandard: "posStarter",
+    posStarter: "starter",
+    aiAssistant: "starter",
+    whatsapp: "starter",
+    hotelBooking: "starter",
+    ecommerce: "starter",
+    uiRefresh: "starter",
+    launchSupport: "starter"
+  };
+  const advancedMap = {
+    starter: "standard",
+    standard: "pro",
+    pro: "pro",
+    posStarter: "posStandard",
+    posStandard: "pro",
+    aiAssistant: "pro",
+    whatsapp: "pro",
+    hotelBooking: "pro",
+    ecommerce: "pro",
+    uiRefresh: "standard",
+    launchSupport: "standard"
+  };
+  const nextKey = direction === "cheaper" ? cheaperMap[currentKey] : advancedMap[currentKey];
+  return buildRecommendationReply(nextKey || currentKey);
+}
+
+function handlePackageRecommendation(rawText) {
+  const command = detectRecommendationCommand(rawText);
+  if (command === "compare") {
+    recommendationState.active = true;
+    return { text: buildComparisonReply(), variant: "recommendation" };
+  }
+  if (command === "included" && recommendationState.lastRecommendationKey) {
+    return { text: buildIncludedReply(), variant: "recommendation" };
+  }
+  if (command === "cheaper" && recommendationState.lastRecommendationKey) {
+    return { text: buildAdjacentRecommendation("cheaper"), variant: "recommendation" };
+  }
+  if (command === "advanced" && recommendationState.lastRecommendationKey) {
+    return { text: buildAdjacentRecommendation("advanced"), variant: "recommendation" };
+  }
+
+  if (!recommendationState.active && !detectRecommendationIntent(rawText)) {
+    return null;
+  }
+
+  recommendationState.active = true;
+  updateRecommendationAnswers(rawText);
+
+  if (!hasEnoughRecommendationInfo()) {
+    return { text: buildRecommendationQuestions(), variant: "recommendation" };
+  }
+
+  return {
+    text: buildRecommendationReply(selectRecommendationKey()),
+    variant: "recommendation"
+  };
+}
+
 function pushConversationEntry(role, content) {
   conversationHistory.push({ role, content });
   conversationHistory = conversationHistory.slice(-10);
@@ -619,16 +1253,14 @@ function pushConversationEntry(role, content) {
 
 async function requestChatReply(message, historySnapshot) {
   const token = getChatAuthToken();
+  const endpoint = token ? "/chat" : "/chat/public";
+  const headers = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
 
-  if (!token) {
-    throw new Error("public-chat-disabled");
-  }
-
-  const payload = await apiRequest("/chat", {
+  const payload = await apiRequest(endpoint, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`
-    },
+    headers,
     body: JSON.stringify({
       message,
       conversationHistory: historySnapshot
@@ -652,10 +1284,7 @@ chatToggle.addEventListener("click", () => {
   if (chatOpen && chatMessages.children.length === 0) {
     setTimeout(() => {
       if (!getChatAuthToken()) {
-        addMessage("Live chat is coming soon for public visitors. Use WhatsApp for the fastest reply.", "bot", "https://wa.me/94711861722");
-        document.getElementById("chatInput").disabled = true;
-        document.getElementById("chatInput").placeholder = "Chat coming soon";
-        document.getElementById("chatSend").disabled = true;
+        addMessage("Hi! I can help recommend the right AutomateX package. Tell me what you want to build, or use WhatsApp for the fastest direct reply.");
         return;
       }
 
@@ -665,14 +1294,22 @@ chatToggle.addEventListener("click", () => {
 });
 
 async function sendChat() {
-  const input = document.getElementById("chatInput");
-  const value = input.value.trim();
+  const value = chatInput.value.trim();
   if (!value) {
     return;
   }
 
-  input.value = "";
+  chatInput.value = "";
   addMessage(value, "user");
+
+  const recommendationReply = handlePackageRecommendation(value);
+  if (recommendationReply) {
+    pushConversationEntry("user", value);
+    addMessage(recommendationReply.text, "bot", null, { variant: recommendationReply.variant });
+    pushConversationEntry("assistant", recommendationReply.text);
+    return;
+  }
+
   const historySnapshot = conversationHistory.slice(-10);
   addTypingIndicator();
 
@@ -693,14 +1330,24 @@ async function sendChat() {
   }
 }
 
-document.getElementById("chatSend").addEventListener("click", () => {
+chatSend.addEventListener("click", () => {
   sendChat();
 });
-document.getElementById("chatInput").addEventListener("keydown", (event) => {
+chatInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
+    stopVoiceRecognition({ cancelled: true });
     sendChat();
   }
 });
+chatMic.addEventListener("click", () => {
+  startVoiceRecognition();
+});
+
+if (!SpeechRecognition) {
+  chatMic.classList.add("is-unsupported");
+  chatMic.setAttribute("aria-disabled", "true");
+  chatMic.title = "Voice chat is not supported in this browser.";
+}
 
 setTimeout(() => {
   if (!chatOpen) {

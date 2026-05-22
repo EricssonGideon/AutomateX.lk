@@ -599,8 +599,17 @@
         <div><strong>AutomateX Assistant</strong><br><span class="online-dot"></span><small>Online now</small></div>
       </div>
       <div class="chatbot-messages" id="chatMessages"></div>
+      <div class="chatbot-voice-status hidden" id="chatVoiceStatus" role="status" aria-live="polite"></div>
       <div class="chatbot-input-row" id="chatInputRow">
         <input type="text" id="chatInput" placeholder="Type a message...">
+        <button class="chatbot-mic" id="chatMic" type="button" aria-label="Start voice chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z"></path>
+            <path d="M19 11a7 7 0 0 1-14 0"></path>
+            <path d="M12 18v3"></path>
+            <path d="M8 21h8"></path>
+          </svg>
+        </button>
         <button id="chatSend">&#10148;</button>
       </div>
     </div>
