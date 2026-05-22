@@ -1252,15 +1252,8 @@ function pushConversationEntry(role, content) {
 }
 
 async function requestChatReply(message, historySnapshot) {
-  const token = getChatAuthToken();
-  const endpoint = token ? "/chat" : "/chat/public";
-  const headers = token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
-
-  const payload = await apiRequest(endpoint, {
+  const payload = await apiRequest("/chat", {
     method: "POST",
-    headers,
     body: JSON.stringify({
       message,
       conversationHistory: historySnapshot
@@ -1319,12 +1312,10 @@ async function sendChat() {
     pushConversationEntry("user", value);
     addMessage(reply, "bot");
     pushConversationEntry("assistant", reply);
-  } catch (error) {
+  } catch (_error) {
     removeTypingIndicator();
     pushConversationEntry("user", value);
-    const fallback = error.message === "public-chat-disabled"
-      ? "Live chat is coming soon for public visitors. Please contact us on WhatsApp."
-      : "Sorry, I'm having trouble. Please WhatsApp us.";
+    const fallback = "Sorry, I'm having trouble. Please WhatsApp us.";
     addMessage(fallback, "bot", "https://wa.me/94711861722");
     pushConversationEntry("assistant", fallback);
   }

@@ -225,6 +225,8 @@ async function createChatReply(req, res) {
       reply
     });
   } catch (error) {
+    console.error("AutomateX chat error:", error);
+
     if (error && error.status === 401) {
       return sendError(res, 500, "Invalid OpenAI API key configuration.");
     }
