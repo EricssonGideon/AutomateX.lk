@@ -9,7 +9,7 @@ const mongoose = require("mongoose");
 dotenv.config();
 
 const apiRoutes = require("./routes");
-const { apiLimiter, handleCorsError } = require("./middleware/rateLimit");
+const { handleCorsError } = require("./middleware/rateLimit");
 const { connectToDatabase } = require("./utils/db");
 
 const app = express();
@@ -70,7 +70,7 @@ app.use("/api", async (_req, _res, next) => {
   }
 });
 
-app.use("/api", apiLimiter, apiRoutes);
+app.use("/api", apiRoutes);
 app.use(handleCorsError);
 
 app.use("/api", (req, res) => {

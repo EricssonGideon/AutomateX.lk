@@ -11,19 +11,23 @@ const invoiceRoutes = require("./invoices");
 const requestRoutes = require("./requests");
 const reviewRoutes = require("./reviews");
 const { getHealth } = require("../controllers/indexController");
+const {
+  authenticatedApiLimiter,
+  chatLimiter
+} = require("../middleware/rateLimit");
 
 const router = express.Router();
 
 router.get("/health", getHealth);
 router.use("/auth", authRoutes);
-router.use("/admin", adminRoutes);
+router.use("/admin", authenticatedApiLimiter, adminRoutes);
 router.use("/billing", billingRoutes);
 router.use("/bookings", bookingRoutes);
-router.use("/chat", chatRoutes);
-router.use("/features", featureRoutes);
+router.use("/chat", chatLimiter, chatRoutes);
+router.use("/features", authenticatedApiLimiter, featureRoutes);
 router.use("/inquiries", inquiryRoutes);
-router.use("/invoices", invoiceRoutes);
-router.use("/requests", requestRoutes);
+router.use("/invoices", authenticatedApiLimiter, invoiceRoutes);
+router.use("/requests", authenticatedApiLimiter, requestRoutes);
 router.use("/reviews", reviewRoutes);
 
 module.exports = router;

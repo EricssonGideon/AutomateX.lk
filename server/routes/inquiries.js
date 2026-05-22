@@ -12,12 +12,16 @@ const {
   requireActiveAccount,
   requireFeature
 } = require("../middleware/auth");
-const { publicFormLimiter } = require("../middleware/rateLimit");
+const {
+  authenticatedApiLimiter,
+  publicFormLimiter
+} = require("../middleware/rateLimit");
 
 const router = express.Router();
 
 router.post("/", publicFormLimiter, inquiryValidators, createInquiry);
 router.use(verifyToken, requireClient, requireActiveAccount, requireFeature("inquiry-management"));
+router.use(authenticatedApiLimiter);
 router.get("/", getInquiries);
 router.patch("/:inquiryId/status", updateInquiryStatus);
 

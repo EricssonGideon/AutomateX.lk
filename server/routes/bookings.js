@@ -15,16 +15,21 @@ const {
   requireActiveAccount,
   requireFeature
 } = require("../middleware/auth");
-const { publicFormLimiter } = require("../middleware/rateLimit");
+const {
+  authenticatedApiLimiter,
+  publicFormLimiter,
+  publicReadLimiter
+} = require("../middleware/rateLimit");
 
 const router = express.Router();
 
-router.get("/public/availability", publicFormLimiter, getPublicAvailability);
+router.get("/public/availability", publicReadLimiter, getPublicAvailability);
 router.post("/public", publicFormLimiter, bookingValidators, createPublicBooking);
 router.use(verifyToken, requireClient, requireActiveAccount, requireFeature("booking-system"));
+router.use(authenticatedApiLimiter);
 router.get("/", getBookings);
 router.get("/availability", getAvailability);
-router.post("/", publicFormLimiter, bookingValidators, createBooking);
+router.post("/", bookingValidators, createBooking);
 router.patch("/:bookingId/cancel", cancelBooking);
 
 module.exports = router;
