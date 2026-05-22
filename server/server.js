@@ -13,6 +13,8 @@ const { apiLimiter, handleCorsError } = require("./middleware/rateLimit");
 const { connectToDatabase } = require("./utils/db");
 
 const app = express();
+app.set("trust proxy", 1);
+
 const publicDirectory = path.join(__dirname, "..", "public");
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
