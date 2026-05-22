@@ -79,17 +79,22 @@ app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/api/health", async (_req, res, next) => {
+app.get("/api/health", async (_req, res) => {
   try {
-    await connectToDatabase();
+    const connection = await connectToDatabase();
+    const databaseConnected = Boolean(connection) && mongoose.connection.readyState === 1;
 
-    res.json({
-      status: "ok",
+    res.status(databaseConnected ? 200 : 503).json({
+      status: databaseConnected ? "ok" : "degraded",
       timestamp: new Date().toISOString(),
-      database: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+      database: databaseConnected ? "connected" : "disconnected"
     });
   } catch (error) {
-    next(error);
+    res.status(503).json({
+      status: "degraded",
+      timestamp: new Date().toISOString(),
+      database: "disconnected"
+    });
   }
 });
 
