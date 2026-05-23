@@ -143,18 +143,20 @@ async function applySubscriptionToUser(user, subscription) {
   const lineItem = subscription.items && subscription.items.data && subscription.items.data[0];
   const priceId = lineItem && lineItem.price ? lineItem.price.id : null;
   const nextPlan = getPlanForPriceId(priceId);
+  const nextBillingDate = subscription.current_period_end
+    ? new Date(subscription.current_period_end * 1000)
+    : null;
 
   user.plan = nextPlan;
-  user.isActive = true;
+  user.paymentStatus = "paid";
   user.stripeCustomerId = typeof subscription.customer === "string"
     ? subscription.customer
     : subscription.customer && subscription.customer.id
       ? subscription.customer.id
       : user.stripeCustomerId;
   user.stripeSubscriptionId = subscription.id || "";
-  user.planExpiresAt = subscription.current_period_end
-    ? new Date(subscription.current_period_end * 1000)
-    : null;
+  user.planExpiresAt = nextBillingDate;
+  user.nextPaymentDate = nextBillingDate;
   await user.save();
 }
 
