@@ -1213,6 +1213,8 @@ function buildAdjacentRecommendation(direction) {
   return buildRecommendationReply(nextKey || currentKey);
 }
 
+// Legacy frontend package helper retained; live chatbot routing now sends user messages to /api/chat first.
+// eslint-disable-next-line no-unused-vars
 function handlePackageRecommendation(rawText) {
   const command = detectRecommendationCommand(rawText);
   if (command === "compare") {
@@ -1294,14 +1296,6 @@ async function sendChat() {
 
   chatInput.value = "";
   addMessage(value, "user");
-
-  const recommendationReply = handlePackageRecommendation(value);
-  if (recommendationReply) {
-    pushConversationEntry("user", value);
-    addMessage(recommendationReply.text, "bot", null, { variant: recommendationReply.variant });
-    pushConversationEntry("assistant", recommendationReply.text);
-    return;
-  }
 
   const historySnapshot = conversationHistory.slice(-10);
   addTypingIndicator();
