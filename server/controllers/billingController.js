@@ -308,7 +308,7 @@ async function handleSubscriptionUpdated(subscription) {
 }
 
 /**
- * Handles Stripe subscription deletion by deactivating the associated tenant.
+ * Handles Stripe subscription deletion by removing paid billing access.
  *
  * @param {import("stripe").Stripe.Subscription} subscription - Stripe subscription payload.
  * @returns {Promise<void>} Resolves after the user is updated.
@@ -319,10 +319,11 @@ async function handleSubscriptionDeleted(subscription) {
     return;
   }
 
-  user.plan = null;
-  user.isActive = false;
+  user.plan = "not_assigned";
+  user.paymentStatus = "unpaid";
   user.stripeSubscriptionId = "";
   user.planExpiresAt = null;
+  user.nextPaymentDate = null;
   await user.save();
 }
 
