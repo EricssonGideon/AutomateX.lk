@@ -26,8 +26,13 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "client"],
+      enum: ["admin", "manager", "staff", "client"],
       default: "client"
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "suspended"],
+      default: "active"
     },
     plan: {
       type: String,
@@ -121,6 +126,16 @@ const userSchema = new mongoose.Schema(
     planExpiresAt: {
       type: Date,
       default: null
+    },
+    passwordResetTokenHash: {
+      type: String,
+      default: "",
+      select: false
+    },
+    passwordResetExpiresAt: {
+      type: Date,
+      default: null,
+      select: false
     },
     createdAt: {
       type: Date,

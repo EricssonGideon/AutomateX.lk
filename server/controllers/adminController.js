@@ -7,7 +7,18 @@ const Invoice = require("../models/Invoice");
 const Review = require("../models/Review");
 const SupportRequest = require("../models/SupportRequest");
 const AppSettings = require("../models/AppSettings");
-const { OFFICIAL_ADMIN_EMAIL, resolveTrustedRole } = require("../utils/authRole");
+const Project = require("../models/Project");
+const MaintenancePlan = require("../models/MaintenancePlan");
+const Lead = require("../models/Lead");
+const SalesExecutive = require("../models/SalesExecutive");
+const AuditLog = require("../models/AuditLog");
+const {
+  OFFICIAL_ADMIN_EMAIL,
+  isOfficialAdminEmail,
+  normalizeRole,
+  resolveTrustedRole
+} = require("../utils/authRole");
+const { AUDIT_MODULES, AUDIT_SEVERITIES, logAdminAction } = require("../utils/auditLog");
 const {
   DEFAULT_APP_SETTINGS,
   buildAppSettingsUpdatePayload,
@@ -38,10 +49,16 @@ const {
   normalizeInvoiceText,
   normalizeInvoiceDate,
   normalizeInvoiceStatus,
+  normalizeInvoiceType,
+  normalizeInvoicePaymentMethod,
   calculateInvoiceTotals,
   resolveInvoiceStatus,
+  statusToPaymentStatus,
+  paymentStatusToStatus,
   serializeInvoice
 } = require("../utils/invoice");
+const { generateInvoicePdfBuffer } = require("../utils/invoicePdf");
+const { sendInvoiceEmail } = require("../utils/email");
 const {
   REQUEST_TYPE_OPTIONS,
   REQUEST_PRIORITY_OPTIONS,
@@ -188,6 +205,20 @@ function buildReportFilename(slug) {
   return `automatex-${slug}-report-${formatCsvDate(new Date())}.csv`;
 }
 
+async function logSensitiveExport(req, reportName, rowCount) {
+  await logAdminAction(req, {
+    module: "Reports",
+    action: "reports.exported",
+    targetType: "ReportExport",
+    targetLabel: reportName,
+    newValue: {
+      reportName,
+      rowCount
+    },
+    severity: "High"
+  });
+}
+
 async function getCurrentAppSettings() {
   const settings = await AppSettings.findOne({}).sort({ updatedAt: -1, createdAt: -1 }).lean();
   return serializeAppSettings(settings || DEFAULT_APP_SETTINGS);
@@ -233,6 +264,49 @@ function applyInvoiceClientSnapshot(invoice, client) {
   invoice.clientName = client.name || client.businessName || "Client";
   invoice.clientEmail = client.email || "";
   invoice.businessName = client.businessName || client.name || "Client";
+}
+
+async function resolveInvoiceOptionalLinks(body, clientId = "") {
+  const errors = [];
+  const links = {};
+  const optionalLinks = [
+    ["projectId", Project, { isArchived: false }, "project"],
+    ["maintenancePlanId", MaintenancePlan, {}, "maintenance plan"],
+    ["leadId", Lead, { isArchived: false }, "lead"],
+    ["salesExecutiveId", SalesExecutive, { isArchived: false }, "sales executive"]
+  ];
+
+  for (const [field, Model, extraMatch, label] of optionalLinks) {
+    const value = body && Object.prototype.hasOwnProperty.call(body, field) ? body[field] : undefined;
+    if (typeof value === "undefined") {
+      continue;
+    }
+
+    if (!value) {
+      links[field] = null;
+      continue;
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(value)) {
+      errors.push(`Invalid ${label} ID.`);
+      continue;
+    }
+
+    const match = { _id: value, ...extraMatch };
+    if (clientId && ["projectId", "maintenancePlanId"].includes(field)) {
+      match.clientId = clientId;
+    }
+
+    const document = await Model.findOne(match).lean();
+    if (!document) {
+      errors.push(`Selected ${label} was not found.`);
+      continue;
+    }
+
+    links[field] = document._id;
+  }
+
+  return { links, errors };
 }
 
 function buildInvoiceAnalytics(invoices) {
@@ -448,6 +522,447 @@ function buildReportSummaryPayload({
   };
 }
 
+function parseReportDateRange(query = {}) {
+  const now = new Date();
+  let start = new Date(now.getFullYear(), now.getMonth(), 1);
+  let end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  let label = start.toISOString().slice(0, 7);
+
+  if (query.month && /^\d{4}-\d{2}$/.test(String(query.month))) {
+    const [year, month] = String(query.month).split("-").map(Number);
+    start = new Date(year, month - 1, 1);
+    end = new Date(year, month, 1);
+    label = String(query.month);
+  } else if (query.year || query.monthNumber) {
+    const year = Number(query.year);
+    const month = Number(query.monthNumber || query.month);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
+      return { error: "Report month and year filters are invalid." };
+    }
+    start = new Date(year, month - 1, 1);
+    end = new Date(year, month, 1);
+    label = `${year}-${String(month).padStart(2, "0")}`;
+  }
+
+  if (query.from || query.to) {
+    const from = query.from ? new Date(query.from) : start;
+    const to = query.to ? new Date(query.to) : new Date(end.getTime() - 1);
+
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      return { error: "Report date range is invalid." };
+    }
+
+    if (from.getTime() > to.getTime()) {
+      return { error: "Report start date must be before the end date." };
+    }
+
+    start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    end = new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1);
+    label = `${start.toISOString().slice(0, 10)} to ${new Date(end.getTime() - 1).toISOString().slice(0, 10)}`;
+  }
+
+  return {
+    start,
+    end,
+    label,
+    startDate: start.toISOString(),
+    endDate: new Date(end.getTime() - 1).toISOString()
+  };
+}
+
+function inReportRange(value, range) {
+  const timestamp = toTimestamp(value);
+  return timestamp >= range.start.getTime() && timestamp < range.end.getTime();
+}
+
+function countBy(items, field, options = {}) {
+  return items.reduce((totals, item) => {
+    const key = String(item[field] || options.fallback || "Unassigned");
+    totals[key] = (totals[key] || 0) + 1;
+    return totals;
+  }, {});
+}
+
+function sumMoney(items, field) {
+  return roundMoney(items.reduce((sum, item) => sum + normalizeMoney(item[field]), 0));
+}
+
+function monthKey(value) {
+  const timestamp = toTimestamp(value);
+  return timestamp ? new Date(timestamp).toISOString().slice(0, 7) : "Undated";
+}
+
+function buildMonthlyMoneySeries(invoices) {
+  const byMonth = invoices.reduce((totals, invoice) => {
+    const key = monthKey(invoice.issueDate || invoice.createdAt);
+    if (!totals[key]) {
+      totals[key] = { month: key, invoiced: 0, paid: 0, pending: 0 };
+    }
+
+    totals[key].invoiced = roundMoney(totals[key].invoiced + normalizeMoney(invoice.totalAmount));
+    totals[key].paid = roundMoney(totals[key].paid + normalizeMoney(invoice.paidAmount));
+    totals[key].pending = roundMoney(totals[key].pending + normalizeMoney(invoice.balance));
+    return totals;
+  }, {});
+
+  return Object.values(byMonth).sort((left, right) => left.month.localeCompare(right.month));
+}
+
+function buildMoneyByField(items, field, amountField) {
+  return items.reduce((totals, item) => {
+    const key = String(item[field] || "Unassigned");
+    totals[key] = roundMoney((totals[key] || 0) + normalizeMoney(item[amountField]));
+    return totals;
+  }, {});
+}
+
+function safeInvoiceRow(invoice) {
+  return {
+    id: String(invoice._id || invoice.id || ""),
+    invoiceNumber: invoice.invoiceNumber || "",
+    clientName: invoice.clientName || "",
+    clientEmail: invoice.clientEmail || "",
+    businessName: invoice.businessName || "",
+    invoiceType: invoice.invoiceType || "Custom",
+    status: invoice.status || "draft",
+    paymentStatus: invoice.paymentStatus || "",
+    totalAmount: normalizeMoney(invoice.totalAmount),
+    paidAmount: normalizeMoney(invoice.paidAmount),
+    balance: normalizeMoney(invoice.balance),
+    currency: invoice.currency || DEFAULT_INVOICE_CURRENCY,
+    issueDate: invoice.issueDate || null,
+    dueDate: invoice.dueDate || null,
+    paidDate: invoice.paidDate || null
+  };
+}
+
+function safeProjectRow(project) {
+  return {
+    id: String(project._id || project.id || ""),
+    projectTitle: project.projectTitle || "",
+    projectType: project.projectType || "Other",
+    status: project.status || "Planning",
+    priority: project.priority || "Medium",
+    progressPercentage: Number(project.progressPercentage || 0),
+    totalAmount: normalizeMoney(project.totalAmount),
+    paidAmount: normalizeMoney(project.paidAmount),
+    balanceAmount: normalizeMoney(project.balanceAmount),
+    expectedDeadline: project.expectedDeadline || null,
+    completedDate: project.completedDate || null,
+    createdAt: project.createdAt || null
+  };
+}
+
+function safeMaintenanceRow(plan) {
+  return {
+    id: String(plan._id || plan.id || ""),
+    planName: plan.planName || "",
+    planType: plan.planType || "Monthly",
+    status: plan.status || "Pending",
+    paymentStatus: plan.paymentStatus || "Pending",
+    amount: normalizeMoney(plan.amount),
+    paidAmount: normalizeMoney(plan.paidAmount),
+    balanceAmount: normalizeMoney(plan.balanceAmount),
+    renewalDate: plan.renewalDate || null,
+    endDate: plan.endDate || null
+  };
+}
+
+function safeLeadRow(lead) {
+  return {
+    id: String(lead._id || lead.id || ""),
+    businessName: lead.businessName || "",
+    contactPerson: lead.contactPerson || "",
+    phone: lead.phone || "",
+    email: lead.email || "",
+    interestedService: lead.interestedService || "Other",
+    status: lead.status || "New",
+    priority: lead.priority || "Medium",
+    followUpDate: lead.followUpDate || null,
+    createdAt: lead.createdAt || null,
+    salesExecutiveId: lead.salesExecutiveId ? String(lead.salesExecutiveId) : ""
+  };
+}
+
+function safeCommissionRow(commission, executiveMap = new Map()) {
+  return {
+    id: String(commission._id || commission.id || ""),
+    salesExecutiveId: commission.salesExecutiveId ? String(commission.salesExecutiveId) : "",
+    salesExecutiveName: executiveMap.get(String(commission.salesExecutiveId)) || "Sales Executive",
+    commissionType: commission.commissionType || "Manual Bonus",
+    commissionMonth: commission.commissionMonth || null,
+    commissionYear: commission.commissionYear || null,
+    amount: normalizeMoney(commission.amount),
+    status: commission.status || "Pending",
+    paidDate: commission.paidDate || null,
+    createdAt: commission.createdAt || null
+  };
+}
+
+function safeSupportRow(request) {
+  return {
+    id: String(request._id || request.id || ""),
+    clientName: request.clientName || "",
+    clientEmail: request.clientEmail || "",
+    businessName: request.businessName || "",
+    type: request.type || "support",
+    subject: request.subject || "",
+    priority: request.priority || "normal",
+    status: request.status || "open",
+    createdAt: request.createdAt || null,
+    resolvedAt: request.resolvedAt || null
+  };
+}
+
+async function loadReportData() {
+  const [
+    clients,
+    projects,
+    invoices,
+    maintenancePlans,
+    leads,
+    commissions,
+    salesExecutives,
+    requests
+  ] = await Promise.all([
+    User.find(CLIENT_BASE_QUERY).lean(),
+    Project.find({ isArchived: false }).lean(),
+    Invoice.find({}).lean(),
+    MaintenancePlan.find({}).lean(),
+    Lead.find({ isArchived: false }).lean(),
+    Commission.find({}).lean(),
+    SalesExecutive.find({}).lean(),
+    SupportRequest.find({}).lean()
+  ]);
+
+  const executiveMap = new Map(salesExecutives.map((executive) => [String(executive._id), executive.fullName || "Sales Executive"]));
+
+  return {
+    clients: clients.map(serializeAdminClient).filter((client) => client.role === "client"),
+    projects,
+    invoices,
+    maintenancePlans,
+    leads,
+    commissions,
+    executiveMap,
+    requests
+  };
+}
+
+function buildRevenueReport(data, range) {
+  const periodInvoices = data.invoices
+    .filter((invoice) => invoice.status !== "cancelled")
+    .filter((invoice) => inReportRange(invoice.issueDate || invoice.createdAt, range));
+  const paidThisPeriod = data.invoices
+    .filter((invoice) => invoice.status !== "cancelled")
+    .filter((invoice) => inReportRange(invoice.paidDate, range));
+  const overdueInvoices = data.invoices
+    .filter((invoice) => invoice.status !== "cancelled")
+    .filter((invoice) => invoice.status === "overdue" || (invoice.dueDate && toTimestamp(invoice.dueDate) < Date.now() && normalizeMoney(invoice.balance) > 0));
+  const pendingInvoices = periodInvoices.filter((invoice) => ["draft", "sent", "partial", "overdue"].includes(invoice.status));
+
+  return {
+    range: { label: range.label, startDate: range.startDate, endDate: range.endDate },
+    totalInvoiced: sumMoney(periodInvoices, "totalAmount"),
+    totalPaid: sumMoney(paidThisPeriod, "paidAmount"),
+    totalPending: sumMoney(pendingInvoices, "balance"),
+    overdueBalance: sumMoney(overdueInvoices, "balance"),
+    revenueByMonth: buildMonthlyMoneySeries(periodInvoices),
+    revenueByInvoiceType: buildMoneyByField(periodInvoices, "invoiceType", "totalAmount"),
+    overdueInvoices: overdueInvoices.map(safeInvoiceRow).slice(0, 25),
+    unpaidInvoices: pendingInvoices.map(safeInvoiceRow).slice(0, 25),
+    paidInvoicesThisPeriod: paidThisPeriod.map(safeInvoiceRow).slice(0, 25),
+    totals: {
+      invoiceCount: periodInvoices.length,
+      paidInvoiceCount: paidThisPeriod.length,
+      overdueInvoiceCount: overdueInvoices.length,
+      pendingInvoiceCount: pendingInvoices.length
+    }
+  };
+}
+
+function buildProjectReport(data, range) {
+  const now = Date.now();
+  const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000;
+  const completedThisPeriod = data.projects.filter((project) => project.status === "Completed" && inReportRange(project.completedDate || project.updatedAt, range));
+  const atRiskProjects = data.projects.filter((project) => {
+    if (["Completed", "Cancelled"].includes(project.status)) {
+      return false;
+    }
+
+    const deadline = toTimestamp(project.expectedDeadline);
+    return (deadline && deadline <= sevenDaysFromNow) || ["High", "Urgent"].includes(project.priority);
+  });
+
+  return {
+    totalProjects: data.projects.length,
+    activeProjects: data.projects.filter((project) => !["Completed", "Cancelled", "On Hold"].includes(project.status)).length,
+    completedProjects: data.projects.filter((project) => project.status === "Completed").length,
+    completedThisPeriod: completedThisPeriod.length,
+    projectsByStatus: countBy(data.projects, "status"),
+    projectsByType: countBy(data.projects, "projectType"),
+    deadlineRiskProjects: atRiskProjects.map(safeProjectRow).slice(0, 25),
+    completedProjectsThisPeriod: completedThisPeriod.map(safeProjectRow).slice(0, 25)
+  };
+}
+
+function buildInvoiceReport(data, range) {
+  const invoices = data.invoices.filter((invoice) => invoice.status !== "cancelled");
+  const paidThisPeriod = invoices.filter((invoice) => inReportRange(invoice.paidDate, range));
+  const overdueInvoices = invoices.filter((invoice) => invoice.status === "overdue" || (invoice.dueDate && toTimestamp(invoice.dueDate) < Date.now() && normalizeMoney(invoice.balance) > 0));
+  const unpaidInvoices = invoices.filter((invoice) => ["draft", "sent", "partial"].includes(invoice.status));
+
+  return {
+    invoicesByPaymentStatus: countBy(invoices, "paymentStatus", { fallback: "Unpaid" }),
+    invoicesByStatus: countBy(invoices, "status"),
+    overdueInvoices: overdueInvoices.map(safeInvoiceRow).slice(0, 25),
+    unpaidInvoices: unpaidInvoices.map(safeInvoiceRow).slice(0, 25),
+    paidThisPeriod: paidThisPeriod.map(safeInvoiceRow).slice(0, 25),
+    totals: {
+      totalInvoices: invoices.length,
+      overdueInvoices: overdueInvoices.length,
+      unpaidInvoices: unpaidInvoices.length,
+      paidThisPeriod: paidThisPeriod.length
+    }
+  };
+}
+
+function buildSalesReport(data, range) {
+  const leadsThisPeriod = data.leads.filter((lead) => inReportRange(lead.createdAt, range));
+  const convertedLeads = leadsThisPeriod.filter((lead) => lead.status === "Converted");
+  const commissionsThisPeriod = data.commissions.filter((commission) => {
+    if (commission.commissionYear && commission.commissionMonth) {
+      const commissionDate = new Date(commission.commissionYear, commission.commissionMonth - 1, 1);
+      return inReportRange(commissionDate, range);
+    }
+
+    return inReportRange(commission.createdAt, range);
+  });
+  const pendingCommissions = data.commissions.filter((commission) => ["Pending", "Approved"].includes(commission.status));
+  const paidCommissions = data.commissions.filter((commission) => commission.status === "Paid" && inReportRange(commission.paidDate, range));
+  const leadsByExecutive = data.leads.reduce((totals, lead) => {
+    const executiveId = String(lead.salesExecutiveId || "");
+    const name = data.executiveMap.get(executiveId) || "Unassigned";
+    totals[name] = (totals[name] || 0) + 1;
+    return totals;
+  }, {});
+
+  return {
+    leadsByStatus: countBy(data.leads, "status"),
+    leadsThisPeriod: leadsThisPeriod.length,
+    convertedLeads: convertedLeads.length,
+    conversionRate: leadsThisPeriod.length ? Number(((convertedLeads.length / leadsThisPeriod.length) * 100).toFixed(1)) : 0,
+    leadsBySalesExecutive: leadsByExecutive,
+    pendingCommissionAmount: sumMoney(pendingCommissions, "amount"),
+    paidCommissionAmount: sumMoney(paidCommissions, "amount"),
+    commissionsThisPeriodAmount: sumMoney(commissionsThisPeriod, "amount"),
+    pendingCommissions: pendingCommissions.map((commission) => safeCommissionRow(commission, data.executiveMap)).slice(0, 25),
+    paidCommissionsThisPeriod: paidCommissions.map((commission) => safeCommissionRow(commission, data.executiveMap)).slice(0, 25),
+    newLeadsAndFollowUps: data.leads
+      .filter((lead) => ["New", "Follow Up", "Interested", "Proposal Sent"].includes(lead.status))
+      .map(safeLeadRow)
+      .sort((left, right) => toTimestamp(left.followUpDate || left.createdAt) - toTimestamp(right.followUpDate || right.createdAt))
+      .slice(0, 25)
+  };
+}
+
+function buildMaintenanceReport(data) {
+  const now = Date.now();
+  const thirtyDaysFromNow = now + 30 * 24 * 60 * 60 * 1000;
+  const activePlans = data.maintenancePlans.filter((plan) => plan.status === "Active");
+  const expiringSoon = data.maintenancePlans.filter((plan) => {
+    const renewalTime = toTimestamp(plan.renewalDate || plan.endDate);
+    return plan.status === "Expiring Soon" || (renewalTime && renewalTime >= now && renewalTime <= thirtyDaysFromNow);
+  });
+  const expiredPlans = data.maintenancePlans.filter((plan) => plan.status === "Expired");
+
+  return {
+    activePlans: activePlans.length,
+    expiringSoonPlans: expiringSoon.length,
+    expiredPlans: expiredPlans.length,
+    renewalAmountExpected: sumMoney(expiringSoon, "balanceAmount"),
+    paymentStatusSummary: countBy(data.maintenancePlans, "paymentStatus", { fallback: "Pending" }),
+    statusSummary: countBy(data.maintenancePlans, "status", { fallback: "Pending" }),
+    expiringMaintenancePlans: expiringSoon.map(safeMaintenanceRow).slice(0, 25),
+    expiredMaintenancePlans: expiredPlans.map(safeMaintenanceRow).slice(0, 25)
+  };
+}
+
+function buildSupportReport(data, range) {
+  const openRequests = data.requests.filter((request) => ["open", "in_progress"].includes(request.status));
+  const resolvedThisPeriod = data.requests.filter((request) => request.status === "resolved" && inReportRange(request.resolvedAt || request.updatedAt, range));
+
+  return {
+    openRequests: openRequests.length,
+    resolvedRequests: resolvedThisPeriod.length,
+    pendingRequestsByType: countBy(openRequests, "type", { fallback: "support" }),
+    pendingRequestsByStatus: countBy(openRequests, "status", { fallback: "open" }),
+    requestsByType: countBy(data.requests, "type", { fallback: "support" }),
+    requestsByStatus: countBy(data.requests, "status", { fallback: "open" }),
+    openSupportRequests: openRequests.map(safeSupportRow).slice(0, 25),
+    resolvedThisPeriod: resolvedThisPeriod.map(safeSupportRow).slice(0, 25)
+  };
+}
+
+function buildBusinessOverviewReport(data, range) {
+  const revenue = buildRevenueReport(data, range);
+  const projects = buildProjectReport(data, range);
+  const invoices = buildInvoiceReport(data, range);
+  const sales = buildSalesReport(data, range);
+  const maintenance = buildMaintenanceReport(data, range);
+  const support = buildSupportReport(data, range);
+  const activeClients = data.clients.filter((client) => client.accountStatus === "active").length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    range: revenue.range,
+    kpis: {
+      totalClients: data.clients.length,
+      activeClients,
+      totalProjects: projects.totalProjects,
+      activeProjects: projects.activeProjects,
+      completedProjects: projects.completedProjects,
+      pendingInvoices: invoices.totals.unpaidInvoices,
+      overdueInvoices: invoices.totals.overdueInvoices,
+      monthlyRevenue: revenue.totalInvoiced,
+      monthlyPaidAmount: revenue.totalPaid,
+      monthlyPendingBalance: revenue.totalPending,
+      pendingCommission: sales.pendingCommissionAmount,
+      paidCommissionThisMonth: sales.paidCommissionAmount,
+      activeMaintenancePlans: maintenance.activePlans,
+      expiringSoonMaintenancePlans: maintenance.expiringSoonPlans,
+      newLeadsThisMonth: sales.leadsThisPeriod,
+      convertedLeadsThisMonth: sales.convertedLeads,
+      openSupportRequests: support.openRequests
+    },
+    revenue,
+    projects,
+    invoices,
+    sales,
+    maintenance,
+    support,
+    tables: {
+      overdueInvoices: revenue.overdueInvoices,
+      projectsAtRisk: projects.deadlineRiskProjects,
+      expiringMaintenancePlans: maintenance.expiringMaintenancePlans,
+      pendingCommissions: sales.pendingCommissions,
+      newLeadsAndFollowUps: sales.newLeadsAndFollowUps,
+      openSupportRequests: support.openSupportRequests
+    }
+  };
+}
+
+async function getBusinessReportPayload(req, res) {
+  const range = parseReportDateRange(req.query || {});
+  if (range.error) {
+    sendError(res, 400, range.error);
+    return null;
+  }
+
+  const data = await loadReportData();
+  return { data, range, overview: buildBusinessOverviewReport(data, range) };
+}
+
 function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) {
   const hasOwn = (key) => Object.prototype.hasOwnProperty.call(body || {}, key);
   const title = normalizeInvoiceText(
@@ -464,6 +979,14 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
   );
   const adminNotes = normalizeInvoiceText(
     hasOwn("adminNotes") ? body.adminNotes : currentInvoice && currentInvoice.adminNotes,
+    5000
+  );
+  const clientNotes = normalizeInvoiceText(
+    hasOwn("clientNotes") ? body.clientNotes : currentInvoice && (currentInvoice.clientNotes || currentInvoice.notes),
+    5000
+  );
+  const paymentNotes = normalizeInvoiceText(
+    hasOwn("paymentNotes") ? body.paymentNotes : currentInvoice && currentInvoice.paymentNotes,
     5000
   );
   const defaultPaymentTerms = options.defaultPaymentTerms;
@@ -502,8 +1025,13 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
     return { error: "Paid amount cannot exceed the invoice total." };
   }
 
+  const requestedStatus = hasOwn("paymentStatus") && paymentStatusToStatus(body.paymentStatus)
+    ? paymentStatusToStatus(body.paymentStatus)
+    : hasOwn("status")
+      ? body.status
+      : currentInvoice && currentInvoice.status;
   const status = resolveInvoiceStatus({
-    requestedStatus: hasOwn("status") ? body.status : currentInvoice && currentInvoice.status,
+    requestedStatus,
     currentStatus: currentInvoice && currentInvoice.status,
     dueDate,
     totalAmount: totals.totalAmount,
@@ -530,11 +1058,17 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
     totalAmount: totals.totalAmount,
     paidAmount: totals.paidAmount,
     balance: totals.balance,
+    balanceAmount: totals.balance,
     issueDate,
     dueDate,
     paidDate,
     notes,
+    clientNotes,
     adminNotes,
+    paymentNotes,
+    paymentMethod: normalizeInvoicePaymentMethod(hasOwn("paymentMethod") ? body.paymentMethod : currentInvoice && currentInvoice.paymentMethod),
+    invoiceType: normalizeInvoiceType(hasOwn("invoiceType") ? body.invoiceType : currentInvoice && currentInvoice.invoiceType),
+    paymentStatus: statusToPaymentStatus(status),
     status
   };
 }
@@ -599,6 +1133,142 @@ function serializeAdminClient(client) {
       allowedFeatures
     })
   };
+}
+
+function serializeAdminUser(user) {
+  return {
+    id: String(user._id || user.id),
+    name: user.name || "",
+    email: user.email || "",
+    role: resolveTrustedRole(user),
+    status: user.status || (user.isActive ? "active" : "inactive"),
+    accountStatus: resolveAccountStatus(user),
+    paymentStatus: normalizePaymentStatus(user.paymentStatus),
+    isActive: Boolean(user.isActive),
+    businessName: user.businessName || "",
+    createdAt: user.createdAt || null
+  };
+}
+
+function serializeAuditLog(log) {
+  return {
+    id: String(log._id || log.id),
+    actorId: log.actorId ? String(log.actorId) : "",
+    actorName: log.actorName || "",
+    actorEmail: log.actorEmail || "",
+    actorRole: log.actorRole || "",
+    action: log.action || "",
+    module: log.module || "Other",
+    targetType: log.targetType || "",
+    targetId: log.targetId || "",
+    targetLabel: log.targetLabel || "",
+    oldValue: log.oldValue || null,
+    newValue: log.newValue || null,
+    ipAddress: log.ipAddress || "",
+    userAgent: log.userAgent || "",
+    severity: log.severity || "Low",
+    createdAt: log.createdAt || null
+  };
+}
+
+function normalizeUserStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["active", "inactive", "suspended"].includes(normalized) ? normalized : "";
+}
+
+function buildAuditQuery(query = {}) {
+  const match = {};
+
+  if (query.module && AUDIT_MODULES.includes(query.module)) {
+    match.module = query.module;
+  }
+
+  if (query.severity && AUDIT_SEVERITIES.includes(query.severity)) {
+    match.severity = query.severity;
+  }
+
+  if (query.action) {
+    match.action = buildSearchRegex(query.action);
+  }
+
+  if (query.actor) {
+    const actorPattern = buildSearchRegex(query.actor);
+    if (actorPattern) {
+      match.$or = [
+        { actorName: actorPattern },
+        { actorEmail: actorPattern }
+      ];
+    }
+  }
+
+  if (query.targetType) {
+    match.targetType = buildSearchRegex(query.targetType);
+  }
+
+  const createdAt = {};
+  if (query.from) {
+    const from = new Date(query.from);
+    if (!Number.isNaN(from.getTime())) {
+      createdAt.$gte = from;
+    }
+  }
+
+  if (query.to) {
+    const to = new Date(query.to);
+    if (!Number.isNaN(to.getTime())) {
+      to.setHours(23, 59, 59, 999);
+      createdAt.$lte = to;
+    }
+  }
+
+  if (Object.keys(createdAt).length) {
+    match.createdAt = createdAt;
+  }
+
+  const searchPattern = buildSearchRegex(query.search);
+  if (searchPattern) {
+    const searchOr = [
+      { actorName: searchPattern },
+      { actorEmail: searchPattern },
+      { targetLabel: searchPattern },
+      { action: searchPattern }
+    ];
+    match.$and = match.$and || [];
+    match.$and.push({ $or: searchOr });
+  }
+
+  return match;
+}
+
+async function countActiveAdmins(excludeUserId = "") {
+  const users = await User.find({
+    isActive: true,
+    status: { $ne: "suspended" }
+  }, { email: 1, role: 1 }).lean();
+
+  return users.filter((user) => {
+    if (excludeUserId && String(user._id) === String(excludeUserId)) {
+      return false;
+    }
+
+    return resolveTrustedRole(user) === "admin";
+  }).length;
+}
+
+async function ensureAdminCanLoseAccess(user, currentAdminId) {
+  if (isOfficialAdminEmail(user.email)) {
+    return "The official AutomateX owner account must remain an active admin.";
+  }
+
+  if (String(user._id) === String(currentAdminId) && resolveTrustedRole(user) === "admin") {
+    return "You cannot remove your own admin access.";
+  }
+
+  if (resolveTrustedRole(user) === "admin" && await countActiveAdmins(user._id) < 1) {
+    return "At least one active admin account is required.";
+  }
+
+  return "";
 }
 
 function enrichWithClientMap(items, clientMap) {
@@ -746,6 +1416,218 @@ async function getStats(_req, res) {
   }
 }
 
+async function getAuditLogs(req, res) {
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const match = buildAuditQuery(req.query);
+    const [logs, total] = await Promise.all([
+      AuditLog.find(match)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      AuditLog.countDocuments(match)
+    ]);
+
+    return sendSuccess(res, 200, {
+      logs: logs.map(serializeAuditLog),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      },
+      options: {
+        modules: AUDIT_MODULES,
+        severities: AUDIT_SEVERITIES
+      }
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load audit logs right now.");
+  }
+}
+
+async function getAuditLogById(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid audit log ID.");
+    }
+
+    const log = await AuditLog.findById(req.params.id).lean();
+    if (!log) {
+      return sendError(res, 404, "Audit log not found.");
+    }
+
+    return sendSuccess(res, 200, {
+      log: serializeAuditLog(log)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load audit log details right now.");
+  }
+}
+
+async function getAdminUsers(req, res) {
+  try {
+    const match = {};
+    const searchPattern = buildSearchRegex(req.query.search);
+    if (searchPattern) {
+      match.$or = [
+        { name: searchPattern },
+        { email: searchPattern },
+        { businessName: searchPattern }
+      ];
+    }
+
+    if (req.query.role) {
+      const role = normalizeRole(req.query.role);
+      if (!role) {
+        return sendError(res, 400, "Invalid role filter.");
+      }
+      match.role = role;
+    }
+
+    if (req.query.status) {
+      const status = normalizeUserStatus(req.query.status);
+      if (!status) {
+        return sendError(res, 400, "Invalid status filter.");
+      }
+      match.status = status;
+    }
+
+    const users = await User.find(match).sort({ createdAt: -1 }).lean();
+    return sendSuccess(res, 200, {
+      users: users.map(serializeAdminUser)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load users right now.");
+  }
+}
+
+async function getAdminUserById(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid user ID.");
+    }
+
+    const user = await User.findById(req.params.id).lean();
+    if (!user) {
+      return sendError(res, 404, "User not found.");
+    }
+
+    return sendSuccess(res, 200, {
+      user: serializeAdminUser(user)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load user details right now.");
+  }
+}
+
+async function updateAdminUserRole(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid user ID.");
+    }
+
+    const role = normalizeRole(req.body.role);
+    if (!role) {
+      return sendError(res, 400, "Role must be Admin, Manager, Staff, or Client.");
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return sendError(res, 404, "User not found.");
+    }
+
+    if (role !== "admin") {
+      const accessError = await ensureAdminCanLoseAccess(user, req.user.id);
+      if (accessError) {
+        return sendError(res, 400, accessError);
+      }
+    }
+
+    const oldValue = { role: resolveTrustedRole(user) };
+    user.role = isOfficialAdminEmail(user.email) ? "admin" : role;
+    await user.save();
+
+    await logAdminAction(req, {
+      module: "Users",
+      action: "users.role_updated",
+      targetType: "User",
+      targetId: String(user._id),
+      targetLabel: user.email,
+      oldValue,
+      newValue: { role: resolveTrustedRole(user) },
+      severity: "High"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "User role updated successfully.",
+      user: serializeAdminUser(user.toObject())
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update user role right now.");
+  }
+}
+
+async function updateAdminUserStatus(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid user ID.");
+    }
+
+    const status = normalizeUserStatus(req.body.status);
+    if (!status) {
+      return sendError(res, 400, "Status must be active, inactive, or suspended.");
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return sendError(res, 404, "User not found.");
+    }
+
+    if (status !== "active") {
+      const accessError = await ensureAdminCanLoseAccess(user, req.user.id);
+      if (accessError) {
+        return sendError(res, 400, accessError);
+      }
+    }
+
+    const oldValue = { status: user.status || "active", isActive: user.isActive };
+    user.status = isOfficialAdminEmail(user.email) ? "active" : status;
+    user.isActive = user.status === "active";
+    await user.save();
+
+    await logAdminAction(req, {
+      module: "Users",
+      action: "users.status_updated",
+      targetType: "User",
+      targetId: String(user._id),
+      targetLabel: user.email,
+      oldValue,
+      newValue: { status: user.status, isActive: user.isActive },
+      severity: "High"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "User status updated successfully.",
+      user: serializeAdminUser(user.toObject())
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update user status right now.");
+  }
+}
+
+async function activateAdminUser(req, res) {
+  req.body = { status: "active" };
+  return updateAdminUserStatus(req, res);
+}
+
+async function deactivateAdminUser(req, res) {
+  req.body = { status: "inactive" };
+  return updateAdminUserStatus(req, res);
+}
+
 async function getAdminSettings(_req, res) {
   try {
     const settings = await getCurrentAppSettings();
@@ -761,6 +1643,7 @@ async function updateAdminSettings(req, res) {
   try {
     const updates = buildAppSettingsUpdatePayload(req.body || {});
     let settings = await AppSettings.findOne({}).sort({ updatedAt: -1, createdAt: -1 });
+    const oldValue = settings ? serializeAppSettings(settings) : DEFAULT_APP_SETTINGS;
 
     if (!settings) {
       settings = new AppSettings(updates);
@@ -769,6 +1652,16 @@ async function updateAdminSettings(req, res) {
     }
 
     await settings.save();
+    await logAdminAction(req, {
+      module: "Settings",
+      action: "settings.updated",
+      targetType: "AppSettings",
+      targetId: String(settings._id),
+      targetLabel: "AutomateX settings",
+      oldValue,
+      newValue: serializeAppSettings(settings),
+      severity: "High"
+    });
 
     return sendSuccess(res, 200, {
       message: "Admin settings updated successfully.",
@@ -776,6 +1669,121 @@ async function updateAdminSettings(req, res) {
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to update admin settings right now.");
+  }
+}
+
+async function getReportsOverview(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, payload.overview);
+  } catch {
+    return sendError(res, 500, "Unable to load the reports overview right now.");
+  }
+}
+
+async function getReportsRevenue(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, {
+      generatedAt: payload.overview.generatedAt,
+      range: payload.overview.range,
+      revenue: payload.overview.revenue
+    });
+  } catch {
+    return sendError(res, 500, "Unable to load the revenue report right now.");
+  }
+}
+
+async function getReportsProjects(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, {
+      generatedAt: payload.overview.generatedAt,
+      range: payload.overview.range,
+      projects: payload.overview.projects
+    });
+  } catch {
+    return sendError(res, 500, "Unable to load the project report right now.");
+  }
+}
+
+async function getReportsInvoices(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, {
+      generatedAt: payload.overview.generatedAt,
+      range: payload.overview.range,
+      invoices: payload.overview.invoices
+    });
+  } catch {
+    return sendError(res, 500, "Unable to load the invoice report right now.");
+  }
+}
+
+async function getReportsSales(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, {
+      generatedAt: payload.overview.generatedAt,
+      range: payload.overview.range,
+      sales: payload.overview.sales
+    });
+  } catch {
+    return sendError(res, 500, "Unable to load the sales report right now.");
+  }
+}
+
+async function getReportsMaintenance(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, {
+      generatedAt: payload.overview.generatedAt,
+      range: payload.overview.range,
+      maintenance: payload.overview.maintenance
+    });
+  } catch {
+    return sendError(res, 500, "Unable to load the maintenance report right now.");
+  }
+}
+
+async function getReportsSupport(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    return sendSuccess(res, 200, {
+      generatedAt: payload.overview.generatedAt,
+      range: payload.overview.range,
+      support: payload.overview.support
+    });
+  } catch {
+    return sendError(res, 500, "Unable to load the support report right now.");
   }
 }
 
@@ -853,7 +1861,7 @@ async function getReportsSummary(_req, res) {
   }
 }
 
-async function exportClientsReport(_req, res) {
+async function exportClientsReport(req, res) {
   try {
     const clients = (await User.find(CLIENT_BASE_QUERY).sort({ createdAt: -1 }).lean())
       .map(serializeAdminClient)
@@ -875,6 +1883,7 @@ async function exportClientsReport(_req, res) {
       createdAt: formatCsvDateTime(client.createdAt)
     }));
 
+    await logSensitiveExport(req, "clients", rows.length);
     return sendCsvResponse(res, buildReportFilename("clients"), [
       "businessName",
       "ownerName",
@@ -895,7 +1904,7 @@ async function exportClientsReport(_req, res) {
   }
 }
 
-async function exportInvoicesReport(_req, res) {
+async function exportInvoicesReport(req, res) {
   try {
     const invoices = (await Invoice.find({}).sort({ createdAt: -1 }).lean()).map(serializeInvoice);
     const rows = invoices.map((invoice) => ({
@@ -917,6 +1926,7 @@ async function exportInvoicesReport(_req, res) {
       createdAt: formatCsvDateTime(invoice.createdAt)
     }));
 
+    await logSensitiveExport(req, "invoices", rows.length);
     return sendCsvResponse(res, buildReportFilename("invoices"), [
       "invoiceNumber",
       "businessName",
@@ -940,7 +1950,7 @@ async function exportInvoicesReport(_req, res) {
   }
 }
 
-async function exportRequestsReport(_req, res) {
+async function exportRequestsReport(req, res) {
   try {
     const requests = (await SupportRequest.find({}).sort({ createdAt: -1 }).lean())
       .map((request) => serializeSupportRequest(request, { includeAdminFields: true }));
@@ -960,6 +1970,7 @@ async function exportRequestsReport(_req, res) {
       resolvedAt: formatCsvDateTime(request.resolvedAt)
     }));
 
+    await logSensitiveExport(req, "requests", rows.length);
     return sendCsvResponse(res, buildReportFilename("requests"), [
       "businessName",
       "clientName",
@@ -977,6 +1988,149 @@ async function exportRequestsReport(_req, res) {
     ], rows);
   } catch (_error) {
     return sendError(res, 500, "Unable to export the support request report right now.");
+  }
+}
+
+async function exportRevenueReport(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    const rows = [
+      ...payload.overview.revenue.revenueByMonth.map((row) => ({
+        section: "monthly",
+        label: row.month,
+        invoiced: row.invoiced,
+        paid: row.paid,
+        pending: row.pending
+      })),
+      ...Object.entries(payload.overview.revenue.revenueByInvoiceType || {}).map(([type, amount]) => ({
+        section: "invoice_type",
+        label: type,
+        invoiced: amount,
+        paid: "",
+        pending: ""
+      }))
+    ];
+
+    await logSensitiveExport(req, "revenue", rows.length);
+    return sendCsvResponse(res, buildReportFilename("revenue"), [
+      "section",
+      "label",
+      "invoiced",
+      "paid",
+      "pending"
+    ], rows);
+  } catch {
+    return sendError(res, 500, "Unable to export the revenue report right now.");
+  }
+}
+
+async function exportProjectsReport(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    const rows = payload.overview.projects.deadlineRiskProjects.map((project) => ({
+      projectTitle: project.projectTitle,
+      projectType: project.projectType,
+      status: project.status,
+      priority: project.priority,
+      progressPercentage: project.progressPercentage,
+      expectedDeadline: formatCsvDate(project.expectedDeadline),
+      totalAmount: project.totalAmount,
+      paidAmount: project.paidAmount,
+      balanceAmount: project.balanceAmount
+    }));
+
+    await logSensitiveExport(req, "projects-risk", rows.length);
+    return sendCsvResponse(res, buildReportFilename("projects-risk"), [
+      "projectTitle",
+      "projectType",
+      "status",
+      "priority",
+      "progressPercentage",
+      "expectedDeadline",
+      "totalAmount",
+      "paidAmount",
+      "balanceAmount"
+    ], rows);
+  } catch {
+    return sendError(res, 500, "Unable to export the project report right now.");
+  }
+}
+
+async function exportSalesReport(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    const rows = payload.overview.sales.pendingCommissions.map((commission) => ({
+      salesExecutiveName: commission.salesExecutiveName,
+      commissionType: commission.commissionType,
+      commissionMonth: commission.commissionMonth,
+      commissionYear: commission.commissionYear,
+      amount: commission.amount,
+      status: commission.status,
+      paidDate: formatCsvDate(commission.paidDate),
+      createdAt: formatCsvDateTime(commission.createdAt)
+    }));
+
+    await logSensitiveExport(req, "sales-commissions", rows.length);
+    return sendCsvResponse(res, buildReportFilename("sales-commissions"), [
+      "salesExecutiveName",
+      "commissionType",
+      "commissionMonth",
+      "commissionYear",
+      "amount",
+      "status",
+      "paidDate",
+      "createdAt"
+    ], rows);
+  } catch {
+    return sendError(res, 500, "Unable to export the sales report right now.");
+  }
+}
+
+async function exportMaintenanceReport(req, res) {
+  try {
+    const payload = await getBusinessReportPayload(req, res);
+    if (!payload) {
+      return undefined;
+    }
+
+    const rows = payload.overview.maintenance.expiringMaintenancePlans.map((plan) => ({
+      planName: plan.planName,
+      planType: plan.planType,
+      status: plan.status,
+      paymentStatus: plan.paymentStatus,
+      amount: plan.amount,
+      paidAmount: plan.paidAmount,
+      balanceAmount: plan.balanceAmount,
+      renewalDate: formatCsvDate(plan.renewalDate),
+      endDate: formatCsvDate(plan.endDate)
+    }));
+
+    await logSensitiveExport(req, "maintenance-renewals", rows.length);
+    return sendCsvResponse(res, buildReportFilename("maintenance-renewals"), [
+      "planName",
+      "planType",
+      "status",
+      "paymentStatus",
+      "amount",
+      "paidAmount",
+      "balanceAmount",
+      "renewalDate",
+      "endDate"
+    ], rows);
+  } catch {
+    return sendError(res, 500, "Unable to export the maintenance report right now.");
   }
 }
 
@@ -1194,6 +2348,7 @@ async function updateClient(req, res) {
     if (!client || resolveTrustedRole(client) !== "client") {
       return sendError(res, 404, "Client not found.");
     }
+    const oldValue = serializeAdminClient(client.toObject());
 
     const finalPlan = normalizePlan(
       typeof updates.plan === "string" ? updates.plan : client.plan
@@ -1226,6 +2381,16 @@ async function updateClient(req, res) {
     Object.assign(client, updates);
     client.onboardingStatus = resolveOnboardingStatus(client);
     await client.save();
+    await logAdminAction(req, {
+      module: "Clients",
+      action: "clients.updated",
+      targetType: "User",
+      targetId: String(client._id),
+      targetLabel: client.businessName || client.name || client.email,
+      oldValue,
+      newValue: serializeAdminClient(client.toObject()),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Client updated successfully.",
@@ -1251,6 +2416,15 @@ async function softDeleteClient(req, res) {
     if (!client || resolveTrustedRole(client) !== "client") {
       return sendError(res, 404, "Client not found.");
     }
+    await logAdminAction(req, {
+      module: "Clients",
+      action: "clients.suspended",
+      targetType: "User",
+      targetId: String(client._id),
+      targetLabel: client.businessName || client.name || client.email,
+      newValue: serializeAdminClient(client),
+      severity: "High"
+    });
 
     return sendSuccess(res, 200, {
       message: "Client suspended successfully.",
@@ -1333,6 +2507,7 @@ async function updateAdminBooking(req, res) {
     if (!booking) {
       return sendError(res, 404, "Booking not found.");
     }
+    const oldValue = booking.toObject();
 
     if (typeof req.body.status === "string") {
       const status = String(req.body.status || "").trim();
@@ -1370,6 +2545,16 @@ async function updateAdminBooking(req, res) {
     }
 
     await booking.save();
+    await logAdminAction(req, {
+      module: "Bookings",
+      action: "bookings.updated",
+      targetType: "Booking",
+      targetId: String(booking._id),
+      targetLabel: booking.name || booking.service || "Booking",
+      oldValue,
+      newValue: booking.toObject(),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Booking updated successfully.",
@@ -1440,6 +2625,7 @@ async function updateAdminInquiry(req, res) {
     if (!inquiry) {
       return sendError(res, 404, "Inquiry not found.");
     }
+    const oldValue = inquiry.toObject();
 
     if (typeof req.body.status === "string") {
       const status = String(req.body.status || "").trim();
@@ -1454,6 +2640,16 @@ async function updateAdminInquiry(req, res) {
     }
 
     await inquiry.save();
+    await logAdminAction(req, {
+      module: "Inquiries",
+      action: "inquiries.updated",
+      targetType: "Inquiry",
+      targetId: String(inquiry._id),
+      targetLabel: inquiry.name || inquiry.email || "Inquiry",
+      oldValue,
+      newValue: inquiry.toObject(),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Inquiry updated successfully.",
@@ -1540,6 +2736,7 @@ async function updateAdminReview(req, res) {
     if (!review) {
       return sendError(res, 404, "Review not found.");
     }
+    const oldValue = review.toObject();
 
     if (typeof req.body.status === "string") {
       const status = String(req.body.status || "").trim();
@@ -1554,6 +2751,16 @@ async function updateAdminReview(req, res) {
     }
 
     await review.save();
+    await logAdminAction(req, {
+      module: "Reviews",
+      action: "reviews.updated",
+      targetType: "Review",
+      targetId: String(review._id),
+      targetLabel: review.name || "Review",
+      oldValue,
+      newValue: review.toObject(),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Review updated successfully.",
@@ -1575,9 +2782,23 @@ async function getInvoices(req, res) {
       query.clientId = req.query.clientId;
     }
 
+    if (req.query.projectId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.projectId)) {
+        return sendError(res, 400, "Invalid project ID.");
+      }
+      query.projectId = req.query.projectId;
+    }
+
+    if (req.query.invoiceType) {
+      query.invoiceType = normalizeInvoiceType(req.query.invoiceType);
+    }
+
     const issueDateRange = {};
     const fromDate = normalizeInvoiceDate(req.query.from);
     const toDate = normalizeInvoiceDate(req.query.to);
+    const dueDateRange = {};
+    const dueFromDate = normalizeInvoiceDate(req.query.dueFrom);
+    const dueToDate = normalizeInvoiceDate(req.query.dueTo);
 
     if (fromDate) {
       issueDateRange.$gte = fromDate;
@@ -1591,6 +2812,18 @@ async function getInvoices(req, res) {
       query.issueDate = issueDateRange;
     }
 
+    if (dueFromDate) {
+      dueDateRange.$gte = dueFromDate;
+    }
+
+    if (dueToDate) {
+      dueDateRange.$lte = dueToDate;
+    }
+
+    if (Object.keys(dueDateRange).length) {
+      query.dueDate = dueDateRange;
+    }
+
     const sortBy = String(req.query.sortBy || "createdAt");
     const sortDirection = getSortDirection(req.query.sortDirection);
     const sortMap = {
@@ -1602,11 +2835,17 @@ async function getInvoices(req, res) {
     const searchPattern = buildSearchRegex(req.query.search);
     const requestedStatus = req.query.status && INVOICE_STATUS_OPTIONS.includes(String(req.query.status).trim().toLowerCase())
       ? normalizeInvoiceStatus(req.query.status)
-      : "";
+      : paymentStatusToStatus(req.query.paymentStatus || "");
 
-    const invoices = await Invoice.find(query).sort(sortMap[sortBy] || sortMap.createdAt).lean();
+    const invoices = await Invoice.find(query)
+      .populate("projectId", "projectTitle")
+      .populate("maintenancePlanId", "planName")
+      .populate("leadId", "businessName contactPerson")
+      .populate("salesExecutiveId", "fullName")
+      .sort(sortMap[sortBy] || sortMap.createdAt)
+      .lean();
     const serializedInvoices = invoices
-      .map(serializeInvoice)
+      .map(serializeInvoiceWithReferenceLabels)
       .filter((invoice) => !requestedStatus || invoice.status === requestedStatus)
       .filter((invoice) => {
         if (!searchPattern) {
@@ -1618,7 +2857,9 @@ async function getInvoices(req, res) {
           invoice.clientName,
           invoice.clientEmail,
           invoice.businessName,
-          invoice.title
+          invoice.title,
+          invoice.projectTitle,
+          invoice.maintenancePlanName
         ].some((value) => searchPattern.test(String(value || "")));
       });
 
@@ -1646,14 +2887,28 @@ async function createInvoice(req, res) {
     if (payload.error) {
       return sendError(res, 400, payload.error);
     }
+    const { links, errors: linkErrors } = await resolveInvoiceOptionalLinks(req.body, client._id);
+    if (linkErrors.length) {
+      return sendError(res, 400, "Please fix invoice links and try again.", linkErrors);
+    }
 
     const invoice = new Invoice({
       invoiceNumber: await generateInvoiceNumber(settings.invoicePrefix),
       currency: settings.defaultCurrency || DEFAULT_INVOICE_CURRENCY,
-      ...payload
+      ...payload,
+      ...links
     });
     applyInvoiceClientSnapshot(invoice, client);
     await invoice.save();
+    await logAdminAction(req, {
+      module: "Invoices",
+      action: "invoices.created",
+      targetType: "Invoice",
+      targetId: String(invoice._id),
+      targetLabel: invoice.invoiceNumber,
+      newValue: serializeInvoice(invoice),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 201, {
       message: "Invoice created successfully.",
@@ -1670,13 +2925,13 @@ async function getInvoiceById(req, res) {
       return sendError(res, 400, "Invalid invoice ID.");
     }
 
-    const invoice = await Invoice.findById(req.params.id).lean();
+    const invoice = await findInvoiceWithReferences({ _id: req.params.id });
     if (!invoice) {
       return sendError(res, 404, "Invoice not found.");
     }
 
     return sendSuccess(res, 200, {
-      invoice: serializeInvoice(invoice)
+      invoice
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to load the invoice right now.");
@@ -1693,6 +2948,7 @@ async function updateInvoice(req, res) {
     if (!invoice) {
       return sendError(res, 404, "Invoice not found.");
     }
+    const oldValue = serializeInvoice(invoice);
 
     if (typeof req.body.clientId !== "undefined" && String(req.body.clientId) !== String(invoice.clientId)) {
       const client = await findInvoiceClient(req.body.clientId);
@@ -1701,14 +2957,28 @@ async function updateInvoice(req, res) {
       }
       applyInvoiceClientSnapshot(invoice, client);
     }
+    const { links, errors: linkErrors } = await resolveInvoiceOptionalLinks(req.body, invoice.clientId);
+    if (linkErrors.length) {
+      return sendError(res, 400, "Please fix invoice links and try again.", linkErrors);
+    }
 
     const payload = buildInvoiceMutationPayload(req.body, invoice);
     if (payload.error) {
       return sendError(res, 400, payload.error);
     }
 
-    Object.assign(invoice, payload);
+    Object.assign(invoice, payload, links);
     await invoice.save();
+    await logAdminAction(req, {
+      module: "Invoices",
+      action: "invoices.updated",
+      targetType: "Invoice",
+      targetId: String(invoice._id),
+      targetLabel: invoice.invoiceNumber,
+      oldValue,
+      newValue: serializeInvoice(invoice),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Invoice updated successfully.",
@@ -1729,12 +2999,24 @@ async function deleteInvoice(req, res) {
     if (!invoice) {
       return sendError(res, 404, "Invoice not found.");
     }
+    const oldValue = serializeInvoice(invoice);
 
     invoice.status = "cancelled";
+    invoice.paymentStatus = "Cancelled";
     if (typeof req.body.adminNotes === "string") {
       invoice.adminNotes = normalizeInvoiceText(req.body.adminNotes, 5000);
     }
     await invoice.save();
+    await logAdminAction(req, {
+      module: "Invoices",
+      action: "invoices.cancelled",
+      targetType: "Invoice",
+      targetId: String(invoice._id),
+      targetLabel: invoice.invoiceNumber,
+      oldValue,
+      newValue: serializeInvoice(invoice),
+      severity: "High"
+    });
 
     return sendSuccess(res, 200, {
       message: "Invoice cancelled successfully.",
@@ -1759,15 +3041,30 @@ async function markInvoicePaid(req, res) {
     if (invoice.status === "cancelled") {
       return sendError(res, 400, "Cancelled invoices cannot be marked as paid.");
     }
+    const oldValue = serializeInvoice(invoice);
 
     invoice.paidAmount = roundMoney(invoice.totalAmount);
     invoice.balance = 0;
+    invoice.balanceAmount = 0;
     invoice.status = "paid";
+    invoice.paymentStatus = "Paid";
+    invoice.paymentMethod = normalizeInvoicePaymentMethod(req.body.paymentMethod || invoice.paymentMethod);
+    invoice.paymentNotes = normalizeInvoiceText(req.body.paymentNotes || invoice.paymentNotes, 5000);
     invoice.paidDate = normalizeInvoiceDate(req.body.paidDate) || new Date();
     await invoice.save();
+    await logAdminAction(req, {
+      module: "Payments",
+      action: "invoices.marked_paid",
+      targetType: "Invoice",
+      targetId: String(invoice._id),
+      targetLabel: invoice.invoiceNumber,
+      oldValue,
+      newValue: serializeInvoice(invoice),
+      severity: "High"
+    });
 
     return sendSuccess(res, 200, {
-      message: "Invoice marked as paid.",
+      message: "Invoice marked as paid. Commission approval remains manual.",
       invoice: serializeInvoice(invoice)
     });
   } catch (_error) {
@@ -1789,6 +3086,7 @@ async function addInvoicePayment(req, res) {
     if (invoice.status === "cancelled") {
       return sendError(res, 400, "Cancelled invoices cannot receive payments.");
     }
+    const oldValue = serializeInvoice(invoice);
 
     const paymentAmount = normalizeMoney(req.body.amount);
     if (paymentAmount <= 0) {
@@ -1817,7 +3115,11 @@ async function addInvoicePayment(req, res) {
 
     invoice.paidAmount = totals.paidAmount;
     invoice.balance = totals.balance;
+    invoice.balanceAmount = totals.balance;
     invoice.status = status;
+    invoice.paymentStatus = statusToPaymentStatus(status);
+    invoice.paymentMethod = normalizeInvoicePaymentMethod(req.body.paymentMethod || invoice.paymentMethod);
+    invoice.paymentNotes = normalizeInvoiceText(req.body.paymentNotes || invoice.paymentNotes, 5000);
     invoice.paidDate = status === "paid"
       ? normalizeInvoiceDate(req.body.paidDate) || new Date()
       : null;
@@ -1827,6 +3129,16 @@ async function addInvoicePayment(req, res) {
     }
 
     await invoice.save();
+    await logAdminAction(req, {
+      module: "Payments",
+      action: "invoices.payment_added",
+      targetType: "Invoice",
+      targetId: String(invoice._id),
+      targetLabel: invoice.invoiceNumber,
+      oldValue,
+      newValue: serializeInvoice(invoice),
+      severity: "High"
+    });
 
     return sendSuccess(res, 200, {
       message: status === "paid"
@@ -1836,6 +3148,126 @@ async function addInvoicePayment(req, res) {
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to record the payment right now.");
+  }
+}
+
+async function findInvoiceWithReferences(match) {
+  const invoice = await Invoice.findOne(match)
+    .populate("projectId", "projectTitle")
+    .populate("maintenancePlanId", "planName")
+    .populate("leadId", "businessName contactPerson")
+    .populate("salesExecutiveId", "fullName")
+    .lean();
+
+  if (!invoice) {
+    return null;
+  }
+
+  return serializeInvoiceWithReferenceLabels(invoice);
+}
+
+function serializeInvoiceWithReferenceLabels(invoice) {
+  return serializeInvoice({
+    ...invoice,
+    projectTitle: invoice.projectId && invoice.projectId.projectTitle,
+    maintenancePlanName: invoice.maintenancePlanId && invoice.maintenancePlanId.planName,
+    leadBusinessName: invoice.leadId && (invoice.leadId.businessName || invoice.leadId.contactPerson),
+    salesExecutiveName: invoice.salesExecutiveId && invoice.salesExecutiveId.fullName
+  });
+}
+
+async function downloadInvoicePdf(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoice = await findInvoiceWithReferences({ _id: req.params.id });
+    if (!invoice) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    const settings = await getCurrentAppSettings();
+    const pdfBuffer = generateInvoicePdfBuffer({ invoice, settings });
+    await logAdminAction(req, {
+      module: "Invoices",
+      action: "invoices.pdf_downloaded",
+      targetType: "Invoice",
+      targetId: String(req.params.id),
+      targetLabel: invoice.invoiceNumber || "invoice",
+      newValue: {
+        invoiceNumber: invoice.invoiceNumber || "",
+        clientEmail: invoice.clientEmail || ""
+      },
+      severity: "Medium"
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber || "invoice"}.pdf"`);
+    return res.status(200).send(pdfBuffer);
+  } catch (_error) {
+    return sendError(res, 500, "Unable to generate the invoice PDF right now.");
+  }
+}
+
+async function sendInvoiceToClient(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "Invalid invoice ID.");
+    }
+
+    const invoiceDocument = await Invoice.findById(req.params.id);
+    if (!invoiceDocument) {
+      return sendError(res, 404, "Invoice not found.");
+    }
+
+    const settings = await getCurrentAppSettings();
+    const invoice = serializeInvoice(invoiceDocument);
+    const result = await sendInvoiceEmail(invoice, settings);
+
+    invoiceDocument.emailStatus = result.delivered ? "Sent" : "Failed";
+    invoiceDocument.lastEmailSentAt = result.delivered ? new Date() : invoiceDocument.lastEmailSentAt;
+    await invoiceDocument.save();
+    await logAdminAction(req, {
+      module: "Invoices",
+      action: "invoices.email_sent",
+      targetType: "Invoice",
+      targetId: String(invoiceDocument._id),
+      targetLabel: invoiceDocument.invoiceNumber,
+      newValue: {
+        emailStatus: invoiceDocument.emailStatus,
+        delivered: Boolean(result.delivered),
+        skipped: Boolean(result.skipped)
+      },
+      severity: result.delivered ? "Medium" : "High"
+    });
+
+    if (result.skipped) {
+      return sendSuccess(res, 200, {
+        message: "Invoice email was prepared, but email delivery is not configured.",
+        emailStatus: invoiceDocument.emailStatus,
+        reason: result.reason
+      });
+    }
+
+    if (!result.delivered) {
+      return sendError(res, 500, "Unable to send invoice email right now.");
+    }
+
+    return sendSuccess(res, 200, {
+      message: "Invoice email sent successfully.",
+      emailStatus: invoiceDocument.emailStatus,
+      lastEmailSentAt: invoiceDocument.lastEmailSentAt
+    });
+  } catch (_error) {
+    const invoiceDocument = mongoose.Types.ObjectId.isValid(req.params.id)
+      ? await Invoice.findById(req.params.id)
+      : null;
+    if (invoiceDocument) {
+      invoiceDocument.emailStatus = "Failed";
+      await invoiceDocument.save();
+    }
+    return sendError(res, 500, "Unable to send invoice email right now.");
   }
 }
 
@@ -1937,6 +3369,7 @@ async function updateAdminRequest(req, res) {
     if (!request) {
       return sendError(res, 404, "Request not found.");
     }
+    const oldValue = serializeSupportRequest(request, { includeAdminFields: true });
 
     if (typeof req.body.status === "string") {
       const status = normalizeRequestStatus(req.body.status);
@@ -1960,6 +3393,16 @@ async function updateAdminRequest(req, res) {
     }
 
     await request.save();
+    await logAdminAction(req, {
+      module: "Support",
+      action: "support.updated",
+      targetType: "SupportRequest",
+      targetId: String(request._id),
+      targetLabel: request.subject || request.clientEmail || "Support request",
+      oldValue,
+      newValue: serializeSupportRequest(request, { includeAdminFields: true }),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Request updated successfully.",
@@ -1980,6 +3423,7 @@ async function deleteAdminRequest(req, res) {
     if (!request) {
       return sendError(res, 404, "Request not found.");
     }
+    const oldValue = serializeSupportRequest(request, { includeAdminFields: true });
 
     request.status = "closed";
     applyResolvedTimestamp(request, request.status);
@@ -1989,6 +3433,16 @@ async function deleteAdminRequest(req, res) {
     }
 
     await request.save();
+    await logAdminAction(req, {
+      module: "Support",
+      action: "support.closed",
+      targetType: "SupportRequest",
+      targetId: String(request._id),
+      targetLabel: request.subject || request.clientEmail || "Support request",
+      oldValue,
+      newValue: serializeSupportRequest(request, { includeAdminFields: true }),
+      severity: "Medium"
+    });
 
     return sendSuccess(res, 200, {
       message: "Request closed successfully.",
@@ -2001,12 +3455,31 @@ async function deleteAdminRequest(req, res) {
 
 module.exports = {
   getStats,
+  getAuditLogs,
+  getAuditLogById,
+  getAdminUsers,
+  getAdminUserById,
+  updateAdminUserRole,
+  updateAdminUserStatus,
+  activateAdminUser,
+  deactivateAdminUser,
   getAdminSettings,
   updateAdminSettings,
+  getReportsOverview,
+  getReportsRevenue,
+  getReportsProjects,
+  getReportsInvoices,
+  getReportsSales,
+  getReportsMaintenance,
+  getReportsSupport,
   getReportsSummary,
   exportClientsReport,
   exportInvoicesReport,
   exportRequestsReport,
+  exportRevenueReport,
+  exportProjectsReport,
+  exportSalesReport,
+  exportMaintenanceReport,
   getClients,
   getClientById,
   updateClient,
@@ -2027,5 +3500,7 @@ module.exports = {
   updateInvoice,
   deleteInvoice,
   markInvoicePaid,
-  addInvoicePayment
+  addInvoicePayment,
+  downloadInvoicePdf,
+  sendInvoiceToClient
 };

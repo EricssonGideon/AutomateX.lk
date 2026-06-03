@@ -1,25 +1,44 @@
 const mongoose = require("mongoose");
 
+const STATUS_TO_PAYMENT_STATUS = {
+  draft: "Unpaid",
+  sent: "Unpaid",
+  paid: "Paid",
+  partial: "Partial",
+  overdue: "Overdue",
+  cancelled: "Cancelled"
+};
+
 const itemSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
+      default: "",
+      trim: true
+    },
+    description: {
+      type: String,
+      default: "",
       trim: true
     },
     quantity: {
       type: Number,
-      required: true,
+      default: 1,
       min: 0
     },
     unitPrice: {
       type: Number,
-      required: true,
+      default: 0,
       min: 0
     },
     total: {
       type: Number,
-      required: true,
+      default: 0,
+      min: 0
+    },
+    amount: {
+      type: Number,
+      default: 0,
       min: 0
     }
   },
@@ -42,6 +61,30 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+      default: null,
+      index: true
+    },
+    maintenancePlanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MaintenancePlan",
+      default: null,
+      index: true
+    },
+    leadId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Lead",
+      default: null,
+      index: true
+    },
+    salesExecutiveId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SalesExecutive",
+      default: null,
+      index: true
+    },
     clientName: {
       type: String,
       required: true,
@@ -62,6 +105,12 @@ const invoiceSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true
+    },
+    invoiceType: {
+      type: String,
+      enum: ["Project", "Maintenance", "Upgrade", "Custom"],
+      default: "Custom",
+      index: true
     },
     description: {
       type: String,
@@ -102,6 +151,11 @@ const invoiceSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    balanceAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     currency: {
       type: String,
       default: "LKR",
@@ -113,6 +167,17 @@ const invoiceSchema = new mongoose.Schema(
       enum: ["draft", "sent", "paid", "partial", "overdue", "cancelled"],
       default: "draft",
       index: true
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["Unpaid", "Partial", "Paid", "Overdue", "Cancelled"],
+      default: "Unpaid",
+      index: true
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Bank Transfer", "Online", "Card", "Other"],
+      default: "Other"
     },
     issueDate: {
       type: Date,
@@ -132,15 +197,64 @@ const invoiceSchema = new mongoose.Schema(
       default: "",
       trim: true
     },
+    paymentNotes: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    clientNotes: {
+      type: String,
+      default: "",
+      trim: true
+    },
     adminNotes: {
       type: String,
       default: "",
       trim: true
+    },
+    emailStatus: {
+      type: String,
+      enum: ["Not Sent", "Sent", "Failed"],
+      default: "Not Sent",
+      index: true
+    },
+    lastEmailSentAt: {
+      type: Date,
+      default: null
     }
   },
   {
     timestamps: true
   }
 );
+
+invoiceSchema.pre("validate", function syncInvoiceAliases(next) {
+  this.items = (this.items || []).map((item) => {
+    const description = item.description || item.name || "";
+    const name = item.name || description;
+    const total = Number.isFinite(Number(item.total))
+      ? Number(item.total)
+      : Number(item.amount || 0);
+    const amount = Number.isFinite(Number(item.amount))
+      ? Number(item.amount)
+      : total;
+
+    const plainItem = item && typeof item.toObject === "function" ? item.toObject() : item;
+
+    return {
+      ...plainItem,
+      name,
+      description,
+      total,
+      amount
+    };
+  });
+  this.balanceAmount = this.balance;
+  this.paymentStatus = STATUS_TO_PAYMENT_STATUS[this.status] || this.paymentStatus || "Unpaid";
+  if (!this.clientNotes && this.notes) {
+    this.clientNotes = this.notes;
+  }
+  next();
+});
 
 module.exports = mongoose.model("Invoice", invoiceSchema);

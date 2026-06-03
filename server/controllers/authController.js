@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
 
@@ -18,13 +19,18 @@ const {
   hasCompletedBusinessProfile,
   buildFeatureAccess
 } = require("../utils/account");
-const { sendWelcomeEmail } = require("../utils/email");
+const { sendWelcomeEmail, sendPasswordResetEmail } = require("../utils/email");
+const { logAdminAction } = require("../utils/auditLog");
 const { sendSuccess, sendValidationError, sendError } = require("../utils/response");
 const { getJwtSecret } = require("../utils/env");
+const { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME } = require("../middleware/auth");
 
 const JWT_SECRET = getJwtSecret();
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "7d";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "12h";
 const SALT_ROUNDS = 12;
+const RESET_TOKEN_BYTES = 32;
+const RESET_TOKEN_TTL_MINUTES = 30;
+const DEFAULT_AUTH_COOKIE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 const CLIENT_PROFILE_FIELDS = new Set([
   "name",
   "businessName",
@@ -76,6 +82,71 @@ function signToken(user) {
   return jwt.sign(buildTokenPayload(user), JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
+function parseDurationMs(value, fallback = DEFAULT_AUTH_COOKIE_MAX_AGE_MS) {
+  const match = String(value || "").trim().match(/^(\d+)([smhd])?$/i);
+  if (!match) {
+    return fallback;
+  }
+
+  const amount = Number(match[1]);
+  const unit = String(match[2] || "s").toLowerCase();
+  const multipliers = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000
+  };
+
+  return amount * (multipliers[unit] || multipliers.s);
+}
+
+function getCookieOptions(options = {}) {
+  return {
+    httpOnly: Boolean(options.httpOnly),
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: parseDurationMs(JWT_EXPIRES_IN)
+  };
+}
+
+function setAuthCookies(res, token) {
+  if (!res || typeof res.cookie !== "function") {
+    return "";
+  }
+
+  const csrfToken = crypto.randomBytes(24).toString("hex");
+  res.cookie(AUTH_COOKIE_NAME, token, getCookieOptions({ httpOnly: true }));
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, getCookieOptions({ httpOnly: false }));
+  return csrfToken;
+}
+
+function clearAuthCookies(res) {
+  if (!res || typeof res.clearCookie !== "function") {
+    return;
+  }
+
+  const clearOptions = {
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/"
+  };
+  res.clearCookie(AUTH_COOKIE_NAME, clearOptions);
+  res.clearCookie(CSRF_COOKIE_NAME, clearOptions);
+}
+
+function hashResetToken(token) {
+  return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+function buildPasswordResetUrl(req, token) {
+  const configuredBase = process.env.PASSWORD_RESET_URL || process.env.LOGIN_URL || "";
+  const baseUrl = configuredBase || `${req.protocol}://${req.get("host")}/login.html`;
+  const url = new URL(baseUrl);
+  url.searchParams.set("resetToken", token);
+  return url.toString();
+}
+
 /**
  * Converts a user document into a safe API payload without password data.
  *
@@ -101,6 +172,7 @@ function serializeUser(user) {
     name: user.name,
     email: user.email,
     role: trustedRole,
+    status: user.status || (user.isActive ? "active" : "inactive"),
     plan: normalizedPlan,
     packageName: normalizedPlan,
     monthlyFee,
@@ -180,6 +252,32 @@ const loginValidators = [
   body("password")
     .notEmpty()
     .withMessage("Password is required.")
+];
+
+const forgotPasswordValidators = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required.")
+    .isEmail()
+    .withMessage("Enter a valid email address.")
+    .normalizeEmail()
+];
+
+const resetPasswordValidators = [
+  body("token")
+    .trim()
+    .notEmpty()
+    .withMessage("Reset token is required."),
+  body("password")
+    .isLength({ min: 8, max: 128 })
+    .withMessage("Password must be between 8 and 128 characters.")
+    .matches(/[a-z]/)
+    .withMessage("Password must include a lowercase letter.")
+    .matches(/[A-Z]/)
+    .withMessage("Password must include an uppercase letter.")
+    .matches(/[0-9]/)
+    .withMessage("Password must include a number.")
 ];
 
 const updateProfileValidators = [
@@ -272,11 +370,13 @@ async function signup(req, res) {
     });
 
     const token = signToken(user);
+    const csrfToken = setAuthCookies(res, token);
     await sendWelcomeEmail(user);
 
     return sendSuccess(res, 201, {
       message: "Signup successful.",
       token,
+      csrfToken,
       user: serializeUser(user)
     });
   } catch (_error) {
@@ -302,15 +402,30 @@ async function login(req, res) {
     const user = await User.findOne({ email });
 
     if (!user) {
+      await logAdminAction(req, {
+        module: "Auth",
+        action: "auth.login_failed",
+        targetType: "User",
+        targetLabel: email,
+        severity: "Medium"
+      });
       return sendError(res, 401, "Invalid email or password.");
     }
 
     const passwordMatches = await bcrypt.compare(req.body.password, user.passwordHash);
     if (!passwordMatches) {
+      await logAdminAction(req, {
+        module: "Auth",
+        action: "auth.login_failed",
+        targetType: "User",
+        targetId: String(user._id),
+        targetLabel: user.email,
+        severity: "Medium"
+      });
       return sendError(res, 401, "Invalid email or password.");
     }
 
-    if (!user.isActive) {
+    if (!user.isActive || user.status === "suspended" || user.status === "inactive") {
       return sendError(res, 403, "This account has been deactivated.");
     }
 
@@ -321,14 +436,86 @@ async function login(req, res) {
     }
 
     const token = signToken(user);
+    const csrfToken = setAuthCookies(res, token);
 
     return sendSuccess(res, 200, {
       message: "Login successful.",
       token,
+      csrfToken,
       user: serializeUser(user)
     });
   } catch (_error) {
     return sendError(res, 500, "Unable to log you in right now.");
+  }
+}
+
+async function forgotPassword(req, res) {
+  const genericMessage = "If an account exists for that email, password reset instructions will be sent shortly.";
+
+  try {
+    const details = validationMessages(req);
+    if (details.length) {
+      return sendValidationError(res, "Please provide a valid email address.", details);
+    }
+
+    const email = normalizeEmailAddress(req.body.email);
+    const user = await User.findOne({ email });
+
+    if (!user || !user.isActive) {
+      return sendSuccess(res, 200, { message: genericMessage });
+    }
+
+    const resetToken = crypto.randomBytes(RESET_TOKEN_BYTES).toString("hex");
+    user.passwordResetTokenHash = hashResetToken(resetToken);
+    user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60 * 1000);
+    await user.save();
+
+    const delivery = await sendPasswordResetEmail(user, buildPasswordResetUrl(req, resetToken));
+    if (delivery && delivery.skipped) {
+      console.warn(`Password reset email skipped for ${email}: ${delivery.reason || "email service unavailable"}`);
+    }
+
+    return sendSuccess(res, 200, { message: genericMessage });
+  } catch (_error) {
+    return sendSuccess(res, 200, { message: genericMessage });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const details = validationMessages(req);
+    if (details.length) {
+      return sendValidationError(res, "Please fix the reset form and try again.", details);
+    }
+
+    const user = await User.findOne({
+      passwordResetTokenHash: hashResetToken(req.body.token),
+      passwordResetExpiresAt: { $gt: new Date() }
+    }).select("+passwordResetTokenHash +passwordResetExpiresAt");
+
+    if (!user || !user.isActive) {
+      return sendError(res, 400, "This password reset link is invalid or has expired.");
+    }
+
+    user.passwordHash = await bcrypt.hash(req.body.password, SALT_ROUNDS);
+    user.passwordResetTokenHash = "";
+    user.passwordResetExpiresAt = null;
+    await user.save();
+
+    await logAdminAction(req, {
+      module: "Auth",
+      action: "auth.password_reset_completed",
+      targetType: "User",
+      targetId: String(user._id),
+      targetLabel: user.email,
+      severity: "High"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "Password reset successful. You can now sign in with your new password."
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to reset your password right now.");
   }
 }
 
@@ -340,6 +527,7 @@ async function login(req, res) {
  * @returns {import("express").Response} Success response indicating logout completed client-side.
  */
 function logout(_req, res) {
+  clearAuthCookies(res);
   return sendSuccess(res, 200, {
     message: "Logout successful. Remove the token on the client."
   });
@@ -447,9 +635,14 @@ async function updateMe(req, res) {
 module.exports = {
   signupValidators,
   loginValidators,
+  forgotPasswordValidators,
+  resetPasswordValidators,
   updateProfileValidators,
+  clearAuthCookies,
   signup,
   login,
+  forgotPassword,
+  resetPassword,
   logout,
   me,
   updateMe

@@ -1,0 +1,234 @@
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.24), transparent 28%),
+        radial-gradient(circle at top right, rgba(255, 107, 61, 0.24), transparent 28%),
+        linear-gradient(180deg, #f7fbff 0%, #edf4ff 45%, #f9fbff 100%);
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition:
+        opacity 0.65s ease,
+        transform 0.65s ease;
+    }
+
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .package-track {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .package-track::-webkit-scrollbar {
+      display: none;
+    }
+
+    .package-card {
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      transform: none;
+      will-change: auto;
+    }
+
+    .package-card:active {
+      transform: scale(0.995);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .package-card {
+        transition:
+          transform 0.22s ease,
+          box-shadow 0.22s ease;
+      }
+
+      .package-card:hover {
+        transform: scale(1.0125);
+      }
+    }
+
+    .package-track.slideshow-enabled {
+      display: grid !important;
+      grid-auto-flow: column !important;
+      grid-template-columns: none !important;
+      overflow-x: auto !important;
+      overflow-y: visible;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 1023px) {
+      .package-card,
+      .package-card:hover,
+      .package-card:focus-visible {
+        transform: none !important;
+      }
+
+      .package-card:active {
+        transform: scale(0.995) !important;
+      }
+
+      .animate-premiumZoom,
+      .animate-badgeFloat {
+        animation: none !important;
+      }
+
+      .package-track {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, calc(100% - 0.75rem));
+        gap: 1rem;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        padding-inline: 0.375rem;
+        scroll-padding-inline: 0.375rem;
+      }
+
+      .package-track.slideshow-enabled {
+        grid-auto-columns: minmax(0, calc(100% - 0.75rem));
+        gap: 1rem;
+        padding-inline: 0.375rem;
+        scroll-padding-inline: 0.375rem;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .animate-premiumZoom {
+        animation-duration: 6s;
+      }
+
+      .animate-badgeFloat {
+        animation-duration: 4s;
+      }
+
+      .package-track.slideshow-enabled {
+        grid-auto-columns: min(560px, 72vw);
+        gap: 1.5rem;
+        padding-inline: clamp(2rem, 14vw, 12rem);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .pricing-page #packages #packageTrack {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        grid-auto-flow: row;
+        gap: 1rem;
+        overflow: visible !important;
+        padding-inline: 0;
+        scroll-padding-inline: 0;
+        scroll-snap-type: none;
+      }
+
+      .pricing-page #packages #packageTrack.slideshow-enabled {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        grid-auto-columns: auto;
+        grid-auto-flow: row;
+        gap: 1rem;
+        overflow: visible !important;
+        padding-inline: 0;
+        scroll-padding-inline: 0;
+      }
+
+      .pricing-page #packages .package-card {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        margin: 0;
+        padding: 1.4rem;
+        border: 1px solid rgba(203, 213, 225, 0.78);
+        border-radius: 1.5rem;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+        box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+        transform: none !important;
+        transition:
+          transform 180ms ease-out,
+          box-shadow 180ms ease-out,
+          border-color 180ms ease-out;
+        animation: none !important;
+      }
+
+      .pricing-page #packages #packageTrack .package-card:nth-child(2) {
+        background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+        border-color: rgba(255, 107, 61, 0.86);
+        color: #ffffff;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+      }
+
+      .pricing-page #packages .package-card:active {
+        transform: scale(1.02) !important;
+      }
+
+      .pricing-page #packages .package-card:hover,
+      .pricing-page #packages .package-card:focus-visible {
+        transform: none !important;
+      }
+
+      .pricing-page #packages .package-card.reveal,
+      .pricing-page #packages .package-card.reveal.is-visible,
+      .pricing-page #packages .animate-premiumZoom,
+      .pricing-page #packages .animate-badgeFloat {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+        animation: none !important;
+      }
+
+      .pricing-page #packages .package-card > div:first-child {
+        align-items: flex-start;
+      }
+
+      .pricing-page #packages .package-card h3 {
+        font-size: 1.75rem;
+        line-height: 1.12;
+      }
+
+      .pricing-page #packages .package-card p,
+      .pricing-page #packages .package-card li,
+      .pricing-page #packages .package-card span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      .pricing-page #packages .package-card ul {
+        margin-top: 1rem;
+        padding-left: 1.1rem;
+        list-style: disc;
+      }
+
+      .pricing-page #packages .package-card ul li + li {
+        margin-top: 0.55rem;
+      }
+
+      .pricing-page #packages .package-card a {
+        margin-top: 1.25rem;
+      }
+
+      .pricing-page #packages .package-card > a:last-child {
+        margin-top: auto;
+      }
+
+      .pricing-page #packages .package-dot {
+        display: none;
+      }
+    }

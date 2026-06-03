@@ -139,7 +139,7 @@ function renderButton(label, url) {
  * @param {{to: string, subject: string, html: string, text?: string}} payload - Email payload values.
  * @returns {Promise<{delivered: boolean, skipped: boolean, reason?: string, id?: string}>} Delivery result metadata.
  */
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmail({ to, subject, html, text, attachments }) {
   const resend = getResendClient();
 
   if (!resend) {
@@ -155,7 +155,8 @@ async function sendEmail({ to, subject, html, text }) {
     to,
     subject,
     html,
-    text
+    text,
+    attachments
   });
 
   return {
@@ -163,6 +164,53 @@ async function sendEmail({ to, subject, html, text }) {
     skipped: false,
     id: response.data && response.data.id ? response.data.id : undefined
   };
+}
+
+function formatInvoiceMoney(value, currency = "LKR") {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency
+    }).format(Number(value || 0));
+  } catch {
+    return `${currency} ${Number(value || 0).toFixed(2)}`;
+  }
+}
+
+/**
+ * Sends an invoice email to a client.
+ *
+ * @param {{clientName:string, clientEmail:string, invoiceNumber:string, totalAmount:number, paidAmount:number, balanceAmount?:number, balance?:number, dueDate?:Date|string, currency?:string}} invoice - Invoice details.
+ * @param {{paymentInstructions?:string}} settings - Business payment settings.
+ * @returns {Promise<{delivered: boolean, skipped: boolean, reason?: string, id?: string}>} Delivery result metadata.
+ */
+async function sendInvoiceEmail(invoice, settings = {}) {
+  const dashboardUrl = getDashboardUrl();
+  const currency = invoice.currency || "LKR";
+  const balance = invoice.balanceAmount ?? invoice.balance ?? 0;
+  const paymentInstructions = settings.paymentInstructions || "Please use your agreed AutomateX payment method and share the payment reference after transfer.";
+
+  return sendEmail({
+    to: invoice.clientEmail,
+    subject: `AutomateX invoice ${invoice.invoiceNumber}`,
+    text: `Hi ${invoice.clientName}, invoice ${invoice.invoiceNumber} is ready. Total: ${formatInvoiceMoney(invoice.totalAmount, currency)}. Balance: ${formatInvoiceMoney(balance, currency)}. Due date: ${invoice.dueDate || "Not set"}. Log in to your client portal to download the PDF: ${dashboardUrl}. Payment instructions: ${paymentInstructions}`,
+    html: renderEmailLayout(
+      `Invoice ${invoice.invoiceNumber}`,
+      `Hi ${invoice.clientName || "there"}, your AutomateX invoice is ready.`,
+      `
+        ${renderDetailsTable([
+          { label: "Invoice number", value: invoice.invoiceNumber },
+          { label: "Total", value: formatInvoiceMoney(invoice.totalAmount, currency) },
+          { label: "Paid", value: formatInvoiceMoney(invoice.paidAmount, currency) },
+          { label: "Balance", value: formatInvoiceMoney(balance, currency) },
+          { label: "Due date", value: invoice.dueDate || "Not set" },
+          { label: "Payment instructions", value: paymentInstructions }
+        ])}
+        <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">You can download the invoice PDF securely from your AutomateX client portal.</p>
+        ${renderButton("Open client portal", dashboardUrl)}
+      `
+    )
+  });
 }
 
 /**
@@ -192,6 +240,30 @@ async function sendWelcomeEmail(user) {
           { label: "Support", value: getSupportEmail() }
         ])}
         ${renderButton("Open your dashboard", dashboardUrl)}
+      `
+    )
+  });
+}
+
+/**
+ * Sends a password reset email with a short-lived reset link.
+ *
+ * @param {{name: string, email: string}} user - User receiving the email.
+ * @param {string} resetUrl - One-time reset URL.
+ * @returns {Promise<{delivered: boolean, skipped: boolean, reason?: string, id?: string}>} Delivery result metadata.
+ */
+async function sendPasswordResetEmail(user, resetUrl) {
+  return sendEmail({
+    to: user.email,
+    subject: "Reset your AutomateX password",
+    text: `Hi ${user.name || "there"}, use this secure link to reset your AutomateX password within 30 minutes: ${resetUrl}. If you did not request this, you can ignore this email.`,
+    html: renderEmailLayout(
+      "Reset your password",
+      `Hi ${user.name || "there"}, we received a request to reset your AutomateX password.`,
+      `
+        <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">This link expires in 30 minutes. If you did not request this reset, no action is required.</p>
+        ${renderButton("Reset password", resetUrl)}
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#64748b;">If the button does not work, open this link: ${escapeHtml(resetUrl)}</p>
       `
     )
   });
@@ -340,9 +412,11 @@ async function sendWeeklySummary(user, stats) {
 module.exports = {
   sendEmail,
   sendWelcomeEmail,
+  sendPasswordResetEmail,
   sendBookingConfirmationToClient,
   sendBookingConfirmationToCustomer,
   sendInquiryNotification,
+  sendInvoiceEmail,
   sendPaymentFailedWarning,
   sendWeeklySummary
 };

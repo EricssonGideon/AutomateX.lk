@@ -1,115 +1,148 @@
-# AutomateX Full-Stack Booking Website
+# AutomateX Business Control Center
 
-This project now includes a real client-server booking flow:
+AutomateX is a single Express/MongoDB application that powers the public AutomateX website plus protected admin and client portals. The goal is to keep the business website, operations dashboard, billing tools, and client workspace inside one professional control center.
 
-- The frontend in `index.html`, `style.css`, and `app.js` collects booking details.
-- The browser sends them to the backend with a JSON `POST` request.
-- The backend in `server.js` uses Express to validate the request.
-- MongoDB stores the booking in the `bookings` collection through Mongoose.
-- The server returns a confirmation response back to the client.
+## Current Features
 
-## Project structure
+- Public AutomateX website with service, pricing, portfolio-style, review, booking, and contact sections.
+- Admin login and admin control center.
+- Client login, signup, and client dashboard.
+- JWT authentication with admin/client route protection.
+- Client account approval, package assignment, payment status, and feature access management.
+- Bookings, inquiries, reviews, invoices, support requests, reports, and settings.
+- Project Management backend foundation with admin CRUD APIs and client read-only project visibility.
+- Optional Resend email, OpenAI chat, and Stripe billing integration hooks.
 
-- `index.html`: landing page and booking UI
-- `style.css`: visual design and responsive layout
-- `app.js`: frontend behavior and booking API integration
-- `server.js`: Express server and API routes
-- `models/Booking.js`: Mongoose booking schema
-- `.env.example`: sample environment variables
+## Main Folders
 
-## Setup
+- `public/` - Static website, admin portal, client portal, login pages, CSS, images, and browser scripts.
+- `server/` - Express app, routes, controllers, middleware, Mongo models, utilities, and backend scripts.
+- `server/models/` - Active Mongoose models used by the application.
+- `server/routes/` - API route modules.
+- `server/controllers/` - API business logic.
+- `server/middleware/` - Authentication, role guards, plan gates, and rate limiting.
+- `api/` - Vercel serverless entry point.
+- `scripts/` - Local maintenance scripts.
 
-1. Install Node.js on your machine.
-2. Open the project folder in a terminal.
-3. Install dependencies:
+## Install
 
 ```bash
 npm install
 ```
 
-4. Copy `.env.example` to `.env`.
-5. Set your MongoDB connection string and `JWT_SECRET` in `.env`.
-6. Start the server:
+## Run Locally
+
+1. Copy `.env.example` to `.env`.
+2. Set the required environment variables.
+3. Start the local server:
 
 ```bash
 npm run dev
 ```
 
-Or for production:
+The server defaults to `PORT=5000` unless `PORT` is set. If using the sample `.env.example`, open:
 
-```bash
-npm start
+```text
+http://localhost:5001
 ```
 
-7. Open your local server URL, for example [http://localhost:5001/login.html](http://localhost:5001/login.html) when `PORT=5001`.
+Important: do not open the login/dashboard HTML files directly with `file://`. Authentication and dashboard data require the Express backend.
 
-## API
+## Available Scripts
 
-### `GET /api/health`
+- `npm start` - Run the production Express server with `node server.js`.
+- `npm run dev` - Run the server with `nodemon`.
+- `npm run build:tailwind` - Compile local Tailwind CSS to `public/assets/css/tailwind.css`.
+- `npm run check:storage` - Validate local or S3/R2 storage configuration.
+- `npm run test:api` - Run API-focused tests.
+- `npm test` - Run the full Node test suite.
+- `npm run lint` - Run ESLint over JavaScript files.
+- `npm run seed:admin` - Create or promote an admin user using environment variables.
 
-Returns the API and database status.
+## Required Environment Variables
 
-### `GET /api/bookings/availability?month=YYYY-MM`
+- `MONGO_URI` or `MONGODB_URI` - MongoDB connection string.
+- `JWT_SECRET` - Strong private JWT signing secret.
+- `ALLOWED_ORIGINS` - Comma-separated origins allowed to call the API.
+- `PUBLIC_APP_URL` - Canonical app URL used in generated links.
+- `CLIENT_DASHBOARD_URL` - Client dashboard URL used in account emails and links.
+- `PASSWORD_RESET_URL` - Password reset page URL.
 
-Returns booked date and time slot keys for the selected month.
+Recommended:
 
-### `POST /api/bookings`
+- `JWT_EXPIRES_IN` - JWT lifetime, defaults to `7d`.
+- `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` - Used by `npm run seed:admin`.
 
-Example request body:
+Optional integrations:
 
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "phone": "+94 71 123 4567",
-  "service": "Website Development",
-  "date": "2026-04-25",
-  "time": "10:30"
-}
-```
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
+- `OPENAI_API_KEY`
+- `OPENAI_CHAT_ENABLED`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_STARTER_PRICE_ID`
+- `STRIPE_STANDARD_PRICE_ID`
+- `STRIPE_PRO_PRICE_ID`
 
-## Notes
+Storage:
 
-- Weekend dates are blocked in the frontend calendar.
-- Duplicate bookings for the same date and time are prevented in the API and the database index.
-- If you open `index.html` directly without running the Node server, the booking form UI will appear, but live booking submission will not work because the API will not be running.
+- `STORAGE_DRIVER=local` - Development only.
+- `STORAGE_DRIVER=s3` - Required for staging and production file uploads.
+- `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, and `S3_FORCE_PATH_STYLE` - Required for R2/S3 storage.
+- `S3_PUBLIC_BASE_URL` - Leave empty for private backend-streamed downloads unless public object delivery has been approved.
 
-## Deployment preflight checklist
+## Frontend Assets And CSP
 
-Before deploying to Vercel, confirm the required environment variables are configured in the Vercel project settings.
+- Tailwind CDN has been removed.
+- Google Fonts have been removed.
+- Run `npm run build:tailwind` before staging or production deployment.
+- The hardened CSP expects local assets with `script-src 'self'`, `style-src 'self'`, `font-src 'self'`, `script-src-attr 'none'`, and `object-src 'none'`.
 
-1. In Vercel, open the AutomateX project.
-2. Go to Settings -> Environment Variables.
-3. Add each required variable for Production, Preview, and Development unless a value is intentionally environment-specific.
-4. Redeploy after adding or changing environment variables. Existing deployments do not automatically pick up changed values.
+## API Areas
 
-Required variables:
+- `/api/auth` - Signup, login, logout, current user, client profile update.
+- `/api/admin` - Admin-only stats, clients, invoices, bookings, inquiries, reviews, support requests, reports, settings, and projects.
+- `/api/projects` - Client-only project list and project detail access.
+- `/api/bookings` - Public and client booking flows.
+- `/api/inquiries` - Public and client inquiry flows.
+- `/api/reviews` - Public reviews, client review management, admin moderation.
+- `/api/invoices` - Client invoice view.
+- `/api/requests` - Client support and upgrade requests.
+- `/api/billing` - Stripe checkout, portal, success, and webhook routes.
+- `/api/chat` - Public website chat endpoint.
 
-- `MONGO_URI`: MongoDB connection string. This must point to the correct production database because database-backed features such as login, dashboard data, bookings, reviews, and admin tools depend on it.
-- `JWT_SECRET`: Long, private signing secret for authentication tokens. Use a strong random value and never reuse a public, short, or guessable string.
-- `ALLOWED_ORIGINS`: Comma-separated browser origins allowed to call the API. Production should include `https://automatex.lk,https://www.automatex.lk`.
+## Project Management Foundation
 
-Optional variables, depending on enabled features:
+Projects are stored in `server/models/Project.js` and linked to client `User` records. Admins can create, update, list, view, archive, and manage progress, status, milestones, and deliverables through protected admin APIs. Clients can only view their own non-archived projects and never receive private admin notes.
 
-- `OPENAI_API_KEY`: Required only when OpenAI-backed chatbot behavior is enabled.
-- `OPENAI_CHAT_ENABLED`: Enables or disables OpenAI-backed chat behavior when the app is configured to use it.
-- Stripe billing variables, required only when billing is enabled:
-  - `STRIPE_SECRET_KEY`
-  - `STRIPE_WEBHOOK_SECRET`
-  - `STRIPE_STARTER_PRICE_ID`
-  - `STRIPE_STANDARD_PRICE_ID`
-  - `STRIPE_PRO_PRICE_ID`
+Supported project data includes:
 
-Security checks:
+- Client link
+- Project title and type
+- Package name
+- Status and priority
+- Start date, expected deadline, completed date
+- Total, paid, and balance amounts
+- Progress percentage
+- Description, requirements, client notes, admin notes
+- Milestones and deliverables
+- Created/updated user references
+- Archive state
 
-- Never commit real secrets, API keys, JWT secrets, webhook secrets, or database connection strings to GitHub.
-- Keep production secrets in Vercel Environment Variables, not in source files.
-- After deployment, test `/api/health`, login, and dashboard flows with the production environment selected.
+## Deployment Notes
 
-## DEV_NOTES
+The repository includes:
 
-- Do not open `login.html`, `admin-login.html`, or `client-login.html` with `file://`. Real authentication needs the backend API.
-- Start the backend server first with a valid `.env` file and a working MongoDB connection.
-- For local auth testing, use `http://localhost:5001/login.html` when `PORT=5001`, or the matching local server URL for your configured port.
-- Real signup and login require both the backend server and MongoDB to be connected.
-- `JWT_SECRET` is required locally. The app no longer falls back to a default development secret.
+- `vercel.json` for Vercel static plus serverless API deployment.
+- `railway.json` for Railway deployment using `npm run start`.
+- `CNAME` for the configured domain.
+
+Before production deployment, configure required environment variables in the hosting provider dashboard and redeploy after changing secrets. Never commit `.env`, database connection strings, JWT secrets, Stripe secrets, OpenAI keys, or email provider keys.
+
+## Development Notes
+
+- Active models live in `server/models/`.
+- The old root `models/` folder was retired because the app consistently imports models from `server/models/`.
+- `.DS_Store`, `node_modules`, local files, uploads, logs, coverage, and `.env` files are ignored.
+- Automated API tests live under `test/api/`. Manual QA checklists still cover staging workflows that require browser, email, payment, role, and storage verification.

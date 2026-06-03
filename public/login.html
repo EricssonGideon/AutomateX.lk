@@ -8,7 +8,8 @@
   <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/assets/css/tailwind.css">
+  <link rel="stylesheet" href="/assets/css/login.css">
 </head>
 <body class="min-h-screen bg-slate-950 text-white">
   <main class="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
@@ -116,6 +117,75 @@
               >
                 Sign In
               </button>
+            </form>
+          </section>
+
+          <section id="forgotPasswordPanel" class="mt-6 hidden">
+            <form id="forgotPasswordForm" class="space-y-4">
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Account email</span>
+                <input
+                  id="forgotPasswordEmail"
+                  type="email"
+                  required
+                  class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+                  placeholder="you@example.com"
+                >
+              </label>
+
+              <div class="flex flex-col gap-3 sm:flex-row">
+                <button
+                  id="forgotPasswordSubmitButton"
+                  type="submit"
+                  class="flex-1 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Send Reset Link
+                </button>
+                <button type="button" data-auth-panel="login" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-cyan-400 hover:text-cyan-200">Back to Login</button>
+              </div>
+            </form>
+          </section>
+
+          <section id="resetPasswordPanel" class="mt-6 hidden">
+            <form id="resetPasswordForm" class="space-y-4">
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">New password</span>
+                <div class="relative">
+                  <input
+                    id="resetPassword"
+                    type="password"
+                    required
+                    class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 pr-14 text-sm text-white outline-none transition focus:border-cyan-400"
+                    placeholder="Minimum 8 characters"
+                  >
+                  <button type="button" data-toggle-password="resetPassword" class="absolute inset-y-0 right-3 my-auto rounded-full px-2 py-1 text-xs font-semibold text-slate-400 transition hover:text-cyan-300">Show</button>
+                </div>
+              </label>
+
+              <label class="block">
+                <span class="mb-2 block text-sm text-slate-300">Confirm new password</span>
+                <div class="relative">
+                  <input
+                    id="resetConfirmPassword"
+                    type="password"
+                    required
+                    class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 pr-14 text-sm text-white outline-none transition focus:border-cyan-400"
+                    placeholder="Repeat your password"
+                  >
+                  <button type="button" data-toggle-password="resetConfirmPassword" class="absolute inset-y-0 right-3 my-auto rounded-full px-2 py-1 text-xs font-semibold text-slate-400 transition hover:text-cyan-300">Show</button>
+                </div>
+              </label>
+
+              <div class="flex flex-col gap-3 sm:flex-row">
+                <button
+                  id="resetPasswordSubmitButton"
+                  type="submit"
+                  class="flex-1 rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  Reset Password
+                </button>
+                <button type="button" data-auth-panel="login" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-300 transition hover:border-cyan-400 hover:text-cyan-200">Back to Login</button>
+              </div>
             </form>
           </section>
 
@@ -231,319 +301,6 @@
       </section>
     </div>
   </main>
-
-  <script>
-    const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
-    const ADMIN_TOKEN_KEY = "automatex_admin_token";
-    const CLIENT_TOKEN_KEY = "automatex_client_token";
-    const FALLBACK_TOKEN_KEY = "automatex_token";
-    const ADMIN_USER_KEY = "automatex_admin_user";
-    const CLIENT_USER_KEY = "automatex_client_user";
-    const AUTH_STORAGE_KEYS = [
-      ADMIN_TOKEN_KEY,
-      CLIENT_TOKEN_KEY,
-      FALLBACK_TOKEN_KEY,
-      ADMIN_USER_KEY,
-      CLIENT_USER_KEY
-    ];
-    const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
-    const LOGOUT_MARKER_TTL_MS = 15000;
-
-    const feedback = document.getElementById("feedback");
-    const loginPanel = document.getElementById("loginPanel");
-    const signupPanel = document.getElementById("signupPanel");
-    const tabLogin = document.getElementById("tabLogin");
-    const tabSignup = document.getElementById("tabSignup");
-    const loginSubmitButton = document.getElementById("loginSubmitButton");
-    const signupSubmitButton = document.getElementById("signupSubmitButton");
-
-    function setActiveTab(tabName) {
-      const loginActive = tabName === "login";
-      tabLogin.className = loginActive
-        ? "auth-tab rounded-2xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950"
-        : "auth-tab rounded-2xl px-5 py-2.5 text-sm font-semibold text-slate-300";
-      tabSignup.className = loginActive
-        ? "auth-tab rounded-2xl px-5 py-2.5 text-sm font-semibold text-slate-300"
-        : "auth-tab rounded-2xl bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950";
-      loginPanel.classList.toggle("hidden", !loginActive);
-      signupPanel.classList.toggle("hidden", loginActive);
-      clearMessage();
-    }
-
-    function showMessage(message, tone = "error") {
-      feedback.textContent = message;
-      feedback.className = "mt-5 rounded-2xl border px-4 py-3 text-sm";
-
-      if (tone === "success") {
-        feedback.classList.add("border-emerald-500/40", "bg-emerald-500/10", "text-emerald-200");
-      } else if (tone === "info") {
-        feedback.classList.add("border-cyan-500/40", "bg-cyan-500/10", "text-cyan-100");
-      } else {
-        feedback.classList.add("border-rose-500/40", "bg-rose-500/10", "text-rose-200");
-      }
-    }
-
-    function clearMessage() {
-      feedback.className = "mt-5 hidden rounded-2xl border px-4 py-3 text-sm";
-      feedback.textContent = "";
-    }
-
-    function getStoredValue(key) {
-      return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
-    }
-
-    function removeStoredValue(key) {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    }
-
-    function clearLogoutMarker() {
-      removeStoredValue(LOGOUT_MARKER_KEY);
-    }
-
-    function hasRecentLogoutMarker() {
-      const timestamps = [localStorage.getItem(LOGOUT_MARKER_KEY), sessionStorage.getItem(LOGOUT_MARKER_KEY)]
-        .map((value) => Number(value || 0))
-        .filter(Boolean);
-
-      if (!timestamps.length) {
-        return false;
-      }
-
-      if (Date.now() - Math.max(...timestamps) < LOGOUT_MARKER_TTL_MS) {
-        return true;
-      }
-
-      clearLogoutMarker();
-      return false;
-    }
-
-    function clearSession(options = {}) {
-      AUTH_STORAGE_KEYS.forEach(removeStoredValue);
-
-      if (!options.preserveLogoutMarker) {
-        clearLogoutMarker();
-      }
-    }
-
-    function saveAdminSession(token, user) {
-      clearSession();
-      localStorage.setItem(ADMIN_TOKEN_KEY, token);
-      localStorage.setItem(FALLBACK_TOKEN_KEY, token);
-      localStorage.setItem(ADMIN_USER_KEY, JSON.stringify(user));
-    }
-
-    function saveClientSession(token, user) {
-      clearSession();
-      localStorage.setItem(CLIENT_TOKEN_KEY, token);
-      localStorage.setItem(FALLBACK_TOKEN_KEY, token);
-      localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(user));
-    }
-
-    function getExistingToken() {
-      return getStoredValue(FALLBACK_TOKEN_KEY) ||
-        getStoredValue(ADMIN_TOKEN_KEY) ||
-        getStoredValue(CLIENT_TOKEN_KEY) ||
-        "";
-    }
-
-    function isOfficialAdmin(user) {
-      return Boolean(
-        user &&
-        user.role === "admin" &&
-        String(user.email || "").trim().toLowerCase() === OFFICIAL_ADMIN_EMAIL
-      );
-    }
-
-    async function verifyExistingSession() {
-      if (hasRecentLogoutMarker()) {
-        clearSession({ preserveLogoutMarker: true });
-        return;
-      }
-
-      const token = getExistingToken();
-      if (!token) {
-        return;
-      }
-
-      try {
-        const response = await fetch("/api/auth/me", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error("Session invalid");
-        }
-
-        const payload = await response.json();
-        if (!payload.user) {
-          throw new Error("Session invalid");
-        }
-
-        if (isOfficialAdmin(payload.user)) {
-          saveAdminSession(token, payload.user);
-          window.location.href = "/admin.html";
-          return;
-        }
-
-        saveClientSession(token, payload.user);
-        window.location.href = "/dashboard.html";
-      } catch (_error) {
-        clearSession({ preserveLogoutMarker: true });
-      }
-    }
-
-    function setLoading(button, isLoading, loadingText, idleText) {
-      button.disabled = isLoading;
-      button.textContent = isLoading ? loadingText : idleText;
-    }
-
-    document.querySelectorAll("[data-toggle-password]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const target = document.getElementById(button.dataset.togglePassword);
-        const showing = target.type === "text";
-        target.type = showing ? "password" : "text";
-        button.textContent = showing ? "Show" : "Hide";
-      });
-    });
-
-    document.getElementById("forgotPasswordButton").addEventListener("click", () => {
-      showMessage("Forgot password is coming soon. Please contact AutomateX support for now.", "info");
-    });
-
-    tabLogin.addEventListener("click", () => setActiveTab("login"));
-    tabSignup.addEventListener("click", () => setActiveTab("signup"));
-
-    document.getElementById("loginForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      clearMessage();
-      setLoading(loginSubmitButton, true, "Signing In...", "Sign In");
-
-      try {
-        const response = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            email: document.getElementById("loginEmail").value.trim(),
-            password: document.getElementById("loginPassword").value
-          })
-        });
-
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload.message || "Unable to sign in right now.");
-        }
-
-        if (!payload.user || !payload.token) {
-          throw new Error("Login response was incomplete. Please try again.");
-        }
-
-        if (isOfficialAdmin(payload.user)) {
-          saveAdminSession(payload.token, payload.user);
-          showMessage("Login successful. Redirecting to admin dashboard...", "success");
-          window.location.href = "/admin.html";
-          return;
-        }
-
-        saveClientSession(payload.token, payload.user);
-        showMessage(
-          payload.user.accountStatus === "pending"
-            ? "Login successful. Redirecting to your approval status..."
-            : "Login successful. Redirecting to your dashboard...",
-          "success"
-        );
-        window.location.href = "/dashboard.html";
-      } catch (error) {
-        clearSession({ preserveLogoutMarker: true });
-        showMessage(error.message || "Unable to sign in right now.");
-      } finally {
-        setLoading(loginSubmitButton, false, "Signing In...", "Sign In");
-      }
-    });
-
-    document.getElementById("signupForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      clearMessage();
-
-      const businessName = document.getElementById("signupBusinessName").value.trim();
-      const ownerName = document.getElementById("signupOwnerName").value.trim();
-      const email = document.getElementById("signupEmail").value.trim();
-      const phone = document.getElementById("signupPhone").value.trim();
-      const businessType = document.getElementById("signupBusinessType").value.trim();
-      const password = document.getElementById("signupPassword").value;
-      const confirmPassword = document.getElementById("signupConfirmPassword").value;
-
-      if (!businessName || !ownerName || !email || !phone || !businessType || !password || !confirmPassword) {
-        showMessage("Please complete all required fields.");
-        return;
-      }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showMessage("Please enter a valid email address.");
-        return;
-      }
-
-      if (password.length < 8) {
-        showMessage("Password must be at least 8 characters long.");
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        showMessage("Password and confirm password must match.");
-        return;
-      }
-
-      setLoading(signupSubmitButton, true, "Creating Account...", "Create Account");
-
-      try {
-        const response = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            name: ownerName,
-            email,
-            password,
-            businessName,
-            businessType,
-            phone
-          })
-        });
-
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload.message || "Unable to create your account right now.");
-        }
-
-        if (!payload.user || !payload.token) {
-          throw new Error("Signup response was incomplete. Please try again.");
-        }
-
-        if (isOfficialAdmin(payload.user)) {
-          saveAdminSession(payload.token, payload.user);
-          showMessage("Account created successfully. Redirecting to admin dashboard...", "success");
-          window.location.href = "/admin.html";
-          return;
-        }
-
-        saveClientSession(payload.token, payload.user);
-        showMessage("Account created successfully. Your account is pending admin approval. Redirecting...", "success");
-        window.location.href = "/dashboard.html";
-      } catch (error) {
-        clearSession({ preserveLogoutMarker: true });
-        showMessage(error.message || "Unable to create your account right now.");
-      } finally {
-        setLoading(signupSubmitButton, false, "Creating Account...", "Create Account");
-      }
-    });
-
-    setActiveTab("login");
-    verifyExistingSession();
-  </script>
+  <script defer src="/assets/js/login.js"></script>
 </body>
 </html>

@@ -1,0 +1,143 @@
+    :root {
+      color-scheme: dark;
+      --dashboard-bg: #020617;
+      --dashboard-surface: rgba(15, 23, 42, 0.92);
+      --dashboard-surface-soft: rgba(15, 23, 42, 0.72);
+      --dashboard-border: rgba(51, 65, 85, 0.85);
+      --dashboard-panel: #0f172a;
+      --dashboard-panel-soft: rgba(2, 6, 23, 0.52);
+      --dashboard-text: #f8fafc;
+      --dashboard-muted: #94a3b8;
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --dashboard-bg: #f8fafc;
+      --dashboard-surface: rgba(255, 255, 255, 0.94);
+      --dashboard-surface-soft: rgba(255, 255, 255, 0.78);
+      --dashboard-border: rgba(203, 213, 225, 0.95);
+      --dashboard-panel: #ffffff;
+      --dashboard-panel-soft: rgba(248, 250, 252, 0.96);
+      --dashboard-text: #0f172a;
+      --dashboard-muted: #475569;
+    }
+
+    body.dashboard-theme {
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.12), transparent 28%),
+        var(--dashboard-bg);
+      color: var(--dashboard-text);
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .dashboard-surface {
+      background: var(--dashboard-surface);
+      border-color: var(--dashboard-border);
+    }
+
+    .dashboard-panel-surface {
+      background: var(--dashboard-panel);
+      border-color: var(--dashboard-border);
+    }
+
+    .dashboard-soft-surface {
+      background: var(--dashboard-panel-soft);
+      border-color: var(--dashboard-border);
+    }
+
+    .dashboard-muted {
+      color: var(--dashboard-muted);
+    }
+
+    .theme-select {
+      background: var(--dashboard-surface-soft);
+    }
+
+    .project-progress {
+      display: block;
+      width: 100%;
+      height: 0.5rem;
+      overflow: hidden;
+      border: 0;
+      border-radius: 9999px;
+      background: #1e293b;
+      appearance: none;
+    }
+
+    .project-progress::-webkit-progress-bar {
+      border-radius: 9999px;
+      background: #1e293b;
+    }
+
+    .project-progress::-webkit-progress-value {
+      border-radius: 9999px;
+      background: #22d3ee;
+    }
+
+    .project-progress::-moz-progress-bar {
+      border-radius: 9999px;
+      background: #22d3ee;
+    }
+
+    :root[data-theme="light"] .text-white,
+    :root[data-theme="light"] .text-slate-200,
+    :root[data-theme="light"] .text-slate-300 {
+      color: #0f172a !important;
+    }
+
+    :root[data-theme="light"] .text-slate-400,
+    :root[data-theme="light"] .text-slate-500 {
+      color: #475569 !important;
+    }
+
+    :root[data-theme="light"] .text-cyan-200,
+    :root[data-theme="light"] .text-cyan-300,
+    :root[data-theme="light"] .text-cyan-400 {
+      color: #0f766e !important;
+    }
+
+    :root[data-theme="light"] .text-amber-50\/90,
+    :root[data-theme="light"] .text-amber-100,
+    :root[data-theme="light"] .text-amber-200,
+    :root[data-theme="light"] .text-amber-300 {
+      color: #92400e !important;
+    }
+
+    :root[data-theme="light"] .text-rose-100,
+    :root[data-theme="light"] .text-rose-100\/80,
+    :root[data-theme="light"] .text-rose-200,
+    :root[data-theme="light"] .text-rose-300 {
+      color: #9f1239 !important;
+    }
+
+    :root[data-theme="light"] .text-emerald-200,
+    :root[data-theme="light"] .text-emerald-300 {
+      color: #166534 !important;
+    }
+
+    :root[data-theme="light"] .bg-slate-900,
+    :root[data-theme="light"] .bg-slate-900\/70,
+    :root[data-theme="light"] .bg-slate-900\/80,
+    :root[data-theme="light"] .bg-slate-900\/90,
+    :root[data-theme="light"] .bg-slate-800,
+    :root[data-theme="light"] .bg-slate-950,
+    :root[data-theme="light"] .bg-slate-950\/50,
+    :root[data-theme="light"] .bg-slate-950\/60,
+    :root[data-theme="light"] .bg-slate-950\/70 {
+      background-color: rgba(255, 255, 255, 0.92) !important;
+    }
+
+    :root[data-theme="light"] .border-slate-700,
+    :root[data-theme="light"] .border-slate-600,
+    :root[data-theme="light"] .border-slate-800 {
+      border-color: #cbd5e1 !important;
+    }
+
+    :root[data-theme="light"] thead.bg-slate-950\/70 {
+      background-color: rgba(241, 245, 249, 0.95) !important;
+    }
+
+    :root[data-theme="light"] .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+      border-color: #cbd5e1 !important;
+    }

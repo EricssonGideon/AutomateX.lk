@@ -8,6 +8,7 @@ const chatRoutes = require("./chat");
 const featureRoutes = require("./features");
 const inquiryRoutes = require("./inquiries");
 const invoiceRoutes = require("./invoices");
+const projectRoutes = require("./projects");
 const requestRoutes = require("./requests");
 const reviewRoutes = require("./reviews");
 const { getHealth } = require("../controllers/indexController");
@@ -27,6 +28,7 @@ router.use("/chat", chatLimiter, chatRoutes);
 router.use("/features", authenticatedApiLimiter, featureRoutes);
 router.use("/inquiries", inquiryRoutes);
 router.use("/invoices", authenticatedApiLimiter, invoiceRoutes);
+router.use("/projects", authenticatedApiLimiter, projectRoutes);
 router.use("/requests", authenticatedApiLimiter, requestRoutes);
 router.use("/reviews", reviewRoutes);
 

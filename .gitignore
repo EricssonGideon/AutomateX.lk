@@ -1,9 +1,11 @@
 .env
-node_modules
+.env.*
+!.env.example
+node_modules/
 files/
+uploads/
 files.zip
 *.log
-.DS_Store
-.DS_Store
-
+logs/
+coverage/
 .DS_Store

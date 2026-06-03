@@ -72,7 +72,22 @@ function corsOptionsDelegate(req, callback) {
   });
 }
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      "default-src": ["'self'"],
+      "connect-src": ["'self'"],
+      "font-src": ["'self'"],
+      "img-src": ["'self'", "data:", "https:"],
+      "script-src": ["'self'"],
+      "script-src-attr": ["'none'"],
+      "style-src": ["'self'"],
+      "form-action": ["'self'"],
+      "frame-ancestors": ["'self'"],
+      "object-src": ["'none'"]
+    }
+  }
+}));
 app.use(morgan("combined"));
 app.use(cors(corsOptionsDelegate));
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
