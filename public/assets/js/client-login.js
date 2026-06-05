@@ -1,6 +1,10 @@
     const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
 /* eslint-disable no-unused-vars */
 
+    if (window.location.pathname.endsWith("/client-login.html")) {
+      window.location.replace(`/login.html${window.location.search}${window.location.hash}`);
+    }
+
     const ADMIN_TOKEN_KEY = "automatex_admin_token";
     const PRIMARY_TOKEN_KEY = "automatex_client_token";
     const FALLBACK_TOKEN_KEY = "automatex_token";

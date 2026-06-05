@@ -7,7 +7,7 @@
     const CSRF_TOKEN_KEY = "automatex_csrf_token";
     const AUTH_STORAGE_KEYS = [...CLIENT_TOKEN_KEYS, ADMIN_TOKEN_KEY, ADMIN_USER_KEY, USER_KEY, CSRF_TOKEN_KEY];
     const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
-    const LOGIN_URL = "/client-login.html";
+    const LOGIN_URL = "/login.html";
     const THEME_KEY = "automatex_dashboard_theme";
     const DEFAULT_MONEY_CURRENCY = "LKR";
     const FEATURE_LABELS = {
@@ -97,18 +97,12 @@
     function setFeedback(message, tone = "info") {
       const feedback = document.getElementById("feedback");
       feedback.textContent = message;
-      feedback.className = "border-b px-5 py-3 text-sm sm:px-8";
-
-      if (tone === "error") {
-        feedback.classList.add("border-rose-500/30", "bg-rose-500/10", "text-rose-200");
-      } else {
-        feedback.classList.add("border-cyan-500/30", "bg-cyan-500/10", "text-cyan-100");
-      }
+      feedback.className = `feedback-bar ${tone === "error" ? "error" : "info"}`;
     }
 
     function clearFeedback() {
       const feedback = document.getElementById("feedback");
-      feedback.className = "hidden border-b px-5 py-3 text-sm sm:px-8";
+      feedback.className = "hidden feedback-bar";
       feedback.textContent = "";
     }
 
@@ -245,7 +239,7 @@
       document.documentElement.dataset.theme = resolvedTheme;
       localStorage.setItem(THEME_KEY, preference);
 
-      ["themePreference", "themePreferenceSettings"].forEach((id) => {
+      ["themePreference", "themePreferenceMobile", "themePreferenceSettings"].forEach((id) => {
         const field = document.getElementById(id);
         if (field) {
           field.value = preference;
@@ -429,21 +423,106 @@
       return state.bookings;
     }
 
+    function getActiveProjects() {
+      return (Array.isArray(state.projects) ? state.projects : []).filter((project) =>
+        !["completed", "cancelled", "canceled"].includes(String(project.status || "").toLowerCase())
+      );
+    }
+
+    function getOutstandingInvoiceBalance() {
+      return (Array.isArray(state.invoices) ? state.invoices : [])
+        .reduce((sum, invoice) => sum + Number(invoice.balance || 0), 0);
+    }
+
+    function getOpenRequests() {
+      return (Array.isArray(state.requests) ? state.requests : [])
+        .filter((request) => ["open", "in_progress"].includes(request.status));
+    }
+
+    function getAllProjectFiles() {
+      return (Array.isArray(state.projects) ? state.projects : []).flatMap((project) =>
+        (Array.isArray(project.projectFiles) ? project.projectFiles : []).map((file) => ({
+          ...file,
+          projectTitle: project.projectTitle || "Project"
+        }))
+      );
+    }
+
+    function getAllMaintenancePlans() {
+      return (Array.isArray(state.projects) ? state.projects : []).flatMap((project) =>
+        (Array.isArray(project.maintenancePlans) ? project.maintenancePlans : []).map((plan) => ({
+          ...plan,
+          projectTitle: plan.projectTitle || project.projectTitle || "Project"
+        }))
+      );
+    }
+
+    function getNextMilestone() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return (Array.isArray(state.projects) ? state.projects : [])
+        .flatMap((project) => (Array.isArray(project.milestones) ? project.milestones : [])
+          .filter((milestone) => milestone.dueDate && milestone.status !== "Completed")
+          .map((milestone) => ({
+            ...milestone,
+            projectTitle: project.projectTitle || "Project"
+          })))
+        .filter((milestone) => new Date(milestone.dueDate) >= today)
+        .sort((left, right) => new Date(left.dueDate) - new Date(right.dueDate))[0] || null;
+    }
+
+    function setText(id, value) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    function closeMobileMenu() {
+      const sidebar = document.getElementById("dashboardSidebar");
+      const backdrop = document.getElementById("sidebarBackdrop");
+      const toggle = document.getElementById("mobileNavToggle");
+
+      sidebar?.classList.remove("is-open");
+      backdrop?.classList.remove("is-visible");
+      document.body.classList.remove("mobile-menu-open");
+      toggle?.setAttribute("aria-expanded", "false");
+      sidebar?.setAttribute("aria-hidden", window.innerWidth >= 1024 ? "false" : "true");
+      backdrop?.setAttribute("aria-hidden", "true");
+    }
+
+    function openMobileMenu() {
+      const sidebar = document.getElementById("dashboardSidebar");
+      const backdrop = document.getElementById("sidebarBackdrop");
+      const toggle = document.getElementById("mobileNavToggle");
+
+      sidebar?.classList.add("is-open");
+      backdrop?.classList.add("is-visible");
+      document.body.classList.add("mobile-menu-open");
+      toggle?.setAttribute("aria-expanded", "true");
+      sidebar?.setAttribute("aria-hidden", "false");
+      backdrop?.setAttribute("aria-hidden", "false");
+    }
+
     function updateHeaderForTab(tab) {
       const titleMap = {
-        overview: ["Overview", "Track your bookings, inquiries, reviews, and plan status."],
-        projects: ["My Projects", "Track your AutomateX project progress, milestones, deliverables, and payment summary."],
-        bookings: ["Bookings", "Manage customer reservations and availability."],
-        inquiries: ["Inquiries", "Review and respond to incoming leads quickly."],
+        overview: ["Dashboard", "Your AutomateX workspace, project delivery, billing, and support in one place."],
+        projects: ["My Projects", "Track project progress, milestones, deliverables, documents, and maintenance."],
+        services: ["Services", "Review active package features and unavailable services."],
+        invoices: ["Invoices & Payments", "Review balances, due dates, payment status, and PDF downloads."],
+        requests: ["Support", "Send support tickets and monitor the response workflow."],
+        bookings: ["Bookings", "Review customer reservations and booking activity."],
+        inquiries: ["Leads & Inquiries", "Review and update incoming leads quickly."],
         reviews: ["Reviews", "See which reviews are published, pending, or hidden."],
-        invoices: ["Invoices", "Review your invoice balances, due dates, and payment status."],
-        requests: ["Requests", "Send support or upgrade requests and monitor the response workflow."],
-        settings: ["Settings", "Update your business profile, credentials, and chatbot preferences."],
+        files: ["Files", "Access client-visible documents published across your projects."],
+        settings: ["Settings", "Update your business profile and portal preferences."],
         upgrade: ["Upgrade Plan", "Unlock more automation and premium features."]
       };
 
-      document.getElementById("pageTitle").textContent = titleMap[tab][0];
-      document.getElementById("pageSubtitle").textContent = titleMap[tab][1];
+      const nextTitle = titleMap[tab] || titleMap.overview;
+      document.getElementById("pageTitle").textContent = nextTitle[0];
+      document.getElementById("pageSubtitle").textContent = nextTitle[1];
     }
 
     function setActiveTab(tabName) {
@@ -451,19 +530,14 @@
       updateHeaderForTab(tabName);
 
       document.querySelectorAll(".dashboard-tab").forEach((button) => {
-        const active = button.dataset.tab === tabName;
-        if (active) {
-          button.className = "dashboard-tab rounded-2xl bg-cyan-400 px-4 py-3 text-left text-sm font-semibold text-slate-950";
-        } else if (button.dataset.tab === "upgrade") {
-          button.className = "dashboard-tab rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm font-semibold text-amber-200";
-        } else {
-          button.className = "dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300";
-        }
+        button.classList.toggle("is-active", button.dataset.tab === tabName);
       });
 
       document.querySelectorAll(".dashboard-panel").forEach((panel) => {
         panel.classList.toggle("hidden", panel.id !== `tab-${tabName}`);
       });
+
+      closeMobileMenu();
     }
 
     function statusBadge(status) {
@@ -506,45 +580,51 @@
 
     function renderOverview() {
       const businessName = state.user.businessName || state.user.name || "Your business";
-      const monthlyBookings = state.bookings.filter((booking) => isThisMonth(`${booking.date}T00:00:00`)).length;
-      const newInquiries = state.inquiries.filter((inquiry) => inquiry.status === "new").length;
-      const pendingReviews = state.reviews.filter((review) => review.status === "pending").length;
       const hasAssignedPlanValue = hasAssignedPlan(state.user);
-      const allowedFeatures = Array.isArray(state.user.allowedFeatures) ? state.user.allowedFeatures : [];
+      const activeProjects = getActiveProjects();
+      const nextMilestone = getNextMilestone();
+      const outstandingBalance = getOutstandingInvoiceBalance();
+      const outstandingInvoiceCount = state.invoices.filter((invoice) => Number(invoice.balance || 0) > 0).length;
+      const openRequests = getOpenRequests();
 
-      document.getElementById("welcomeBusinessName").textContent = businessName;
-      document.getElementById("welcomeCopy").textContent = canManageWorkspace()
+      setText("welcomeBusinessName", businessName);
+      setText("welcomeCopy", canManageWorkspace()
         ? hasAssignedPlanValue
-          ? `Welcome back. ${businessName} is currently on the ${formatPlanLabel(state.user.plan)} package.`
+          ? `Welcome back. ${businessName} is currently on the ${formatPlanLabel(state.user.plan)} package. Your portal is ready for project updates, billing, and support.`
           : `Welcome back. ${businessName} is active, but no package has been assigned yet.`
-        : getRestrictionMessage();
-      document.getElementById("overviewBookingsCount").textContent = monthlyBookings;
-      document.getElementById("overviewInquiriesCount").textContent = newInquiries;
-      document.getElementById("overviewPendingReviewsCount").textContent = pendingReviews;
-      document.getElementById("overviewPlanBadge").textContent = getDisplayedPackageLabel(state.user);
-      document.getElementById("accountPlanValue").textContent = getDisplayedPackageLabel(state.user);
-      document.getElementById("accountMonthlyFeeValue").textContent = hasAssignedPlanValue && Number(state.user.monthlyFee || 0) > 0
+        : getRestrictionMessage());
+      setText("overviewPlanBadge", getDisplayedPackageLabel(state.user));
+      setText("overviewActiveProjectsCount", String(activeProjects.length));
+      setText("overviewActiveProjectLabel", activeProjects[0]?.projectTitle || "No active projects yet");
+      setText("overviewNextMilestoneDate", nextMilestone ? formatDate(nextMilestone.dueDate) : "—");
+      setText("overviewNextMilestoneLabel", nextMilestone
+        ? `${nextMilestone.title || "Milestone"} • ${nextMilestone.projectTitle}`
+        : "No upcoming milestone");
+      setText("overviewInvoiceBalance", formatInvoiceMoney(outstandingBalance));
+      setText("overviewInvoiceCountLabel", outstandingInvoiceCount
+        ? `${outstandingInvoiceCount} invoice${outstandingInvoiceCount === 1 ? "" : "s"} with open balance`
+        : "No open invoices");
+      setText("overviewOpenRequestsCount", String(openRequests.length));
+      setText("overviewOpenRequestsLabel", openRequests[0]
+        ? `${formatStatusLabel(openRequests[0].status)} • ${openRequests[0].subject || formatRequestTypeLabel(openRequests[0].type)}`
+        : "No open tickets");
+      setText("accountPlanValue", getDisplayedPackageLabel(state.user));
+      setText("accountMonthlyFeeValue", hasAssignedPlanValue && Number(state.user.monthlyFee || 0) > 0
         ? formatMoney(state.user.monthlyFee)
-        : "Waiting for admin";
-      document.getElementById("accountPaymentStatusValue").textContent = formatStatusLabel(state.user.paymentStatus);
-      document.getElementById("accountNextPaymentDateValue").textContent = state.user.nextPaymentDate
+        : "Waiting for admin");
+      setText("accountPaymentStatusValue", formatStatusLabel(state.user.paymentStatus));
+      setText("accountNextPaymentDateValue", state.user.nextPaymentDate
         ? formatDate(state.user.nextPaymentDate)
-        : "Not scheduled";
-      document.getElementById("accountStatusMessage").textContent = canManageWorkspace()
+        : "Not scheduled");
+      setText("accountStatusMessage", canManageWorkspace()
         ? "Your package and service access are active. Contact AutomateX support if you need any package changes."
-        : getRestrictionMessage();
-
-      const featuresList = document.getElementById("allowedFeaturesList");
-      featuresList.innerHTML = allowedFeatures.length
-        ? allowedFeatures.map((featureKey) => `
-            <span class="inline-flex rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-200">${escapeHtml(FEATURE_LABELS[featureKey] || featureKey)}</span>
-          `).join("")
-        : `<span class="dashboard-muted text-sm">No features assigned yet.</span>`;
+        : getRestrictionMessage());
 
       renderAccountNotice();
       renderAccountStatusBadge();
       renderOnboardingChecklist();
-      renderFeatureAccess();
+      renderServices();
+      renderFiles();
       syncDashboardActionState();
     }
 
@@ -612,7 +692,7 @@
       ];
 
       document.getElementById("onboardingChecklist").innerHTML = items.map((item) => `
-        <article class="dashboard-soft-surface rounded-2xl border p-4">
+        <article class="detail-tile">
           <div class="flex items-start gap-3">
             <span class="${item.done ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300"} inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold">${item.done ? "✓" : "•"}</span>
             <div>
@@ -624,17 +704,17 @@
       `).join("");
     }
 
-    function renderFeatureAccess() {
+    function renderServices() {
       const features = getFeatureAccess();
       const grid = document.getElementById("featureAccessGrid");
 
       if (!features.length) {
-        grid.innerHTML = `<div class="dashboard-soft-surface rounded-3xl border p-5 text-sm dashboard-muted md:col-span-2 xl:col-span-4">No features have been assigned to this account yet.</div>`;
+        grid.innerHTML = `<div class="empty-state md:col-span-2 xl:col-span-3">No services have been assigned to this account yet. Assigned package features will appear here automatically.</div>`;
         return;
       }
 
       grid.innerHTML = features.map((feature) => `
-        <article class="dashboard-soft-surface rounded-3xl border p-4">
+        <article class="service-card">
           <div class="flex items-start justify-between gap-3">
             <div>
               <p class="font-semibold">${escapeHtml(feature.label)}</p>
@@ -669,21 +749,25 @@
 
     function renderBookings() {
       const tbody = document.getElementById("bookingsTableBody");
+      const mobileList = document.getElementById("bookingsMobileList");
       const bookings = getFilteredBookings();
       const bookingFeatureEnabled = hasFeature("booking-system");
 
       if (!canManageWorkspace()) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">${escapeHtml(getRestrictionMessage())}</td></tr>`;
+        mobileList.innerHTML = `<div class="empty-state">${escapeHtml(getRestrictionMessage())}</div>`;
         return;
       }
 
       if (!bookingFeatureEnabled) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-amber-300">Booking management is not included in your current package.</td></tr>`;
+        mobileList.innerHTML = `<div class="empty-state text-amber-300">Booking management is not included in your current package.</div>`;
         return;
       }
 
       if (!bookings.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-400">No bookings found for this filter.</td></tr>`;
+        mobileList.innerHTML = `<div class="empty-state">No bookings found for this filter.</div>`;
         return;
       }
 
@@ -704,7 +788,26 @@
         </tr>
       `).join("");
 
-      tbody.querySelectorAll("[data-cancel-booking]").forEach((button) => {
+      mobileList.innerHTML = bookings.map((booking) => `
+        <article class="mobile-data-card">
+          <div class="mobile-data-card__header">
+            <div>
+              <strong>${escapeHtml(booking.name)}</strong>
+              <span>${escapeHtml(booking.email)}</span>
+            </div>
+            <span class="${statusBadge(booking.status)}">${escapeHtml(formatStatusLabel(booking.status))}</span>
+          </div>
+          <dl class="mobile-data-grid">
+            <div><dt>Date</dt><dd>${escapeHtml(booking.date || "—")}</dd></div>
+            <div><dt>Time</dt><dd>${escapeHtml(booking.time || "—")}</dd></div>
+          </dl>
+          ${booking.status === "confirmed" && canManageWorkspace()
+            ? `<button data-cancel-booking="${booking._id || booking.id}" class="secondary-button mt-3" type="button">Cancel booking</button>`
+            : ""}
+        </article>
+      `).join("");
+
+      document.querySelectorAll("[data-cancel-booking]").forEach((button) => {
         button.addEventListener("click", async () => {
           try {
             await apiRequest(`/api/bookings/${button.dataset.cancelBooking}/cancel`, {
@@ -885,6 +988,7 @@
       const emptyState = document.getElementById("invoicesEmptyState");
       const tableWrap = document.getElementById("invoicesTableWrap");
       const tableBody = document.getElementById("invoicesTableBody");
+      const mobileList = document.getElementById("invoicesMobileList");
 
       document.getElementById("invoiceCountValue").textContent = String(invoices.length);
       document.getElementById("invoiceBalanceValue").textContent = formatInvoiceMoney(outstandingBalance);
@@ -894,6 +998,7 @@
         emptyState.classList.remove("hidden");
         tableWrap.classList.add("hidden");
         tableBody.innerHTML = "";
+        mobileList.innerHTML = "";
         return;
       }
 
@@ -923,6 +1028,30 @@
             >Download</button>
           </td>
         </tr>
+      `).join("");
+
+      mobileList.innerHTML = invoices.map((invoice) => `
+        <article class="mobile-data-card">
+          <div class="mobile-data-card__header">
+            <div>
+              <strong>${escapeHtml(invoice.invoiceNumber || "Invoice")}</strong>
+              <span>${escapeHtml(invoice.title || "AutomateX service")}</span>
+            </div>
+            <span class="${statusBadge(invoice.status)}">${escapeHtml(invoice.paymentStatus || formatStatusLabel(invoice.status))}</span>
+          </div>
+          <dl class="mobile-data-grid">
+            <div><dt>Total</dt><dd>${escapeHtml(formatInvoiceMoney(invoice.totalAmount, invoice.currency))}</dd></div>
+            <div><dt>Paid</dt><dd>${escapeHtml(formatInvoiceMoney(invoice.paidAmount, invoice.currency))}</dd></div>
+            <div><dt>Balance</dt><dd>${escapeHtml(formatInvoiceMoney(invoice.balance, invoice.currency))}</dd></div>
+            <div><dt>Due</dt><dd>${escapeHtml(formatDate(invoice.dueDate))}</dd></div>
+          </dl>
+          <button
+            class="secondary-button mt-3"
+            type="button"
+            data-invoice-pdf-download="/api/invoices/${escapeHtml(invoice.id)}/pdf"
+            data-invoice-file-name="${escapeHtml(invoice.invoiceNumber || "invoice")}.pdf"
+          >Download PDF</button>
+        </article>
       `).join("");
     }
 
@@ -1032,68 +1161,86 @@
       }
 
       if (!projects.length) {
-        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No projects have been assigned to your account yet.</div>`;
+        list.innerHTML = `<div class="empty-state">No projects have been assigned to your account yet.</div>`;
         return;
       }
 
-      list.innerHTML = projects.map((project) => `
-        <article class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-3">
-                <h4 class="text-xl font-semibold">${escapeHtml(project.projectTitle || "Project")}</h4>
-                <span class="${statusBadge(project.status)}">${escapeHtml(formatStatusLabel(project.status))}</span>
+      list.innerHTML = projects.map((project, index) => `
+        <details class="project-card" ${index === 0 ? "open" : ""}>
+          <summary>
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-3">
+                  <h4 class="text-xl font-semibold">${escapeHtml(project.projectTitle || "Project")}</h4>
+                  <span class="${statusBadge(project.status)}">${escapeHtml(formatStatusLabel(project.status))}</span>
+                </div>
+                <p class="dashboard-muted mt-2 text-sm">${escapeHtml(project.projectType || "Project")} • ${escapeHtml(project.packageName || "Package not set")}</p>
+                <p class="dashboard-muted mt-2 text-sm">Deadline: ${escapeHtml(formatDate(project.expectedDeadline))}</p>
               </div>
-              <p class="dashboard-muted mt-2 text-sm">${escapeHtml(project.projectType || "Project")} • ${escapeHtml(project.packageName || "Package not set")}</p>
+              <div class="w-full max-w-xs">
+                <progress class="project-progress" max="100" value="${escapeHtml(Math.min(100, Math.max(0, Number(project.progressPercentage || 0))))}">${escapeHtml(project.progressPercentage || 0)}% complete</progress>
+                <p class="mt-2 text-right text-sm font-semibold text-cyan-300">${escapeHtml(project.progressPercentage || 0)}% complete</p>
+              </div>
             </div>
-            <div class="min-w-[180px]">
-              <progress class="project-progress" max="100" value="${escapeHtml(Math.min(100, Math.max(0, Number(project.progressPercentage || 0))))}">${escapeHtml(project.progressPercentage || 0)}% complete</progress>
-              <p class="mt-2 text-right text-sm font-semibold text-cyan-300">${escapeHtml(project.progressPercentage || 0)}% complete</p>
-            </div>
+          </summary>
+
+          <div class="summary-pair mt-5">
+            <span><small>Total</small><strong>${escapeHtml(formatInvoiceMoney(project.totalAmount))}</strong></span>
+            <span><small>Paid</small><strong>${escapeHtml(formatInvoiceMoney(project.paidAmount))}</strong></span>
+            <span><small>Balance</small><strong>${escapeHtml(formatInvoiceMoney(project.balanceAmount))}</strong></span>
+            <span><small>Deadline</small><strong>${escapeHtml(formatDate(project.expectedDeadline))}</strong></span>
           </div>
 
-          <div class="mt-5 grid gap-3 md:grid-cols-4">
-            <article class="dashboard-soft-surface rounded-2xl border p-4">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.18em]">Deadline</p>
-              <p class="mt-2 font-semibold">${escapeHtml(formatDate(project.expectedDeadline))}</p>
-            </article>
-            <article class="dashboard-soft-surface rounded-2xl border p-4">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.18em]">Total</p>
-              <p class="mt-2 font-semibold">${escapeHtml(formatInvoiceMoney(project.totalAmount))}</p>
-            </article>
-            <article class="dashboard-soft-surface rounded-2xl border p-4">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.18em]">Paid</p>
-              <p class="mt-2 font-semibold">${escapeHtml(formatInvoiceMoney(project.paidAmount))}</p>
-            </article>
-            <article class="dashboard-soft-surface rounded-2xl border p-4">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.18em]">Balance</p>
-              <p class="mt-2 font-semibold">${escapeHtml(formatInvoiceMoney(project.balanceAmount))}</p>
-            </article>
-          </div>
+          ${project.description ? `<p class="dashboard-muted mt-5 text-sm leading-7">${escapeHtml(project.description)}</p>` : ""}
+          ${project.clientNotes ? `<div class="note-box dashboard-soft-surface mt-4">${escapeHtml(project.clientNotes)}</div>` : ""}
 
-          ${project.description ? `<p class="mt-5 text-sm leading-7 text-slate-300">${escapeHtml(project.description)}</p>` : ""}
-          ${project.clientNotes ? `<div class="dashboard-soft-surface mt-4 rounded-2xl border p-4 text-sm leading-7 text-slate-300">${escapeHtml(project.clientNotes)}</div>` : ""}
-
-          <div class="mt-5 grid gap-5 xl:grid-cols-2">
+          <div class="project-detail-grid">
             <section>
-              <h5 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">Milestones</h5>
+              <h5 class="section-kicker">Milestones</h5>
               <div class="mt-3 grid gap-3">${renderProjectTimelineItems(project.milestones, "No milestones have been published yet.")}</div>
             </section>
             <section>
-              <h5 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">Deliverables</h5>
+              <h5 class="section-kicker">Deliverables</h5>
               <div class="mt-3 grid gap-3">${renderProjectTimelineItems(project.deliverables, "No deliverables have been published yet.")}</div>
             </section>
-          </div>
-
-          <div class="mt-5 grid gap-5 xl:grid-cols-2">
             <section>
-              <h5 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">Project Documents</h5>
+              <h5 class="section-kicker">Documents</h5>
               <div class="mt-3 grid gap-3">${renderProjectDocuments(project.projectFiles || [])}</div>
             </section>
             <section>
-              <h5 class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-300">Maintenance Status</h5>
+              <h5 class="section-kicker">Maintenance</h5>
               <div class="mt-3 grid gap-3">${renderMaintenancePlans(project.maintenancePlans || [])}</div>
             </section>
+          </div>
+        </details>
+      `).join("");
+    }
+
+    function renderFiles() {
+      const files = getAllProjectFiles();
+      const list = document.getElementById("filesList");
+
+      setText("filesCountValue", String(files.length));
+
+      if (!canManageWorkspace()) {
+        list.innerHTML = `<div class="empty-state">${escapeHtml(getRestrictionMessage())}</div>`;
+        return;
+      }
+
+      if (!files.length) {
+        list.innerHTML = `<div class="empty-state">No client-visible files have been published yet. Project documents will appear here when they are available.</div>`;
+        return;
+      }
+
+      list.innerHTML = files.map((file) => `
+        <article class="file-card">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 class="font-semibold">${escapeHtml(file.title || file.fileName || "Project file")}</h4>
+              <p class="dashboard-muted mt-1 text-sm">${escapeHtml(file.projectTitle || "Project")} • ${escapeHtml(file.fileType || "Other")}</p>
+              <p class="dashboard-muted mt-1 text-xs uppercase tracking-[0.16em]">${escapeHtml(formatDate(file.createdAt))}</p>
+            </div>
+            <button class="secondary-button" type="button" data-project-file-download="${escapeHtml(file.downloadUrl || "")}" data-project-file-name="${escapeHtml(file.fileName || "project-file")}">Download</button>
           </div>
         </article>
       `).join("");
@@ -1118,7 +1265,7 @@
       const list = document.getElementById("requestsList");
       const openRequests = requests.filter((request) => request.status === "open").length;
       const inProgressRequests = requests.filter((request) => request.status === "in_progress").length;
-      const resolvedRequests = requests.filter((request) => request.status === "resolved").length;
+      const resolvedRequests = requests.filter((request) => ["resolved", "closed"].includes(request.status)).length;
 
       document.getElementById("requestTotalCountValue").textContent = String(requests.length);
       document.getElementById("requestOpenCountValue").textContent = String(openRequests);
@@ -1131,12 +1278,12 @@
       }
 
       if (!requests.length) {
-        list.innerHTML = `<div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 text-sm text-slate-400">No requests have been submitted from your account yet.</div>`;
+        list.innerHTML = `<div class="empty-state">No support tickets have been submitted from your account yet.</div>`;
         return;
       }
 
       list.innerHTML = requests.map((request) => `
-        <article class="rounded-3xl border border-slate-800 bg-slate-950/60 p-5">
+        <article class="ticket-card">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="max-w-3xl">
               <div class="flex flex-wrap items-center gap-3">
@@ -1154,7 +1301,7 @@
                 : ""}
             </div>
             ${["open", "in_progress"].includes(request.status)
-              ? `<button data-close-request="${escapeHtml(request.id)}" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">Close Request</button>`
+              ? `<button data-close-request="${escapeHtml(request.id)}" class="secondary-button" type="button">Close ticket</button>`
               : ""}
           </div>
         </article>
@@ -1170,13 +1317,14 @@
               method: "PATCH",
               body: JSON.stringify({ status: "closed" })
             });
-            setFeedback("Request closed successfully.");
+            setFeedback("Support ticket closed successfully.");
             await loadRequests();
+            renderOverview();
           } catch (error) {
             setFeedback(error.message, "error");
           } finally {
             button.disabled = false;
-            button.textContent = "Close Request";
+            button.textContent = "Close ticket";
           }
         });
       });
@@ -1186,11 +1334,14 @@
       const plan = state.user.plan || "not_assigned";
       const accountStatus = state.user.accountStatus || "pending";
       const badge = document.getElementById("planBadge");
-      badge.textContent = accountStatus === "active"
+      const planLabel = accountStatus === "active"
         ? getDisplayedPackageLabel(state.user)
         : accountStatus === "pending" && !hasAssignedPlan(state.user)
           ? "Pending Admin Approval"
           : formatStatusLabel(accountStatus);
+      const statusLabel = formatStatusLabel(accountStatus);
+
+      badge.textContent = planLabel;
       badge.className = "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]";
 
       if (accountStatus === "suspended") {
@@ -1213,6 +1364,12 @@
       } else {
         upgradeButton.classList.remove("ring-2", "ring-amber-300/30");
       }
+
+      setText("mobilePlanLabel", `Plan: ${planLabel}`);
+      setText("mobileStatusLabel", statusLabel);
+      setText("drawerBusinessName", state.user.businessName || state.user.name || "Client account");
+      setText("drawerPlanLabel", planLabel);
+      setText("drawerStatusLabel", statusLabel);
     }
 
     async function loadProfile() {
@@ -1347,12 +1504,13 @@
           toggleRequestPackageField();
           setFeedback("Your request was sent successfully.");
           await loadRequests();
+          renderOverview();
           setActiveTab("requests");
         } catch (error) {
           setFeedback(error.message, "error");
         } finally {
           submitButton.disabled = false;
-          submitButton.textContent = "Send Request";
+          submitButton.textContent = "Send ticket";
         }
       });
     }
@@ -1412,16 +1570,24 @@
         }
       };
 
-      document.getElementById("cancelSubscriptionButton").addEventListener("click", openPortal);
-      document.getElementById("openBillingPortalButton").addEventListener("click", openPortal);
+      [...new Set([
+        document.getElementById("cancelSubscriptionButton"),
+        document.getElementById("openBillingPortalButton"),
+        document.getElementById("invoiceBillingPortalButton"),
+        ...document.querySelectorAll("[data-billing-portal-trigger]")
+      ].filter(Boolean))].forEach((button) => {
+        button.addEventListener("click", openPortal);
+      });
     }
 
     function handleThemeControls() {
-      ["themePreference", "themePreferenceSettings"].forEach((id) => {
+      ["themePreference", "themePreferenceMobile", "themePreferenceSettings"].forEach((id) => {
         const field = document.getElementById(id);
-        field.addEventListener("change", () => {
-          applyTheme(field.value);
-        });
+        if (field) {
+          field.addEventListener("change", () => {
+            applyTheme(field.value);
+          });
+        }
       });
 
       window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -1436,9 +1602,8 @@
         button.addEventListener("click", () => {
           state.bookingFilter = button.dataset.bookingFilter;
           document.querySelectorAll(".booking-filter").forEach((item) => {
-            item.className = "booking-filter rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300";
+            item.classList.toggle("is-active", item === button);
           });
-          button.className = "booking-filter rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950";
           renderBookings();
         });
       });
@@ -1447,6 +1612,28 @@
     function handleTabNavigation() {
       document.querySelectorAll(".dashboard-tab").forEach((button) => {
         button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+      });
+
+      document.querySelectorAll("[data-tab-target]").forEach((button) => {
+        button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget));
+      });
+    }
+
+    function handleMobileNavigation() {
+      document.getElementById("mobileNavToggle")?.addEventListener("click", openMobileMenu);
+      document.getElementById("sidebarCloseButton")?.addEventListener("click", closeMobileMenu);
+      document.getElementById("sidebarBackdrop")?.addEventListener("click", closeMobileMenu);
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth >= 1024) {
+          closeMobileMenu();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeMobileMenu();
+        }
       });
     }
 
@@ -1488,6 +1675,7 @@
       handleThemeControls();
       handleBookingFilters();
       handleTabNavigation();
+      handleMobileNavigation();
       handleProjectFileDownloads();
     }
 

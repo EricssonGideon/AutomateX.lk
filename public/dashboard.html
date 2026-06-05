@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutomateX Client Dashboard</title>
+  <title>AutomateX Client Portal</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
@@ -13,367 +13,360 @@
   <link rel="stylesheet" href="/assets/css/dashboard.css">
 </head>
 <body class="dashboard-theme min-h-screen">
-  <div class="min-h-screen lg:flex">
-    <aside id="dashboardSidebar" class="dashboard-surface border-b lg:min-h-screen lg:w-72 lg:border-b-0 lg:border-r">
-      <div class="flex items-center justify-between px-5 py-5 lg:block">
-        <div>
-          <p class="text-xs uppercase tracking-[0.3em] text-cyan-400">AutomateX</p>
-          <h1 class="mt-2 text-xl font-semibold">Client Dashboard</h1>
-        </div>
-        <button id="logoutButtonMobile" class="rounded-2xl border border-slate-700 px-4 py-2 text-sm lg:hidden">Logout</button>
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <div class="client-shell min-h-screen lg:flex">
+    <aside id="dashboardSidebar" class="client-sidebar dashboard-surface border-r">
+      <div class="sidebar-header">
+        <a href="/index.html" class="brand-lockup" aria-label="AutomateX home">
+          <span class="brand-mark">
+            <img src="/Images/AutomateX-logo-mark.png" alt="" aria-hidden="true">
+          </span>
+          <span>
+            <span class="brand-kicker">AutomateX</span>
+            <span class="brand-title">Client Portal</span>
+          </span>
+        </a>
+        <button id="sidebarCloseButton" class="icon-button drawer-close lg:hidden" type="button" aria-label="Close menu">Close</button>
       </div>
 
-      <nav class="px-4 pb-5">
-        <div class="grid gap-2">
-          <button data-tab="overview" class="dashboard-tab rounded-2xl bg-cyan-400 px-4 py-3 text-left text-sm font-semibold text-slate-950">Overview</button>
-          <button data-tab="projects" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">My Projects</button>
-          <button data-tab="bookings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Bookings</button>
-          <button data-tab="inquiries" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Inquiries</button>
-          <button data-tab="reviews" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Reviews</button>
-          <button data-tab="invoices" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Invoices</button>
-          <button data-tab="requests" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Requests</button>
-          <button data-tab="settings" class="dashboard-tab rounded-2xl border border-slate-700 px-4 py-3 text-left text-sm text-slate-300">Settings</button>
-          <button id="upgradePlanButton" data-tab="upgrade" class="dashboard-tab rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm font-semibold text-amber-200">Upgrade Plan</button>
-        </div>
+      <nav class="sidebar-nav" aria-label="Client portal navigation">
+        <button data-tab="overview" class="dashboard-tab is-active" type="button">Dashboard</button>
+        <button data-tab="projects" class="dashboard-tab" type="button">My Projects</button>
+        <button data-tab="services" class="dashboard-tab" type="button">Services</button>
+        <button data-tab="invoices" class="dashboard-tab" type="button">Invoices & Payments</button>
+        <button data-tab="requests" class="dashboard-tab" type="button">Support</button>
+        <button data-tab="bookings" class="dashboard-tab" type="button">Bookings</button>
+        <button data-tab="inquiries" class="dashboard-tab" type="button">Leads & Inquiries</button>
+        <button data-tab="reviews" class="dashboard-tab" type="button">Reviews</button>
+        <button data-tab="files" class="dashboard-tab" type="button">Files</button>
+        <button data-tab="settings" class="dashboard-tab" type="button">Settings</button>
       </nav>
+
+      <div class="sidebar-footer">
+        <button id="upgradePlanButton" data-tab="upgrade" class="upgrade-link dashboard-tab" type="button">
+          <span>Upgrade package</span>
+          <small>View options</small>
+        </button>
+        <div class="drawer-account-panel lg:hidden">
+          <p id="drawerBusinessName" class="drawer-business-name">Client account</p>
+          <div class="drawer-plan-summary">
+            <span>Plan</span>
+            <strong id="drawerPlanLabel">Pending Admin Approval</strong>
+            <small id="drawerStatusLabel">Pending</small>
+          </div>
+          <label class="theme-select drawer-theme-select">
+            <span class="dashboard-muted">Theme</span>
+            <select id="themePreferenceMobile">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="system">System</option>
+            </select>
+          </label>
+          <button id="logoutButtonMobile" class="secondary-button w-full" type="button">Logout</button>
+        </div>
+      </div>
     </aside>
 
-    <main class="flex-1">
-      <header id="dashboardHeader" class="dashboard-surface border-b px-5 py-4 backdrop-blur sm:px-8">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <main class="client-main flex-1">
+      <header id="dashboardHeader" class="client-topbar dashboard-surface border-b">
+        <div class="topbar-title">
+          <button id="mobileNavToggle" class="icon-button menu-toggle lg:hidden" type="button" aria-label="Open menu" aria-controls="dashboardSidebar" aria-expanded="false">Menu</button>
           <div>
-            <h2 id="pageTitle" class="text-2xl font-semibold">Overview</h2>
-            <p id="pageSubtitle" class="dashboard-muted mt-1 text-sm">Manage your AutomateX workspace.</p>
+            <h1 id="pageTitle">Dashboard</h1>
+            <p id="pageSubtitle" class="dashboard-muted hidden lg:block">Your AutomateX workspace, project delivery, billing, and support in one place.</p>
           </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <label class="theme-select inline-flex items-center gap-2 rounded-2xl border border-slate-700 px-3 py-2 text-sm">
-              <span class="dashboard-muted text-xs uppercase tracking-[0.18em]">Theme</span>
-              <select id="themePreference" class="bg-transparent text-sm outline-none">
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
-              </select>
-            </label>
-            <span id="planBadge" class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200">Pending Admin Approval</span>
-            <button id="logoutButtonDesktop" class="hidden rounded-2xl border border-slate-700 px-4 py-2 text-sm lg:inline-flex">Logout</button>
-          </div>
+        </div>
+        <div class="topbar-actions desktop-topbar-actions">
+          <label class="theme-select">
+            <span class="dashboard-muted">Theme</span>
+            <select id="themePreference">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="system">System</option>
+            </select>
+          </label>
+          <span id="planBadge" class="status-pill">Pending Admin Approval</span>
+          <button id="logoutButtonDesktop" class="secondary-button hidden lg:inline-flex" type="button">Logout</button>
         </div>
       </header>
 
-      <div id="feedback" class="hidden border-b border-slate-800 px-5 py-3 text-sm sm:px-8"></div>
+      <div id="mobileStatusStrip" class="mobile-status-strip dashboard-surface border-b lg:hidden">
+        <span id="mobilePlanLabel">Plan: Pending Admin Approval</span>
+        <strong id="mobileStatusLabel">Pending</strong>
+      </div>
 
-      <section id="loadingShell" class="px-5 py-8 sm:px-8">
+      <div id="feedback" class="hidden feedback-bar"></div>
+
+      <section id="loadingShell" class="content-shell">
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
-          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
-          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
-          <div class="dashboard-panel-surface h-32 animate-pulse rounded-3xl"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
         </div>
-        <div class="dashboard-panel-surface mt-6 h-72 animate-pulse rounded-3xl"></div>
+        <div class="skeleton-panel mt-5"></div>
       </section>
 
-      <section id="accountStatusScreen" class="hidden px-5 py-8 sm:px-8">
-        <div class="mx-auto max-w-3xl rounded-3xl border p-6 dashboard-panel-surface sm:p-8">
+      <section id="accountStatusScreen" class="hidden content-shell">
+        <div class="status-screen dashboard-panel-surface">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">AutomateX Account</p>
-              <h2 id="accountStatusScreenTitle" class="mt-3 text-3xl font-semibold">Pending Admin Approval</h2>
-              <p id="accountStatusScreenMessage" class="dashboard-muted mt-3 max-w-2xl text-sm leading-7">
+              <p class="eyebrow">AutomateX Account</p>
+              <h2 id="accountStatusScreenTitle">Pending Admin Approval</h2>
+              <p id="accountStatusScreenMessage" class="dashboard-muted">
                 Your account is pending admin approval. AutomateX will review your business details and activate your package soon.
               </p>
             </div>
-            <span id="accountStatusScreenBadge" class="inline-flex rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]">Pending</span>
+            <span id="accountStatusScreenBadge" class="status-pill">Pending</span>
           </div>
 
           <div class="mt-6 grid gap-4 sm:grid-cols-2">
-            <article class="dashboard-soft-surface rounded-2xl border p-4">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Business</p>
-              <p id="accountStatusScreenBusiness" class="mt-3 text-lg font-semibold">Your business</p>
+            <article class="detail-tile">
+              <p class="tile-label">Business</p>
+              <p id="accountStatusScreenBusiness" class="tile-value">Your business</p>
             </article>
-            <article class="dashboard-soft-surface rounded-2xl border p-4">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Account Email</p>
-              <p id="accountStatusScreenEmail" class="mt-3 break-all text-lg font-semibold">you@example.com</p>
+            <article class="detail-tile">
+              <p class="tile-label">Account Email</p>
+              <p id="accountStatusScreenEmail" class="tile-value break-all">you@example.com</p>
             </article>
           </div>
 
-          <div class="dashboard-soft-surface mt-4 rounded-2xl border p-4">
-            <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">What happens next</p>
-            <p id="accountStatusScreenDetail" class="mt-3 text-sm leading-7">
+          <div class="detail-tile mt-4">
+            <p class="tile-label">What happens next</p>
+            <p id="accountStatusScreenDetail" class="mt-2 text-sm leading-7">
               Our team will review your submission, confirm your package setup, and activate your dashboard access once approval is complete.
             </p>
           </div>
 
-          <div class="mt-6 flex flex-wrap gap-3">
-            <button id="logoutButtonStatusScreen" class="rounded-2xl border border-slate-700 px-4 py-3 text-sm">Logout</button>
-          </div>
+          <button id="logoutButtonStatusScreen" class="secondary-button mt-6" type="button">Logout</button>
         </div>
       </section>
 
-      <section id="dashboardContent" class="hidden px-5 py-8 sm:px-8">
+      <section id="dashboardContent" class="hidden content-shell">
         <div id="tab-overview" class="dashboard-panel">
-          <div id="accountNotice" class="hidden rounded-3xl border px-5 py-4 text-sm"></div>
+          <div id="accountNotice" class="hidden notice-card"></div>
 
-          <section class="grid gap-4 xl:grid-cols-4">
-            <article class="dashboard-panel-surface rounded-3xl border p-5 xl:col-span-2">
-              <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Welcome</p>
-              <h3 id="welcomeBusinessName" class="mt-3 text-3xl font-semibold">Your business</h3>
-              <p id="welcomeCopy" class="dashboard-muted mt-3 text-sm leading-7">Here's what's happening in your workspace right now.</p>
-            </article>
-            <article class="dashboard-panel-surface rounded-3xl border p-5">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Bookings This Month</p>
-              <p id="overviewBookingsCount" class="mt-4 text-3xl font-semibold">0</p>
-            </article>
-            <article class="dashboard-panel-surface rounded-3xl border p-5">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">New Inquiries</p>
-              <p id="overviewInquiriesCount" class="mt-4 text-3xl font-semibold">0</p>
-            </article>
-            <article class="dashboard-panel-surface rounded-3xl border p-5">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Pending Reviews</p>
-              <p id="overviewPendingReviewsCount" class="mt-4 text-3xl font-semibold">0</p>
-            </article>
-            <article class="dashboard-panel-surface rounded-3xl border p-5">
-              <p class="dashboard-muted text-xs uppercase tracking-[0.24em]">Current Plan</p>
-              <p id="overviewPlanBadge" class="mt-4 text-2xl font-semibold">Package Not Assigned</p>
-            </article>
-          </section>
-
-          <section class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-            <article class="dashboard-panel-surface rounded-3xl border p-5">
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Account & Package</p>
-                  <h3 class="mt-3 text-xl font-semibold">Current service status</h3>
-                  <p class="dashboard-muted mt-2 text-sm leading-7">Your package details are controlled by the AutomateX admin team and update here automatically.</p>
-                </div>
-                <span id="overviewAccountStatusBadge" class="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Pending</span>
-              </div>
-              <div class="mt-6 grid gap-4 sm:grid-cols-2">
-                <div class="dashboard-soft-surface rounded-2xl border p-4">
-                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Current Package</p>
-                  <p id="accountPlanValue" class="mt-3 text-lg font-semibold">Package Not Assigned</p>
-                </div>
-                <div class="dashboard-soft-surface rounded-2xl border p-4">
-                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Monthly Service Fee</p>
-                  <p id="accountMonthlyFeeValue" class="mt-3 text-lg font-semibold">Waiting for admin</p>
-                </div>
-                <div class="dashboard-soft-surface rounded-2xl border p-4">
-                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Payment Status</p>
-                  <p id="accountPaymentStatusValue" class="mt-3 text-lg font-semibold">Pending</p>
-                </div>
-                <div class="dashboard-soft-surface rounded-2xl border p-4">
-                  <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Next Payment Date</p>
-                  <p id="accountNextPaymentDateValue" class="mt-3 text-lg font-semibold">Not scheduled</p>
-                </div>
-              </div>
-              <div class="dashboard-soft-surface mt-4 rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Allowed Features</p>
-                <div id="allowedFeaturesList" class="mt-4 flex flex-wrap gap-2"></div>
-              </div>
-              <p id="accountStatusMessage" class="dashboard-muted mt-4 text-sm leading-7">Your AutomateX account is being reviewed. We will activate your package soon.</p>
-            </article>
-
-            <article class="dashboard-panel-surface rounded-3xl border p-5">
-              <p class="text-xs uppercase tracking-[0.24em] text-cyan-400">Onboarding</p>
-              <h3 class="mt-3 text-xl font-semibold">Activation checklist</h3>
-              <p class="dashboard-muted mt-2 text-sm leading-7">Complete the essentials while our team prepares your workspace.</p>
-              <div id="onboardingChecklist" class="mt-6 grid gap-3"></div>
-            </article>
-          </section>
-
-          <section class="dashboard-panel-surface mt-6 rounded-3xl border p-5">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 class="text-lg font-semibold">Quick Actions</h3>
-                <p class="dashboard-muted mt-1 text-sm">Useful shortcuts for your day-to-day workflow.</p>
-              </div>
-            </div>
-            <div class="mt-5 grid gap-3 md:grid-cols-3">
-              <button id="copyBookingLinkButton" class="dashboard-soft-surface rounded-2xl border px-4 py-4 text-left text-sm">
-                <span class="block font-semibold">Copy booking link</span>
-                <span class="dashboard-muted mt-1 block">Share your booking page with customers.</span>
-              </button>
-              <button id="viewPublicPageButton" class="dashboard-soft-surface rounded-2xl border px-4 py-4 text-left text-sm">
-                <span class="block font-semibold">View public page</span>
-                <span class="dashboard-muted mt-1 block">Open your public client page in a new tab.</span>
-              </button>
-              <button id="whatsAppSupportButton" class="dashboard-soft-surface rounded-2xl border px-4 py-4 text-left text-sm">
-                <span class="block font-semibold">WhatsApp support</span>
-                <span class="dashboard-muted mt-1 block">Chat with the AutomateX support team.</span>
-              </button>
-            </div>
-          </section>
-
-          <section class="dashboard-panel-surface mt-6 rounded-3xl border p-5">
+          <section class="welcome-panel dashboard-panel-surface">
             <div>
-              <h3 class="text-lg font-semibold">Service Access</h3>
-              <p class="dashboard-muted mt-1 text-sm">Each workspace area remains visible so you can see what is active and what still needs approval.</p>
+              <p class="eyebrow">Workspace</p>
+              <h2 id="welcomeBusinessName">Your business</h2>
+              <p id="welcomeCopy" class="dashboard-muted">Here is what needs your attention today.</p>
             </div>
-            <div id="featureAccessGrid" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4"></div>
+            <div class="welcome-status">
+              <span id="overviewAccountStatusBadge" class="status-pill">Pending</span>
+              <strong id="overviewPlanBadge">Package Not Assigned</strong>
+            </div>
+          </section>
+
+          <section class="metric-grid">
+            <article class="metric-card">
+              <p>Active Projects</p>
+              <strong id="overviewActiveProjectsCount">0</strong>
+              <span id="overviewActiveProjectLabel" class="dashboard-muted">No active projects yet</span>
+            </article>
+            <article class="metric-card">
+              <p>Next Milestone</p>
+              <strong id="overviewNextMilestoneDate">--</strong>
+              <span id="overviewNextMilestoneLabel" class="dashboard-muted">No upcoming milestone</span>
+            </article>
+            <article class="metric-card">
+              <p>Outstanding Balance</p>
+              <strong id="overviewInvoiceBalance">LKR 0</strong>
+              <span id="overviewInvoiceCountLabel" class="dashboard-muted">No open invoices</span>
+            </article>
+            <article class="metric-card">
+              <p>Open Support</p>
+              <strong id="overviewOpenRequestsCount">0</strong>
+              <span id="overviewOpenRequestsLabel" class="dashboard-muted">No open tickets</span>
+            </article>
+          </section>
+
+          <section class="overview-grid">
+            <article class="dashboard-panel-surface panel-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Package</p>
+                  <h3>Current service status</h3>
+                </div>
+                <button class="text-button" data-tab-target="services" type="button">View services</button>
+              </div>
+              <div class="detail-grid">
+                <div class="detail-tile">
+                  <p class="tile-label">Current Package</p>
+                  <p id="accountPlanValue" class="tile-value">Package Not Assigned</p>
+                </div>
+                <div class="detail-tile">
+                  <p class="tile-label">Monthly Fee</p>
+                  <p id="accountMonthlyFeeValue" class="tile-value">Waiting for admin</p>
+                </div>
+                <div class="detail-tile">
+                  <p class="tile-label">Payment Status</p>
+                  <p id="accountPaymentStatusValue" class="tile-value">Pending</p>
+                </div>
+                <div class="detail-tile">
+                  <p class="tile-label">Next Payment</p>
+                  <p id="accountNextPaymentDateValue" class="tile-value">Not scheduled</p>
+                </div>
+              </div>
+              <p id="accountStatusMessage" class="dashboard-muted mt-4 text-sm leading-7">Your AutomateX account is being reviewed.</p>
+            </article>
+
+            <article class="dashboard-panel-surface panel-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Next steps</p>
+                  <h3>Activation checklist</h3>
+                </div>
+              </div>
+              <div id="onboardingChecklist" class="checklist"></div>
+            </article>
+          </section>
+
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Shortcuts</p>
+                <h3>Quick actions</h3>
+              </div>
+            </div>
+            <div class="quick-action-grid">
+              <button id="copyBookingLinkButton" class="quick-action" type="button">
+                <strong>Copy booking link</strong>
+                <span>Share your booking page with customers.</span>
+              </button>
+              <button id="viewPublicPageButton" class="quick-action" type="button">
+                <strong>View public page</strong>
+                <span>Open your customer-facing page.</span>
+              </button>
+              <button id="whatsAppSupportButton" class="quick-action" type="button">
+                <strong>WhatsApp support</strong>
+                <span>Contact the AutomateX team.</span>
+              </button>
+            </div>
           </section>
         </div>
 
         <div id="tab-projects" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
               <div>
-                <h3 class="text-lg font-semibold">My Projects</h3>
-                <p class="mt-1 text-sm text-slate-400">Track your AutomateX project progress, milestones, deliverables, deadlines, and payment summary.</p>
+                <p class="eyebrow">Delivery</p>
+                <h3>My Projects</h3>
+                <p class="dashboard-muted">Track progress, deadlines, deliverables, documents, and maintenance coverage.</p>
               </div>
-              <div class="grid grid-cols-2 gap-3 sm:flex">
-                <article class="dashboard-soft-surface rounded-2xl border px-4 py-3">
-                  <p class="dashboard-muted text-xs uppercase tracking-[0.18em]">Projects</p>
-                  <p id="projectCountValue" class="mt-2 text-xl font-semibold">0</p>
-                </article>
-                <article class="dashboard-soft-surface rounded-2xl border px-4 py-3">
-                  <p class="dashboard-muted text-xs uppercase tracking-[0.18em]">Open Balance</p>
-                  <p id="projectBalanceValue" class="mt-2 text-xl font-semibold">LKR 0</p>
-                </article>
+              <div class="summary-pair">
+                <span><small>Projects</small><strong id="projectCountValue">0</strong></span>
+                <span><small>Open Balance</small><strong id="projectBalanceValue">LKR 0</strong></span>
               </div>
             </div>
-            <div id="projectsList" class="mt-6 grid gap-5"></div>
+            <div id="projectsList" class="project-list"></div>
           </section>
         </div>
 
-        <div id="tab-bookings" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div id="tab-services" class="dashboard-panel hidden">
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
               <div>
-                <h3 class="text-lg font-semibold">Bookings</h3>
-                <p class="mt-1 text-sm text-slate-400">Review and manage customer bookings.</p>
+                <p class="eyebrow">Package</p>
+                <h3>Services</h3>
+                <p class="dashboard-muted">Review what is active for your AutomateX workspace and what remains unavailable on your package.</p>
               </div>
-              <div class="flex flex-wrap gap-2">
-                <button data-booking-filter="week" class="booking-filter rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">This week</button>
-                <button data-booking-filter="month" class="booking-filter rounded-2xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">This month</button>
-                <button data-booking-filter="all" class="booking-filter rounded-2xl border border-slate-700 px-4 py-2 text-sm text-slate-300">All time</button>
-              </div>
+              <button id="servicesUpgradeButton" class="primary-button" data-tab-target="upgrade" type="button">Upgrade options</button>
             </div>
-
-            <div class="mt-6 overflow-hidden rounded-3xl border border-slate-800">
-              <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-800">
-                  <thead class="bg-slate-950/70">
-                    <tr class="text-left text-xs uppercase tracking-[0.2em] text-slate-400">
-                      <th class="px-4 py-3">Date</th>
-                      <th class="px-4 py-3">Time</th>
-                      <th class="px-4 py-3">Customer</th>
-                      <th class="px-4 py-3">Email</th>
-                      <th class="px-4 py-3">Status</th>
-                      <th class="px-4 py-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="bookingsTableBody" class="divide-y divide-slate-800 bg-slate-900"></tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div id="tab-inquiries" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div>
-              <h3 class="text-lg font-semibold">Inquiries</h3>
-              <p class="mt-1 text-sm text-slate-400">Review incoming leads, expand each message, and update follow-up status or internal notes from your dashboard.</p>
-            </div>
-            <div id="inquiriesList" class="mt-6 grid gap-4"></div>
-          </section>
-        </div>
-
-        <div id="tab-reviews" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div>
-              <h3 class="text-lg font-semibold">Reviews</h3>
-              <p class="mt-1 text-sm text-slate-400">Published reviews appear on your public site. Pending reviews stay private until moderated.</p>
-            </div>
-            <div id="reviewsGrid" class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+            <div id="featureAccessGrid" class="service-grid"></div>
           </section>
         </div>
 
         <div id="tab-invoices" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div>
-              <h3 class="text-lg font-semibold">Invoices</h3>
-              <p class="mt-1 text-sm text-slate-400">View invoice totals, balances, due dates, and manual payment status updates from AutomateX.</p>
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Billing</p>
+                <h3>Invoices & Payments</h3>
+                <p class="dashboard-muted">Review invoice totals, due dates, balances, and payment status updates from AutomateX.</p>
+              </div>
+              <button id="invoiceBillingPortalButton" class="secondary-button" data-billing-portal-trigger="true" type="button">Manage billing</button>
             </div>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-3">
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Total Invoices</p>
-                <p id="invoiceCountValue" class="mt-3 text-2xl font-semibold">0</p>
+            <div class="metric-grid compact">
+              <article class="metric-card">
+                <p>Total Invoices</p>
+                <strong id="invoiceCountValue">0</strong>
               </article>
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Outstanding Balance</p>
-                <p id="invoiceBalanceValue" class="mt-3 text-2xl font-semibold">LKR 0</p>
+              <article class="metric-card">
+                <p>Outstanding Balance</p>
+                <strong id="invoiceBalanceValue">LKR 0</strong>
               </article>
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Overdue Invoices</p>
-                <p id="invoiceOverdueValue" class="mt-3 text-2xl font-semibold">0</p>
+              <article class="metric-card">
+                <p>Overdue Invoices</p>
+                <strong id="invoiceOverdueValue">0</strong>
               </article>
             </div>
 
-            <div id="invoicesEmptyState" class="dashboard-soft-surface mt-6 hidden rounded-3xl border p-6 text-sm">
+            <div id="invoicesEmptyState" class="empty-state hidden">
               No invoices are available for your account yet.
             </div>
 
-            <div id="invoicesTableWrap" class="mt-6 overflow-hidden rounded-3xl border border-slate-800">
-              <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-800">
-                  <thead class="bg-slate-950/70">
-                    <tr class="text-left text-xs uppercase tracking-[0.2em] text-slate-400">
-                      <th class="px-4 py-3">Invoice</th>
-                      <th class="px-4 py-3">Reference</th>
-                      <th class="px-4 py-3">Total</th>
-                      <th class="px-4 py-3">Paid</th>
-                      <th class="px-4 py-3">Balance</th>
-                      <th class="px-4 py-3">Status</th>
-                      <th class="px-4 py-3">Due Date</th>
-                      <th class="px-4 py-3">PDF</th>
-                    </tr>
-                  </thead>
-                  <tbody id="invoicesTableBody" class="divide-y divide-slate-800 bg-slate-900"></tbody>
-                </table>
-              </div>
+            <div id="invoicesTableWrap" class="data-table-wrap desktop-data-table">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Reference</th>
+                    <th>Total</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th>PDF</th>
+                  </tr>
+                </thead>
+                <tbody id="invoicesTableBody"></tbody>
+              </table>
             </div>
+            <div id="invoicesMobileList" class="mobile-card-list"></div>
           </section>
         </div>
 
         <div id="tab-requests" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-            <div>
-              <h3 class="text-lg font-semibold">Support & Upgrade Requests</h3>
-              <p class="mt-1 text-sm text-slate-400">Send support, bug, feature, payment, or upgrade requests to AutomateX and track their workflow status from your dashboard.</p>
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Support</p>
+                <h3>Support tickets</h3>
+                <p class="dashboard-muted">Send support, upgrade, feature, bug, or payment requests and track their status.</p>
+              </div>
             </div>
 
-            <div class="mt-6 grid gap-4 md:grid-cols-4">
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Total Requests</p>
-                <p id="requestTotalCountValue" class="mt-3 text-2xl font-semibold">0</p>
+            <div class="metric-grid compact">
+              <article class="metric-card">
+                <p>Total Tickets</p>
+                <strong id="requestTotalCountValue">0</strong>
               </article>
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Open</p>
-                <p id="requestOpenCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              <article class="metric-card">
+                <p>Open</p>
+                <strong id="requestOpenCountValue">0</strong>
               </article>
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">In Progress</p>
-                <p id="requestInProgressCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              <article class="metric-card">
+                <p>In Progress</p>
+                <strong id="requestInProgressCountValue">0</strong>
               </article>
-              <article class="dashboard-soft-surface rounded-2xl border p-4">
-                <p class="dashboard-muted text-xs uppercase tracking-[0.2em]">Resolved</p>
-                <p id="requestResolvedCountValue" class="mt-3 text-2xl font-semibold">0</p>
+              <article class="metric-card">
+                <p>Resolved</p>
+                <strong id="requestResolvedCountValue">0</strong>
               </article>
             </div>
 
-            <div class="mt-6 grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-              <article class="dashboard-panel-surface rounded-3xl border p-5">
-                <div>
-                  <h4 class="text-lg font-semibold">Create Request</h4>
-                  <p class="mt-1 text-sm text-slate-400">Upgrade requests are sent to admin for manual review only. They do not change your package automatically.</p>
-                </div>
-
-                <form id="requestForm" class="mt-6 grid gap-4">
+            <div class="support-layout">
+              <article class="form-panel">
+                <h4>Create support ticket</h4>
+                <p class="dashboard-muted">Tell AutomateX what you need. Upgrade requests are reviewed manually.</p>
+                <form id="requestForm" class="form-grid">
                   <div class="grid gap-4 md:grid-cols-2">
-                    <label class="block">
-                      <span class="mb-2 block text-sm text-slate-300">Request type</span>
-                      <select id="requestType" name="type" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                    <label>
+                      <span>Request type</span>
+                      <select id="requestType" name="type">
                         <option value="support">General Support</option>
                         <option value="bug">Bug Report</option>
                         <option value="feature">Feature Request</option>
@@ -381,9 +374,9 @@
                         <option value="payment">Payment Question</option>
                       </select>
                     </label>
-                    <label class="block">
-                      <span class="mb-2 block text-sm text-slate-300">Priority</span>
-                      <select id="requestPriority" name="priority" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                    <label>
+                      <span>Priority</span>
+                      <select id="requestPriority" name="priority">
                         <option value="low">Low</option>
                         <option value="normal" selected>Normal</option>
                         <option value="high">High</option>
@@ -392,9 +385,9 @@
                     </label>
                   </div>
 
-                  <label id="requestPackageField" class="hidden block">
-                    <span class="mb-2 block text-sm text-slate-300">Requested package</span>
-                    <select id="requestPackage" name="requestedPackage" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+                  <label id="requestPackageField" class="hidden">
+                    <span>Requested package</span>
+                    <select id="requestPackage" name="requestedPackage">
                       <option value="starter">Starter</option>
                       <option value="standard">Standard</option>
                       <option value="pro">Pro</option>
@@ -402,96 +395,167 @@
                     </select>
                   </label>
 
-                  <label class="block">
-                    <span class="mb-2 block text-sm text-slate-300">Subject</span>
-                    <input id="requestSubject" name="subject" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="What do you need help with?">
+                  <label>
+                    <span>Subject</span>
+                    <input id="requestSubject" name="subject" type="text" placeholder="What do you need help with?">
                   </label>
 
-                  <label class="block">
-                    <span class="mb-2 block text-sm text-slate-300">Message</span>
-                    <textarea id="requestMessage" name="message" class="min-h-[150px] w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="Describe your support issue, upgrade need, payment question, or feature request."></textarea>
+                  <label>
+                    <span>Message</span>
+                    <textarea id="requestMessage" name="message" placeholder="Describe your support issue, upgrade need, payment question, or feature request."></textarea>
                   </label>
 
-                  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-xs uppercase tracking-[0.18em] text-slate-500">AutomateX reviews every request manually and updates the status here.</p>
-                    <button id="requestSubmitButton" type="submit" class="rounded-2xl border border-cyan-500/30 px-4 py-2 text-sm font-semibold text-cyan-200">Send Request</button>
-                  </div>
+                  <button id="requestSubmitButton" type="submit" class="primary-button">Send ticket</button>
                 </form>
               </article>
 
-              <article class="dashboard-panel-surface rounded-3xl border p-5">
-                <div>
-                  <h4 class="text-lg font-semibold">Request History</h4>
-                  <p class="mt-1 text-sm text-slate-400">Track status updates for support and upgrade requests submitted from your account.</p>
-                </div>
-                <div id="requestsList" class="mt-6 grid gap-4"></div>
+              <article class="history-panel">
+                <h4>Ticket history</h4>
+                <p class="dashboard-muted">Track support and upgrade requests submitted from your account.</p>
+                <div id="requestsList" class="ticket-list"></div>
               </article>
             </div>
           </section>
         </div>
 
-        <div id="tab-settings" class="dashboard-panel hidden">
-          <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-            <section class="dashboard-panel-surface rounded-3xl border p-5">
-              <h3 class="text-lg font-semibold">Business Settings</h3>
-              <p class="dashboard-muted mt-1 text-sm">Update the details AutomateX uses across your workspace and AI chatbot.</p>
+        <div id="tab-bookings" class="dashboard-panel hidden">
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Scheduling</p>
+                <h3>Bookings</h3>
+                <p class="dashboard-muted">Review and manage customer bookings connected to your workspace.</p>
+              </div>
+              <div class="segmented-control">
+                <button data-booking-filter="week" class="booking-filter" type="button">This week</button>
+                <button data-booking-filter="month" class="booking-filter is-active" type="button">This month</button>
+                <button data-booking-filter="all" class="booking-filter" type="button">All time</button>
+              </div>
+            </div>
 
-              <form id="settingsForm" class="mt-6 grid gap-4 sm:grid-cols-2">
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Business name</span>
-                  <input id="settingsBusinessName" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Owner name</span>
-                  <input id="settingsOwnerName" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Business type</span>
-                  <input id="settingsBusinessType" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Phone</span>
-                  <input id="settingsPhone" type="tel" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Location</span>
-                  <input id="settingsLocation" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Working hours</span>
-                  <input id="settingsWorkingHours" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
-                </label>
-                <label class="block sm:col-span-2">
-                  <span class="mb-2 block text-sm text-slate-300">Services</span>
-                  <input id="settingsServices" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="Comma separated services">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Chatbot language</span>
-                  <input id="settingsChatbotLanguage" type="text" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400" placeholder="English, Sinhala, Tamil...">
-                </label>
-                <label class="block">
-                  <span class="mb-2 block text-sm text-slate-300">Account email</span>
-                  <input id="settingsAccountEmail" type="email" readonly class="w-full rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-400 outline-none" aria-readonly="true">
-                </label>
-                <label class="block sm:col-span-2">
-                  <span class="mb-2 block text-sm text-slate-300">Account security</span>
-                  <div class="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
-                    Email, package, payment, and password changes are managed by AutomateX support.
-                  </div>
-                </label>
-                <div class="sm:col-span-2">
-                  <button type="submit" class="rounded-2xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-950">Save settings</button>
+            <div class="data-table-wrap desktop-data-table">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Customer</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="bookingsTableBody"></tbody>
+              </table>
+            </div>
+            <div id="bookingsMobileList" class="mobile-card-list"></div>
+          </section>
+        </div>
+
+        <div id="tab-inquiries" class="dashboard-panel hidden">
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Leads</p>
+                <h3>Leads & Inquiries</h3>
+                <p class="dashboard-muted">Review incoming leads, expand messages, and update follow-up status or notes.</p>
+              </div>
+            </div>
+            <div id="inquiriesList" class="lead-list"></div>
+          </section>
+        </div>
+
+        <div id="tab-reviews" class="dashboard-panel hidden">
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Reputation</p>
+                <h3>Reviews</h3>
+                <p class="dashboard-muted">Review customer feedback and moderation status for your public site.</p>
+              </div>
+            </div>
+            <div id="reviewsGrid" class="review-grid"></div>
+          </section>
+        </div>
+
+        <div id="tab-files" class="dashboard-panel hidden">
+          <section class="dashboard-panel-surface panel-block">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Documents</p>
+                <h3>Files</h3>
+                <p class="dashboard-muted">Access client-visible files published across your projects.</p>
+              </div>
+              <div class="summary-pair">
+                <span><small>Files</small><strong id="filesCountValue">0</strong></span>
+              </div>
+            </div>
+            <div id="filesList" class="file-list"></div>
+          </section>
+        </div>
+
+        <div id="tab-settings" class="dashboard-panel hidden">
+          <div class="settings-layout">
+            <section class="dashboard-panel-surface panel-block">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Profile</p>
+                  <h3>Business Settings</h3>
+                  <p class="dashboard-muted">Update the business details AutomateX uses across your workspace and AI chatbot.</p>
                 </div>
+              </div>
+
+              <form id="settingsForm" class="settings-form">
+                <label>
+                  <span>Business name</span>
+                  <input id="settingsBusinessName" type="text">
+                </label>
+                <label>
+                  <span>Owner name</span>
+                  <input id="settingsOwnerName" type="text">
+                </label>
+                <label>
+                  <span>Business type</span>
+                  <input id="settingsBusinessType" type="text">
+                </label>
+                <label>
+                  <span>Phone</span>
+                  <input id="settingsPhone" type="tel">
+                </label>
+                <label>
+                  <span>Location</span>
+                  <input id="settingsLocation" type="text">
+                </label>
+                <label>
+                  <span>Working hours</span>
+                  <input id="settingsWorkingHours" type="text">
+                </label>
+                <label class="wide-field">
+                  <span>Services</span>
+                  <input id="settingsServices" type="text" placeholder="Comma separated services">
+                </label>
+                <label>
+                  <span>Chatbot language</span>
+                  <input id="settingsChatbotLanguage" type="text" placeholder="English, Sinhala, Tamil...">
+                </label>
+                <label>
+                  <span>Account email</span>
+                  <input id="settingsAccountEmail" type="email" readonly aria-readonly="true">
+                </label>
+                <div class="wide-field note-box">
+                  Email, package, payment, and password changes are currently managed by AutomateX support.
+                </div>
+                <button type="submit" class="primary-button">Save settings</button>
               </form>
             </section>
 
-            <div class="grid gap-6">
-              <section class="dashboard-panel-surface rounded-3xl border p-5">
-                <h3 class="text-lg font-semibold">Appearance</h3>
-                <p class="dashboard-muted mt-2 text-sm leading-7">Choose how the client portal looks on this device. Your preference is saved locally.</p>
-                <label class="mt-5 block">
-                  <span class="mb-2 block text-sm dashboard-muted">Theme preference</span>
-                  <select id="themePreferenceSettings" class="w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm outline-none focus:border-cyan-400">
+            <aside class="settings-side">
+              <section class="dashboard-panel-surface panel-block">
+                <h3>Appearance</h3>
+                <p class="dashboard-muted">Choose how the client portal looks on this device.</p>
+                <label class="settings-select">
+                  <span>Theme preference</span>
+                  <select id="themePreferenceSettings">
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
                     <option value="system">System</option>
@@ -499,22 +563,23 @@
                 </label>
               </section>
 
-              <section class="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5">
-                <h3 class="text-lg font-semibold text-rose-200">Danger Zone</h3>
-                <p class="mt-2 text-sm leading-7 text-rose-100/80">Cancel your subscription or manage billing details from the Stripe billing portal.</p>
-                <button id="cancelSubscriptionButton" class="mt-5 rounded-2xl border border-rose-400/40 px-4 py-3 text-sm text-rose-100">Cancel subscription</button>
+              <section class="dashboard-panel-surface panel-block">
+                <h3>Billing access</h3>
+                <p class="dashboard-muted">Manage billing details and subscription options from the secure billing portal.</p>
+                <button id="cancelSubscriptionButton" class="secondary-button mt-4" type="button">Open billing portal</button>
               </section>
-            </div>
+            </aside>
           </div>
         </div>
 
         <div id="tab-upgrade" class="dashboard-panel hidden">
-          <section class="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-6">
-            <h3 class="text-2xl font-semibold text-amber-100">Upgrade your plan</h3>
-            <p class="mt-3 max-w-2xl text-sm leading-7 text-amber-50/90">Unlock more automation, smarter AI chat, and higher-capacity workflows by upgrading your AutomateX subscription.</p>
+          <section class="upgrade-panel">
+            <p class="eyebrow">Package</p>
+            <h3>Upgrade your plan</h3>
+            <p>Unlock more automation, smarter AI chat, and higher-capacity workflows by upgrading your AutomateX subscription.</p>
             <div class="mt-5 flex flex-wrap gap-3">
-              <a href="/pricing.html" class="rounded-2xl bg-amber-300 px-5 py-3 text-sm font-semibold text-slate-950">View plans</a>
-              <button id="openBillingPortalButton" class="rounded-2xl border border-amber-300/40 px-5 py-3 text-sm text-amber-100">Manage billing</button>
+              <a href="/pricing.html" class="primary-button">View plans</a>
+              <button id="openBillingPortalButton" class="secondary-button" type="button">Manage billing</button>
             </div>
           </section>
         </div>
