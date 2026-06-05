@@ -178,6 +178,29 @@ textarea {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.mobile-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mobile-menu-toggle span {
+  display: block;
+  width: 17px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
@@ -1135,6 +1158,84 @@ textarea {
 
   .hero-actions {
     flex-direction: column;
+  }
+
+  .site-header {
+    position: static;
+    top: auto;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 64px;
+    padding: 8px 10px;
+    border-radius: 22px;
+  }
+
+  .brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .brand-logo-mark {
+    width: 34px;
+    height: 34px;
+  }
+
+  .brand-text {
+    white-space: nowrap;
+  }
+
+  .site-header .nav-cta {
+    width: auto;
+    min-height: 42px;
+    padding: 0 14px;
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+  }
+
+  .mobile-menu-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
+  .site-nav {
+    order: 4;
+    flex: 1 0 100%;
+    width: 100%;
+    max-height: 0;
+    overflow: hidden;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    border-top: 1px solid transparent;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.2s ease, border-color 0.2s ease;
+  }
+
+  .site-header.nav-open .site-nav {
+    max-height: 420px;
+    padding-top: 8px;
+    border-top-color: var(--line);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .site-nav a {
+    padding: 8px 6px;
+    color: var(--muted);
+  }
+
+  .site-header.nav-open > .site-nav {
+    max-height: 420px;
+    padding-top: 8px;
+    border-top-color: var(--line);
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 /* ═══════════════════════════════════════════════════════════
