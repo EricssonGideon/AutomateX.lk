@@ -1028,26 +1028,28 @@ textarea {
   .review-counts {
     grid-column: span 1;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
     min-width: 0;
     width: 100%;
   }
 
-  .review-counts article:nth-child(3) {
-    padding-inline: 2px;
+  .review-counts article {
+    min-width: 0;
+    padding: 10px 2px;
   }
 
-  .review-counts article:nth-child(3) strong,
-  .review-counts article:nth-child(3) span {
+  .review-counts strong,
+  .review-counts span {
     white-space: nowrap;
   }
 
-  .review-counts article:nth-child(3) strong {
-    font-size: 1.05rem;
+  .review-counts strong {
+    font-size: 1rem;
   }
 
-  .review-counts article:nth-child(3) span {
+  .review-counts span {
     display: block;
-    font-size: 0.6rem;
+    font-size: 0.56rem;
     line-height: 1.25;
   }
 
