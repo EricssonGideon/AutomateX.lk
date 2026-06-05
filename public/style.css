@@ -1175,6 +1175,7 @@ textarea {
 
 @media (max-width: 720px) {
   .site-footer {
+    margin-top: -50px;
     padding-bottom: 0;
   }
 
@@ -1183,7 +1184,7 @@ textarea {
     justify-content: center;
     align-items: center;
     gap: 10px;
-    padding: 28px 0 0;
+    padding: 0;
     text-align: center;
   }
 
