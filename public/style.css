@@ -1027,7 +1027,28 @@ textarea {
 
   .review-counts {
     grid-column: span 1;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    min-width: 0;
+    width: 100%;
+  }
+
+  .review-counts article:nth-child(3) {
+    padding-inline: 2px;
+  }
+
+  .review-counts article:nth-child(3) strong,
+  .review-counts article:nth-child(3) span {
+    white-space: nowrap;
+  }
+
+  .review-counts article:nth-child(3) strong {
+    font-size: 1.05rem;
+  }
+
+  .review-counts article:nth-child(3) span {
+    display: block;
+    font-size: 0.6rem;
+    line-height: 1.25;
   }
 
   .reviews-grid {
