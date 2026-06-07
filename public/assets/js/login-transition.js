@@ -13,100 +13,24 @@
   window[transitionControllerKey] = transitionController;
 
   const loginSelector = 'a[href$="login.html"], a[href="/login.html"], a[data-login-transition="glass"]';
-  const transitionElementSelector = [
-    ".login-glass-transition",
-    ".login-glass-shards",
-    ".login-glass-shards > span",
-    ".login-glass-cracks",
-    ".login-homepage-clone",
-    ".login-transition-overlay",
-    ".login-transition-root",
-    ".login-transition-shard",
-    ".login-transition-snapshot"
-  ].join(",");
-  const transitionClassNames = [
-    "login-transition-active",
-    "login-transition-lock",
-    "login-transitioning",
-    "is-login-transitioning"
-  ];
+  const transitionElementSelector = ".login-glass-transition";
+  const prefetchedTargets = new Set();
   let transitionActive = false;
-  let activeFallbackTimer = 0;
   let activeOverlay = null;
-  let activeTransitionAudio = null;
-  let activeAudioStopTimer = 0;
+  let waitingTimer = 0;
+  let navigationTimer = 0;
 
-  function clearTransitionTimer() {
-    if (activeFallbackTimer) {
-      window.clearTimeout(activeFallbackTimer);
-      activeFallbackTimer = 0;
+  function clearTimers() {
+    if (waitingTimer) {
+      window.clearTimeout(waitingTimer);
+      waitingTimer = 0;
+    }
+
+    if (navigationTimer) {
+      window.clearTimeout(navigationTimer);
+      navigationTimer = 0;
     }
   }
-
-  function clearTransitionSound() {
-    if (activeAudioStopTimer) {
-      window.clearTimeout(activeAudioStopTimer);
-      activeAudioStopTimer = 0;
-    }
-
-    if (activeTransitionAudio) {
-      activeTransitionAudio.pause();
-      activeTransitionAudio.removeAttribute("src");
-      activeTransitionAudio.load();
-      activeTransitionAudio = null;
-    }
-  }
-
-  function playTransitionSound(reducedMotion) {
-    if (reducedMotion || activeTransitionAudio) {
-      return;
-    }
-
-    try {
-      const audio = new Audio("/assets/audio/glass-transition.mp3");
-      audio.volume = 0.22;
-      activeTransitionAudio = audio;
-
-      activeAudioStopTimer = window.setTimeout(() => {
-        clearTransitionSound();
-      }, 1500);
-
-      const playPromise = audio.play();
-
-      if (playPromise?.catch) {
-        playPromise.catch(() => {
-          clearTransitionSound();
-        });
-      }
-    } catch (error) {
-      clearTransitionSound();
-    }
-  }
-
-  function resetLoginTransitionState() {
-    transitionActive = false;
-    activeOverlay = null;
-    clearTransitionTimer();
-    clearTransitionSound();
-
-    document.querySelectorAll(transitionElementSelector).forEach((element) => {
-      element.remove();
-    });
-
-    transitionClassNames.forEach((className) => {
-      document.documentElement.classList.remove(className);
-      document.body?.classList.remove(className);
-    });
-
-    document.querySelectorAll(loginSelector).forEach((link) => {
-      link.style.pointerEvents = "";
-      link.removeAttribute("aria-disabled");
-    });
-
-    closeMobileMenu();
-  }
-
-  transitionController.reset = resetLoginTransitionState;
 
   function closeMobileMenu() {
     const siteHeader = document.querySelector(".site-header");
@@ -127,11 +51,74 @@
     primaryNav.style.pointerEvents = "";
   }
 
-  function navigateToLogin(targetUrl) {
+  function resetLoginTransitionState() {
     transitionActive = false;
     activeOverlay = null;
-    clearTransitionTimer();
-    window.location.assign(targetUrl);
+    clearTimers();
+
+    document.querySelectorAll(transitionElementSelector).forEach((element) => {
+      element.remove();
+    });
+
+    document.querySelectorAll(loginSelector).forEach((link) => {
+      link.style.pointerEvents = "";
+      link.removeAttribute("aria-disabled");
+    });
+
+    closeMobileMenu();
+  }
+
+  transitionController.reset = resetLoginTransitionState;
+
+  function getTargetUrl(link) {
+    try {
+      return new URL(link.dataset.loginTarget || link.getAttribute("href") || link.href, window.location.href).href;
+    } catch {
+      return link.href;
+    }
+  }
+
+  function prefetchLoginPage(targetUrl) {
+    if (!targetUrl || prefetchedTargets.has(targetUrl)) {
+      return;
+    }
+
+    try {
+      const target = new URL(targetUrl, window.location.href);
+
+      if (target.origin !== window.location.origin) {
+        return;
+      }
+
+      prefetchedTargets.add(targetUrl);
+
+      const prefetchLink = document.createElement("link");
+      prefetchLink.rel = "prefetch";
+      prefetchLink.as = "document";
+      prefetchLink.href = target.href;
+      document.head.appendChild(prefetchLink);
+    } catch {
+      // Navigation still proceeds normally if prefetch is unavailable.
+    }
+  }
+
+  function shouldUseSimpleFade() {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const slowConnection = Boolean(
+      connection?.saveData ||
+      connection?.effectiveType === "slow-2g" ||
+      connection?.effectiveType === "2g"
+    );
+    const lowMemory = typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4;
+    const lowCpu = typeof navigator.hardwareConcurrency === "number" && navigator.hardwareConcurrency <= 2;
+
+    return Boolean(
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      window.matchMedia("(max-width: 767px), (pointer: coarse)").matches ||
+      slowConnection ||
+      lowMemory ||
+      lowCpu
+    );
   }
 
   function getCrackOrigin(link) {
@@ -143,38 +130,15 @@
     };
   }
 
-  function buildHomepageClone(scrollY) {
-    const cloneRoot = document.createElement("div");
-    cloneRoot.className = "login-homepage-clone";
-    cloneRoot.style.setProperty("--snapshot-offset", `${scrollY * -1}px`);
-    cloneRoot.style.setProperty("--snapshot-height", `${Math.max(document.documentElement.scrollHeight, window.innerHeight)}px`);
-
-    Array.from(document.body.children).forEach((child) => {
-      if (
-        child.matches("script") ||
-        child.classList.contains("login-glass-transition")
-      ) {
-        return;
-      }
-
-      cloneRoot.appendChild(child.cloneNode(true));
-    });
-
-    return cloneRoot;
-  }
-
   function buildCrackRays(cracks) {
     [
-      { angle: "-156deg", length: "34vw", delay: "0.1s" },
-      { angle: "-126deg", length: "42vw", delay: "0.13s" },
-      { angle: "-98deg", length: "31vw", delay: "0.16s" },
-      { angle: "-64deg", length: "44vw", delay: "0.11s" },
-      { angle: "-28deg", length: "38vw", delay: "0.15s" },
-      { angle: "8deg", length: "46vw", delay: "0.12s" },
-      { angle: "34deg", length: "36vw", delay: "0.18s" },
-      { angle: "72deg", length: "45vw", delay: "0.14s" },
-      { angle: "112deg", length: "40vw", delay: "0.17s" },
-      { angle: "148deg", length: "32vw", delay: "0.13s" }
+      { angle: "-148deg", length: "32vw", delay: "0.02s" },
+      { angle: "-105deg", length: "28vw", delay: "0.04s" },
+      { angle: "-56deg", length: "34vw", delay: "0.03s" },
+      { angle: "-8deg", length: "36vw", delay: "0.05s" },
+      { angle: "42deg", length: "30vw", delay: "0.04s" },
+      { angle: "92deg", length: "33vw", delay: "0.06s" },
+      { angle: "154deg", length: "27vw", delay: "0.03s" }
     ].forEach((pattern) => {
       const ray = document.createElement("span");
       ray.style.setProperty("--angle", pattern.angle);
@@ -184,153 +148,92 @@
     });
   }
 
-  function buildGlassTransition(targetUrl, reducedMotion, origin) {
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  function buildLoginTransition(link) {
+    const simpleFade = shouldUseSimpleFade();
+    const origin = getCrackOrigin(link);
     const overlay = document.createElement("div");
-    overlay.className = `login-glass-transition${reducedMotion ? " reduced-motion" : ""}`;
-    overlay.setAttribute("aria-hidden", "true");
+    overlay.className = `login-glass-transition${simpleFade ? " simple-fade" : ""}`;
     overlay.style.setProperty("--crack-x", `${Math.round(origin.x)}px`);
     overlay.style.setProperty("--crack-y", `${Math.round(origin.y)}px`);
 
-    const loginPreview = document.createElement("iframe");
-    loginPreview.className = "login-page-preview";
-    loginPreview.src = targetUrl;
-    loginPreview.tabIndex = -1;
-    loginPreview.setAttribute("aria-hidden", "true");
-    loginPreview.setAttribute("title", "");
-    overlay.appendChild(loginPreview);
-
-    const shards = document.createElement("div");
-    shards.className = "login-glass-shards";
-
-    const cracks = document.createElement("div");
-    cracks.className = "login-glass-cracks";
-
-    if (!reducedMotion) {
-      [
-        { clip: "polygon(0 0, 28% 0, 22% 46%, 0 58%)", x: "-28vw", y: "118vh", r: "-14deg", d: "0.4s", s: "0.992" },
-        { clip: "polygon(28% 0, 56% 0, 49% 38%, 22% 46%)", x: "-10vw", y: "122vh", r: "9deg", d: "0.42s", s: "0.988" },
-        { clip: "polygon(56% 0, 100% 0, 100% 45%, 49% 38%)", x: "26vw", y: "120vh", r: "-10deg", d: "0.41s", s: "0.994" },
-        { clip: "polygon(0 58%, 22% 46%, 37% 78%, 0 100%)", x: "-24vw", y: "128vh", r: "13deg", d: "0.44s", s: "0.99" },
-        { clip: "polygon(22% 46%, 49% 38%, 51% 72%, 37% 78%)", x: "-5vw", y: "126vh", r: "-20deg", d: "0.38s", s: "0.986" },
-        { clip: "polygon(49% 38%, 100% 45%, 100% 82%, 51% 72%)", x: "24vw", y: "128vh", r: "18deg", d: "0.43s", s: "0.991" },
-        { clip: "polygon(0 100%, 37% 78%, 50% 100%)", x: "-14vw", y: "134vh", r: "-8deg", d: "0.45s", s: "0.996" },
-        { clip: "polygon(37% 78%, 51% 72%, 50% 100%)", x: "0vw", y: "132vh", r: "16deg", d: "0.41s", s: "0.989" },
-        { clip: "polygon(51% 72%, 100% 82%, 100% 100%, 50% 100%)", x: "20vw", y: "136vh", r: "-17deg", d: "0.44s", s: "0.993" },
-        { clip: "polygon(22% 46%, 100% 45%, 51% 72%, 37% 78%)", x: "4vw", y: "130vh", r: "6deg", d: "0.39s", s: "0.987" }
-      ].forEach((pattern) => {
-        const shard = document.createElement("span");
-        shard.style.setProperty("--clip", pattern.clip);
-        shard.style.setProperty("--drop-x", pattern.x);
-        shard.style.setProperty("--drop-y", pattern.y);
-        shard.style.setProperty("--rotate", pattern.r);
-        shard.style.setProperty("--delay", pattern.d);
-        shard.style.setProperty("--scale", pattern.s);
-        shard.appendChild(buildHomepageClone(scrollY));
-        shards.appendChild(shard);
-      });
-    } else {
-      const stillSnapshot = document.createElement("span");
-      stillSnapshot.style.setProperty("--clip", "inset(0)");
-      stillSnapshot.appendChild(buildHomepageClone(scrollY));
-      shards.appendChild(stillSnapshot);
+    if (!simpleFade) {
+      const cracks = document.createElement("div");
+      cracks.className = "login-glass-cracks";
+      buildCrackRays(cracks);
+      overlay.appendChild(cracks);
     }
 
-    buildCrackRays(cracks);
-    overlay.appendChild(shards);
-    overlay.appendChild(cracks);
+    const status = document.createElement("div");
+    status.className = "login-transition-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    status.textContent = "Opening secure login...";
+    overlay.appendChild(status);
 
     return overlay;
   }
 
-  function startLoginTransition(event, link) {
-    const targetUrl = link.dataset.loginTarget || link.href;
+  function navigateNow(targetUrl) {
+    window.location.assign(targetUrl);
+  }
 
-    if (event) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
+  function isStandardSameTabClick(event, link) {
+    return Boolean(
+      !event.defaultPrevented &&
+      event.button === 0 &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (!link.target || link.target === "_self")
+    );
+  }
+
+  function startLoginTransition(event, link) {
+    if (!isStandardSameTabClick(event, link)) {
+      return;
     }
+
+    const targetUrl = getTargetUrl(link);
 
     if (!targetUrl) {
-      resetLoginTransitionState();
       return;
     }
 
-    if (transitionActive && !document.querySelector(".login-glass-transition")) {
-      resetLoginTransitionState();
-    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    prefetchLoginPage(targetUrl);
 
     if (transitionActive) {
+      navigateNow(targetUrl);
       return;
     }
 
-    let overlay;
-
     try {
-      resetLoginTransitionState();
-      const origin = getCrackOrigin(link);
       transitionActive = true;
       closeMobileMenu();
 
-      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      overlay = buildGlassTransition(targetUrl, reducedMotion, origin);
-      activeOverlay = overlay;
-      document.body.appendChild(overlay);
-      playTransitionSound(reducedMotion);
+      activeOverlay = buildLoginTransition(link);
+      document.body.appendChild(activeOverlay);
+      activeOverlay.getBoundingClientRect();
+      activeOverlay.classList.add("is-active");
 
-      let finished = false;
-      let completedShardAnimations = 0;
-      const shardCount = overlay.querySelectorAll(".login-glass-shards > span").length;
-      const navigationDelay = reducedMotion ? 300 : 1320;
-      const finishTransition = () => {
-        if (finished) {
-          return;
-        }
+      waitingTimer = window.setTimeout(() => {
+        activeOverlay?.classList.add("is-waiting");
+      }, 520);
 
-        finished = true;
-        navigateToLogin(targetUrl);
-      };
-      activeFallbackTimer = window.setTimeout(finishTransition, navigationDelay + 300);
-
-      window.addEventListener(
-        "pagehide",
-        () => {
-          resetLoginTransitionState();
-        },
-        { once: true }
-      );
-
-      overlay.addEventListener("animationend", (animationEvent) => {
-        if (
-          animationEvent.animationName !== "shardDrop" &&
-          animationEvent.animationName !== "snapshotFade"
-        ) {
-          return;
-        }
-
-        completedShardAnimations += 1;
-
-        if (completedShardAnimations >= shardCount) {
-          finishTransition();
-        }
-      });
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (activeOverlay === overlay && document.body.contains(overlay)) {
-            overlay.classList.add("is-active");
-          }
-        });
-      });
-    } catch (error) {
+      navigationTimer = window.setTimeout(() => {
+        navigateNow(targetUrl);
+      }, 0);
+    } catch {
       resetLoginTransitionState();
-      navigateToLogin(targetUrl);
+      navigateNow(targetUrl);
     }
   }
 
   function prepareLoginLinks() {
     document.querySelectorAll(loginSelector).forEach((link) => {
-      const targetUrl = link.href;
+      const targetUrl = getTargetUrl(link);
 
       link.dataset.loginTarget = targetUrl;
       link.dataset.loginTransition = "glass";
@@ -338,39 +241,15 @@
       link.removeAttribute("aria-disabled");
 
       if (link.dataset.loginTransitionBound !== "true") {
-        link.addEventListener("pointerdown", handleLoginActivation, true);
-        link.addEventListener("click", handleLoginActivation, true);
+        link.addEventListener("pointerdown", () => prefetchLoginPage(targetUrl), { passive: true });
+        link.addEventListener("mouseenter", () => prefetchLoginPage(targetUrl), { passive: true });
+        link.addEventListener("touchstart", () => prefetchLoginPage(targetUrl), { passive: true });
         link.dataset.loginTransitionBound = "true";
       }
     });
   }
 
-  function handlePageShow() {
-    resetLoginTransitionState();
-    prepareLoginLinks();
-  }
-
-  prepareLoginLinks();
-
-  document.addEventListener("DOMContentLoaded", () => {
-    resetLoginTransitionState();
-    prepareLoginLinks();
-  });
-
-  window.addEventListener("pageshow", handlePageShow);
-
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && !document.querySelector(".login-glass-transition")) {
-      resetLoginTransitionState();
-      prepareLoginLinks();
-    }
-  });
-
-  function handleLoginActivation(event) {
-    if (event.type === "pointerdown" && event.button && event.button !== 0) {
-      return;
-    }
-
+  function handleLoginClick(event) {
     const clickedElement = event.target?.closest ? event.target : event.target?.parentElement;
     const link = clickedElement ? clickedElement.closest(loginSelector) : null;
 
@@ -379,24 +258,22 @@
     }
   }
 
-  window.addEventListener(
-    "pointerdown",
-    handleLoginActivation,
-    true
-  );
+  prepareLoginLinks();
 
-  window.addEventListener(
-    "click",
-    (event) => {
-      const clickedElement = event.target?.closest ? event.target : event.target?.parentElement;
-      const link = clickedElement ? clickedElement.closest(loginSelector) : null;
+  document.addEventListener("click", handleLoginClick, true);
+  document.addEventListener("DOMContentLoaded", prepareLoginLinks);
+  window.addEventListener("pageshow", () => {
+    resetLoginTransitionState();
+    prepareLoginLinks();
+  });
+  window.addEventListener("pagehide", resetLoginTransitionState);
 
-      if (link) {
-        startLoginTransition(event, link);
-      }
-    },
-    true
-  );
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && !document.querySelector(transitionElementSelector)) {
+      resetLoginTransitionState();
+      prepareLoginLinks();
+    }
+  });
 
   transitionController.initialized = true;
 })();

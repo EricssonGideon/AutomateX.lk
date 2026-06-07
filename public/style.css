@@ -205,40 +205,25 @@ textarea {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  pointer-events: auto;
+  pointer-events: none;
   overflow: hidden;
-  background: #07111f;
+  background:
+    radial-gradient(circle at var(--crack-x, 50vw) var(--crack-y, 50vh), rgba(184, 255, 248, 0.18), transparent 18%),
+    rgba(5, 12, 22, 0.38);
   opacity: 0;
   contain: layout paint style;
-  transition: opacity 0.08s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 0.12s ease;
 }
 
 .login-glass-transition.is-active {
   opacity: 1;
 }
 
-.login-page-preview {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  opacity: 0;
-  transform: translate3d(0, 0, 0) scale(1.008);
-  pointer-events: none;
-  backface-visibility: hidden;
-}
-
-.login-glass-transition.is-active .login-page-preview {
-  animation: loginPreviewReveal 0.66s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
-}
-
 .login-glass-cracks {
   position: absolute;
   left: var(--crack-x, 50vw);
   top: var(--crack-y, 50vh);
-  z-index: 4;
+  z-index: 1;
   width: 0;
   height: 0;
   opacity: 0;
@@ -249,16 +234,16 @@ textarea {
 }
 
 .login-glass-transition.is-active .login-glass-cracks {
-  animation: crackCluster 0.86s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
+  animation: crackCluster 0.46s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .login-glass-cracks::before {
   content: "";
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(210, 255, 250, 0.75), rgba(79, 209, 197, 0.22) 42%, transparent 68%);
+  background: radial-gradient(circle, rgba(221, 255, 252, 0.82), rgba(79, 209, 197, 0.26) 44%, transparent 68%);
   transform: translate3d(-50%, -50%, 0) scale(0);
   opacity: 0;
   backface-visibility: hidden;
@@ -266,16 +251,16 @@ textarea {
 }
 
 .login-glass-transition.is-active .login-glass-cracks::before {
-  animation: crackImpact 0.24s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+  animation: crackImpact 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .login-glass-cracks > span {
   position: absolute;
   left: 0;
   top: 0;
-  width: min(var(--ray-length), 620px);
+  width: min(var(--ray-length), 420px);
   height: 1px;
-  background: linear-gradient(90deg, rgba(217, 255, 251, 0.72), rgba(79, 209, 197, 0.38) 46%, transparent 100%);
+  background: linear-gradient(90deg, rgba(221, 255, 252, 0.78), rgba(79, 209, 197, 0.42) 48%, transparent 100%);
   opacity: 0;
   transform: translate3d(0, 0, 0) rotate(var(--angle)) scaleX(0);
   transform-origin: left center;
@@ -286,9 +271,9 @@ textarea {
 .login-glass-cracks > span::after {
   content: "";
   position: absolute;
-  left: 38%;
+  left: 42%;
   top: 0;
-  width: 32%;
+  width: 24%;
   height: 1px;
   background: linear-gradient(90deg, rgba(202, 255, 250, 0.36), transparent);
   transform: translate3d(0, 0, 0) rotate(25deg) scaleX(0);
@@ -298,99 +283,40 @@ textarea {
 }
 
 .login-glass-transition.is-active .login-glass-cracks > span {
-  animation: crackRay 0.68s cubic-bezier(0.16, 1, 0.3, 1) var(--ray-delay) forwards;
+  animation: crackRay 0.34s cubic-bezier(0.16, 1, 0.3, 1) var(--ray-delay) forwards;
 }
 
 .login-glass-transition.is-active .login-glass-cracks > span::after {
-  animation: crackBranch 0.44s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--ray-delay) + 0.15s) forwards;
+  animation: crackBranch 0.24s cubic-bezier(0.16, 1, 0.3, 1) calc(var(--ray-delay) + 0.06s) forwards;
 }
 
-.login-glass-shards {
+.login-transition-status {
   position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  opacity: 1;
-  transform: translateZ(0);
-}
-
-.login-glass-shards > span {
-  position: absolute;
-  inset: 0;
-  clip-path: var(--clip);
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px rgba(216, 244, 255, 0.16);
-  transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-  opacity: 1;
-  transform-origin: center;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-}
-
-.login-glass-shards > span::after {
-  content: "";
-  position: absolute;
-  inset: 0;
+  left: 50%;
+  bottom: clamp(28px, 7vh, 72px);
   z-index: 2;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at var(--crack-x, 50vw) var(--crack-y, 50vh), rgba(202, 255, 250, 0.11), transparent 34%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent 38%),
-    rgba(255, 255, 255, 0.018);
+  padding: 10px 14px;
+  border: 1px solid rgba(210, 255, 250, 0.14);
+  border-radius: 999px;
+  background: rgba(6, 17, 31, 0.86);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+  color: rgba(245, 255, 253, 0.94);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  transform: translate3d(-50%, 8px, 0);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  white-space: nowrap;
   opacity: 0;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  will-change: opacity;
 }
 
-.login-homepage-clone {
-  position: absolute;
-  top: var(--snapshot-offset);
-  left: 0;
-  width: 100vw;
-  min-height: var(--snapshot-height);
-  overflow: visible;
-  background:
-    radial-gradient(circle at top left, rgba(79, 209, 197, 0.18), transparent 30%),
-    radial-gradient(circle at top right, rgba(255, 107, 61, 0.18), transparent 32%),
-    linear-gradient(180deg, #07111f 0%, #091624 48%, #06101c 100%);
-  color: var(--text);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  line-height: 1.6;
-}
-
-.login-homepage-clone .login-glass-transition {
-  display: none;
-}
-
-.login-glass-transition.is-active .login-glass-shards > span::after {
+.login-glass-transition.is-waiting .login-transition-status {
   opacity: 1;
-  animation: shardGlassFade 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.04s forwards;
+  transform: translate3d(-50%, 0, 0);
 }
 
-.login-glass-transition.is-active .login-glass-shards > span {
-  animation: shardDrop 0.84s cubic-bezier(0.22, 1, 0.36, 1) var(--delay) both;
-}
-
-.login-glass-transition.reduced-motion {
+.login-glass-transition.simple-fade {
   background: rgba(5, 12, 22, 0.32);
-}
-
-.login-glass-transition.reduced-motion .login-page-preview {
-  animation: loginPreviewReveal 0.24s ease forwards;
-}
-
-.login-glass-transition.reduced-motion .login-glass-cracks {
-  display: none;
-}
-
-.login-glass-transition.reduced-motion.is-active .login-glass-shards {
-  animation: none;
-  opacity: 1;
-}
-
-.login-glass-transition.reduced-motion .login-glass-shards > span {
-  animation: snapshotFade 0.28s ease forwards;
 }
 
 @keyframes crackImpact {
@@ -412,11 +338,8 @@ textarea {
   0% {
     opacity: 0;
   }
-  6% {
+  12% {
     opacity: 1;
-  }
-  62% {
-    opacity: 0.92;
   }
   100% {
     opacity: 0;
@@ -429,10 +352,10 @@ textarea {
     transform: translate3d(0, 0, 0) rotate(var(--angle)) scaleX(0);
   }
   16% {
-    opacity: 0.66;
+    opacity: 0.68;
   }
-  64% {
-    opacity: 0.72;
+  62% {
+    opacity: 0.7;
     transform: translate3d(0, 0, 0) rotate(var(--angle)) scaleX(1);
   }
   100% {
@@ -446,78 +369,13 @@ textarea {
     opacity: 0;
     transform: translate3d(0, 0, 0) rotate(25deg) scaleX(0);
   }
-  62% {
+  58% {
     opacity: 0.66;
     transform: translate3d(0, 0, 0) rotate(25deg) scaleX(1);
   }
   100% {
     opacity: 0;
     transform: translate3d(0, 0, 0) rotate(25deg) scaleX(1);
-  }
-}
-
-@keyframes shardGlassFade {
-  0% {
-    opacity: 0;
-  }
-  18% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.65;
-  }
-}
-
-@keyframes loginPreviewReveal {
-  0% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) scale(1.008);
-  }
-  72% {
-    opacity: 0.96;
-    transform: translate3d(0, 0, 0) scale(1.001);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-}
-
-@keyframes snapshotFade {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.995);
-  }
-}
-
-@keyframes shardDrop {
-  0% {
-    opacity: 1;
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-  }
-  12% {
-    opacity: 1;
-    transform: translate3d(calc(var(--drop-x) * 0.018), 0.8vh, 0) rotate(calc(var(--rotate) * 0.04)) scale(0.999);
-  }
-  26% {
-    opacity: 0.98;
-    transform: translate3d(calc(var(--drop-x) * 0.065), 4.5vh, 0) rotate(calc(var(--rotate) * 0.15)) scale(0.997);
-  }
-  48% {
-    opacity: 0.95;
-    transform: translate3d(calc(var(--drop-x) * 0.24), 21vh, 0) rotate(calc(var(--rotate) * 0.42)) scale(var(--scale, 0.992));
-  }
-  76% {
-    opacity: 0.72;
-    transform: translate3d(calc(var(--drop-x) * 0.62), 68vh, 0) rotate(calc(var(--rotate) * 0.78)) scale(var(--scale, 0.992));
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(var(--drop-x), var(--drop-y), 0) rotate(var(--rotate)) scale(var(--scale, 0.992));
   }
 }
 
