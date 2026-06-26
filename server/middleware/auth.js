@@ -98,7 +98,7 @@ function requireRole(allowedRoles = []) {
 
   return (req, res, next) => {
     if (!req.user || !allowed.has(String(req.user.role || "").trim().toLowerCase())) {
-      return res.status(403).json({ message: "You do not have access to this admin action." });
+      return res.status(403).json({ message: "You do not have permission to do this." });
     }
 
     return next();
@@ -108,7 +108,7 @@ function requireRole(allowedRoles = []) {
 function requirePermission(permission) {
   return (req, res, next) => {
     if (!hasPermission(req.user, permission)) {
-      return res.status(403).json({ message: "You do not have access to this admin action." });
+      return res.status(403).json({ message: "You do not have permission to do this." });
     }
 
     return next();
@@ -118,7 +118,7 @@ function requirePermission(permission) {
 function requireAnyPermission(permissions = []) {
   return (req, res, next) => {
     if (!permissions.some((permission) => hasPermission(req.user, permission))) {
-      return res.status(403).json({ message: "You do not have access to this admin action." });
+      return res.status(403).json({ message: "You do not have permission to do this." });
     }
 
     return next();
@@ -247,7 +247,7 @@ function requireAdmin(req, res, next) {
 
 function requireSystemAdmin(req, res, next) {
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ message: "Full admin access is required." });
+    return res.status(403).json({ message: "You do not have permission to do this." });
   }
 
   return next();

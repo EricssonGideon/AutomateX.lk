@@ -22,7 +22,7 @@
           </span>
           <div class="brand-copy">
             <small class="kicker">AutomateX</small>
-            <h2>Owner Control Center</h2>
+            <h2>Admin Panel</h2>
             <p>Platform operations, billing oversight, and client activation.</p>
           </div>
         </div>
@@ -30,12 +30,20 @@
       </div>
 
       <nav class="sidebar-nav" id="sidebarNav">
+        <div class="nav-group-label">Main</div>
         <button class="nav-button is-active" data-section="dashboard" type="button">
           <span>
             <strong>Dashboard</strong>
-            <small>Owner overview</small>
+            <small>Overview</small>
           </span>
           <span class="nav-counter">Live</span>
+        </button>
+        <button class="nav-button" data-section="inquiries" type="button">
+          <span>
+            <strong>Inquiries</strong>
+            <small>Current inquiries</small>
+          </span>
+          <span class="nav-counter" id="navCountInquiries">0</span>
         </button>
         <button class="nav-button" data-section="clients" type="button">
           <span>
@@ -44,33 +52,12 @@
           </span>
           <span class="nav-counter" id="navCountClients">0</span>
         </button>
-        <button class="nav-button" data-section="pending-approvals" type="button">
+        <button class="nav-button" data-section="sales" type="button">
           <span>
-            <strong>Pending Approvals</strong>
-            <small>Review new signups</small>
+            <strong>Employees</strong>
+            <small>Employees</small>
           </span>
-          <span class="nav-counter" id="navCountPending">0</span>
-        </button>
-        <button class="nav-button" data-section="packages" type="button">
-          <span>
-            <strong>Packages</strong>
-            <small>Service distribution</small>
-          </span>
-          <span class="nav-counter" id="navCountPackages">0</span>
-        </button>
-        <button class="nav-button" data-section="invoices" type="button">
-          <span>
-            <strong>Invoices</strong>
-            <small>Manual billing</small>
-          </span>
-          <span class="nav-counter" id="navCountInvoices">0</span>
-        </button>
-        <button class="nav-button" data-section="payments" type="button">
-          <span>
-            <strong>Payments</strong>
-            <small>Revenue follow-up</small>
-          </span>
-          <span class="nav-counter" id="navCountPayments">0</span>
+          <span class="nav-counter" id="navCountSales">0</span>
         </button>
         <button class="nav-button" data-section="projects" type="button">
           <span>
@@ -79,45 +66,67 @@
           </span>
           <span class="nav-counter" id="navCountProjects">0</span>
         </button>
-        <button class="nav-button" data-section="sales" type="button">
+        <button class="nav-button" data-section="invoices" type="button">
           <span>
-            <strong>Employees</strong>
-            <small>Staff leads & commissions</small>
+            <strong>Payments &amp; Invoices</strong>
+            <small>Billing</small>
           </span>
-          <span class="nav-counter" id="navCountSales">0</span>
+          <span class="nav-counter" id="navCountInvoices">0</span>
         </button>
-        <button class="nav-button" data-section="bookings" type="button">
+        <button class="nav-button system-admin-only" data-section="settings" type="button">
+          <span>
+            <strong>Settings</strong>
+            <small>Admin settings</small>
+          </span>
+          <span class="nav-counter">Admin</span>
+        </button>
+        <button class="nav-button nav-hidden-default" data-section="pending-approvals" type="button" hidden aria-hidden="true">
+          <span>
+            <strong>Pending Approvals</strong>
+            <small>Review new signups</small>
+          </span>
+          <span class="nav-counter" id="navCountPending">0</span>
+        </button>
+        <button class="nav-button nav-hidden-default" data-section="packages" type="button" hidden aria-hidden="true">
+          <span>
+            <strong>Packages</strong>
+            <small>Service distribution</small>
+          </span>
+          <span class="nav-counter" id="navCountPackages">0</span>
+        </button>
+        <button class="nav-button nav-hidden-default" data-section="payments" type="button" hidden aria-hidden="true">
+          <span>
+            <strong>Payments</strong>
+            <small>Payment follow-up</small>
+          </span>
+          <span class="nav-counter" id="navCountPayments">0</span>
+        </button>
+        <button class="nav-button nav-hidden-default" data-section="bookings" type="button" hidden aria-hidden="true">
           <span>
             <strong>Bookings</strong>
             <small>Schedule activity</small>
           </span>
           <span class="nav-counter" id="navCountBookings">0</span>
         </button>
-        <button class="nav-button" data-section="inquiries" type="button">
-          <span>
-            <strong>Inquiries</strong>
-            <small>Lead pipeline</small>
-          </span>
-          <span class="nav-counter" id="navCountInquiries">0</span>
-        </button>
-        <button class="nav-button" data-section="reviews" type="button">
+        <button class="nav-button nav-hidden-default" data-section="reviews" type="button" hidden aria-hidden="true">
           <span>
             <strong>Reviews</strong>
             <small>Moderation queue</small>
           </span>
           <span class="nav-counter" id="navCountReviews">0</span>
         </button>
-        <button class="nav-button" data-section="support" type="button">
+        <button class="nav-button nav-hidden-default" data-section="support" type="button" hidden aria-hidden="true">
           <span>
             <strong>Support Requests</strong>
             <small>Client queue</small>
           </span>
           <span class="nav-counter" id="navCountSupport">0</span>
         </button>
-        <button class="nav-button" data-section="reports" type="button">
+        <div class="nav-group-label system-admin-only">Advanced</div>
+        <button class="nav-button system-admin-only" data-section="reports" type="button">
           <span>
             <strong>Reports</strong>
-            <small>Operational digest</small>
+            <small>Reports</small>
           </span>
           <span class="nav-counter" id="navCountReports">Live</span>
         </button>
@@ -135,13 +144,6 @@
           </span>
           <span class="nav-counter" id="navCountAuditLogs">0</span>
         </button>
-        <button class="nav-button system-admin-only" data-section="settings" type="button">
-          <span>
-            <strong>Settings</strong>
-            <small>Appearance & access</small>
-          </span>
-          <span class="nav-counter">Admin</span>
-        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -152,15 +154,15 @@
     <main class="main">
       <header class="topbar">
         <div class="topbar-copy">
-          <small class="kicker">AutomateX SaaS Owner</small>
+          <small class="kicker">AutomateX Admin</small>
           <h1 id="pageTitle">Dashboard</h1>
-          <p id="pageSubtitle">Monitor approvals, revenue pressure, and platform activity from one professional admin control center.</p>
+          <p id="pageSubtitle">Review approvals, income, and platform activity from the Admin Panel.</p>
         </div>
 
         <div class="topbar-actions">
           <button id="sidebarToggle" class="button button-secondary mobile-nav-toggle" type="button">Menu</button>
           <button id="headerPendingButton" class="button button-secondary" type="button">Pending Clients</button>
-          <button id="headerRefreshButton" class="button button-secondary" type="button">Refresh Data</button>
+          <button id="headerRefreshButton" class="button button-secondary" type="button">Update Data</button>
           <span class="identity-chip" id="adminIdentity">Loading admin…</span>
         </div>
       </header>
@@ -174,9 +176,9 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <small class="kicker">Revenue Overview</small>
-                <h2>Owner-level billing snapshot</h2>
-                <p>Use current plan assignments and payment states to see expected revenue, outstanding balances, and collection pressure.</p>
+                <small class="kicker">Income Summary</small>
+                <h2>Billing summary</h2>
+                <p>Use current plan and payment details to see expected income, unpaid balances, and invoices that need follow-up.</p>
               </div>
             </div>
             <div class="metric-list" id="revenueOverviewList"></div>
@@ -187,7 +189,7 @@
               <div>
                 <small class="kicker">Quick Actions</small>
                 <h2>Jump to the next task</h2>
-                <p>Move directly into the sections that need operational attention without hunting through the console.</p>
+                <p>Move directly into the sections that need attention.</p>
               </div>
             </div>
             <div class="quick-action-grid">
@@ -201,7 +203,7 @@
               </button>
               <button class="quick-action" type="button" data-section-target="invoices">
                 <strong>Create Invoice</strong>
-                <span>Open manual invoice management for drafts, sent invoices, and collections.</span>
+                <span>Open invoice drafts, sent invoices, and collections.</span>
               </button>
               <button class="quick-action" type="button" data-section-target="payments">
                 <strong>View Payments</strong>
@@ -298,7 +300,7 @@
               <p>Search live clients, open the management drawer, adjust package and billing state, and monitor platform activity account by account.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshClientsButton" class="button button-secondary" type="button">Refresh Clients</button>
+              <button id="refreshClientsButton" class="button button-secondary" type="button">Update Clients</button>
             </div>
           </div>
 
@@ -368,7 +370,7 @@
             </div>
             <div class="panel-actions">
               <button id="createMaintenanceButton" class="button button-primary" type="button" data-required-permission="maintenance:manage">Create Plan</button>
-              <button id="refreshMaintenanceButton" class="button button-secondary" type="button">Refresh Maintenance</button>
+              <button id="refreshMaintenanceButton" class="button button-secondary" type="button">Update Maintenance</button>
             </div>
           </div>
 
@@ -424,7 +426,7 @@
             </div>
             <div class="panel-actions">
               <span class="badge pending" id="pendingApprovalCountBadge">0 Waiting</span>
-              <button id="refreshPendingApprovalsButton" class="button button-secondary" type="button">Refresh Queue</button>
+              <button id="refreshPendingApprovalsButton" class="button button-secondary" type="button">Update Queue</button>
             </div>
           </div>
 
@@ -532,7 +534,7 @@
               <div>
                 <small class="kicker">Status Breakdown</small>
                 <h2>Drafts, sent invoices, and follow-up</h2>
-                <p>Monitor invoice lifecycle status so overdue balances, partial collections, and unsent drafts stay visible to the owner.</p>
+                <p>Monitor invoice status so overdue balances, partial collections, and unsent drafts stay visible to admins.</p>
               </div>
             </div>
             <div class="metric-list" id="invoiceStatusSummaryList"></div>
@@ -544,11 +546,11 @@
             <div>
               <small class="kicker">Invoice Management</small>
               <h2>Create, update, and track client invoices</h2>
-              <p>Manage invoice drafts, sent invoices, partial collections, and cancelled records inside the existing AutomateX admin control center.</p>
+              <p>Manage invoice drafts, sent invoices, partial collections, and cancelled records inside the Admin Panel.</p>
             </div>
             <div class="panel-actions">
               <button id="createInvoiceButton" class="button button-primary" type="button" data-required-permission="invoices:manage">Create Invoice</button>
-              <button id="refreshInvoicesButton" class="button button-secondary" type="button">Refresh Invoices</button>
+              <button id="refreshInvoicesButton" class="button button-secondary" type="button">Update Invoices</button>
             </div>
           </div>
 
@@ -636,7 +638,7 @@
               <p>Manage billing values from the existing client drawer and monitor which accounts need immediate attention.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshPaymentsButton" class="button button-secondary" type="button">Refresh Payments</button>
+              <button id="refreshPaymentsButton" class="button button-secondary" type="button">Update Payments</button>
             </div>
           </div>
 
@@ -669,12 +671,12 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Project Management</small>
-              <h2>Client delivery pipeline</h2>
-              <p>Create, track, and update AutomateX client projects without separating the business control center from the existing website.</p>
+              <h2>Current projects</h2>
+              <p>Create, track, and update AutomateX client projects from the Admin Panel.</p>
             </div>
             <div class="panel-actions">
               <button id="createProjectButton" class="button button-primary" type="button" data-required-permission="projects:manage">Create Project</button>
-              <button id="refreshProjectsButton" class="button button-secondary" type="button">Refresh Projects</button>
+              <button id="refreshProjectsButton" class="button button-secondary" type="button">Update Projects</button>
             </div>
           </div>
 
@@ -744,13 +746,13 @@
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="kicker">Employees / Staff</small>
-              <h2>Sales employee management</h2>
+              <small class="kicker">Employees</small>
+              <h2>Employee management</h2>
               <p>Create employee login accounts, manage target rules, disable access, and review monthly performance in one place.</p>
             </div>
             <div class="panel-actions">
               <button id="createSalesExecutiveButton" class="button button-primary" type="button" data-required-permission="sales:manage">Add Employee</button>
-              <button id="refreshSalesButton" class="button button-secondary" type="button">Refresh Sales</button>
+              <button id="refreshSalesButton" class="button button-secondary" type="button">Update Employees</button>
             </div>
           </div>
 
@@ -787,7 +789,7 @@
                 <tbody id="salesExecutivesTableBody"></tbody>
               </table>
             </div>
-            <div class="empty-state" id="salesExecutivesEmptyState">Loading sales executives…</div>
+            <div class="empty-state" id="salesExecutivesEmptyState">Loading employees…</div>
           </div>
         </article>
 
@@ -795,8 +797,8 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Leads</small>
-              <h2>Sales lead pipeline</h2>
-              <p>Track businesses brought in by sales executives and convert them safely into client/project records.</p>
+              <h2>Employee leads</h2>
+              <p>Track businesses brought in by employees and convert them safely into client and project records.</p>
             </div>
             <div class="panel-actions">
               <button id="createLeadButton" class="button button-primary" type="button" data-required-permission="leads:manage">Add Lead</button>
@@ -806,7 +808,7 @@
           <div class="filters">
             <input id="leadSearch" class="input" type="text" placeholder="Search business, person, phone, location">
             <select id="leadSalesExecutiveFilter" class="select">
-              <option value="">All executives</option>
+              <option value="">All employees</option>
             </select>
             <select id="leadStatusFilter" class="select">
               <option value="">All statuses</option>
@@ -858,7 +860,7 @@
                     <th>Business</th>
                     <th>Contact</th>
                     <th>Service</th>
-                    <th>Sales Executive</th>
+                    <th>Employee</th>
                     <th>Status</th>
                     <th>Priority</th>
                     <th>Follow-up</th>
@@ -904,7 +906,7 @@
               <table class="admin-table">
                 <thead>
                   <tr>
-                    <th>Sales Executive</th>
+                    <th>Employee</th>
                     <th>Project / Client</th>
                     <th>Type</th>
                     <th>Month</th>
@@ -930,7 +932,7 @@
               <p>Review recent bookings, filter by status or date, and edit operational details without touching the public booking flow.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshBookingsButton" class="button button-secondary" type="button">Refresh Bookings</button>
+              <button id="refreshBookingsButton" class="button button-secondary" type="button">Update Bookings</button>
             </div>
           </div>
 
@@ -979,11 +981,11 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Inquiries</small>
-              <h2>Lead and inquiry pipeline</h2>
-              <p>Track fresh inquiries, update follow-up status, and keep platform-side notes for the AutomateX owner team.</p>
+              <h2>Current inquiries</h2>
+              <p>Track fresh inquiries, update follow-up status, and keep admin notes for the AutomateX team.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshInquiriesButton" class="button button-secondary" type="button">Refresh Inquiries</button>
+              <button id="refreshInquiriesButton" class="button button-secondary" type="button">Update Inquiries</button>
             </div>
           </div>
 
@@ -1036,7 +1038,7 @@
               <p>Approve or reject client-linked customer reviews with clear visibility into the related business record.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshReviewsButton" class="button button-secondary" type="button">Refresh Reviews</button>
+              <button id="refreshReviewsButton" class="button button-secondary" type="button">Update Reviews</button>
             </div>
           </div>
 
@@ -1097,7 +1099,7 @@
               <p>Track support and upgrade requests from active clients, review details, and move each request through its operational workflow.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshSupportButton" class="button button-secondary" type="button">Refresh Requests</button>
+              <button id="refreshSupportButton" class="button button-secondary" type="button">Update Requests</button>
             </div>
           </div>
 
@@ -1116,7 +1118,7 @@
               <option value="">All statuses</option>
               <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
+              <option value="resolved">Completed</option>
               <option value="rejected">Rejected</option>
               <option value="closed">Closed</option>
             </select>
@@ -1157,8 +1159,8 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Report Filters</small>
-              <h2>Business analytics period</h2>
-              <p>Use the current month default or select a focused date range for revenue, projects, sales, maintenance, and support analytics.</p>
+              <h2>Report period</h2>
+              <p>Use the current month or choose a date range for income, projects, employee leads, maintenance, and support reports.</p>
             </div>
             <div class="panel-actions">
               <button id="reportsCurrentMonthButton" class="button button-secondary" type="button">Current Month</button>
@@ -1178,9 +1180,9 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <small class="kicker">Revenue Report</small>
-                <h2>Invoice and collections summary</h2>
-                <p>Review current invoice value, collected revenue, outstanding balances, and overdue exposure without changing the existing manual billing workflow.</p>
+                <small class="kicker">Income Report</small>
+                <h2>Invoice and payment summary</h2>
+                <p>Review invoice totals, collected income, unpaid balances, and overdue invoices.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsRevenueList"></div>
@@ -1205,7 +1207,7 @@
               <div>
                 <small class="kicker">Package Report</small>
                 <h2>Service tier distribution</h2>
-                <p>See how each AutomateX package is distributed and which active package groups are driving expected monthly revenue.</p>
+                <p>See how each AutomateX package is distributed and which active package groups are driving expected monthly income.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsPackageList"></div>
@@ -1216,7 +1218,7 @@
               <div>
                 <small class="kicker">Request Report</small>
                 <h2>Support and upgrade workload</h2>
-                <p>Measure operational request load across open, in-progress, resolved, upgrade, bug, and urgent support demand.</p>
+                <p>Measure support requests across open, in-progress, completed, upgrade, bug, and urgent items.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsRequestList"></div>
@@ -1238,9 +1240,9 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <small class="kicker">Sales Report</small>
-                <h2>Lead conversion and commissions</h2>
-                <p>Track lead status, conversion rate, and pending or paid commission exposure.</p>
+                <small class="kicker">Employee Leads Report</small>
+                <h2>New clients from inquiries and commissions</h2>
+                <p>Track lead status, new clients from inquiries, and pending or paid commissions.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsSalesList"></div>
@@ -1365,7 +1367,7 @@
                 <table class="admin-table">
                   <thead>
                     <tr>
-                      <th>Executive</th>
+                  <th>Employee</th>
                       <th>Type</th>
                       <th>Amount</th>
                       <th>Status</th>
@@ -1384,8 +1386,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Leads & Follow-ups</small>
-                <h2>Sales activity queue</h2>
-                <p>New, follow-up, interested, or proposal-sent leads needing sales action.</p>
+                <h2>Employee lead queue</h2>
+                <p>New, follow-up, interested, or proposal-sent leads needing employee action.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1441,7 +1443,7 @@
               <p>Review the most recent client signups, invoices, support tickets, bookings, inquiries, and reviews in one operational feed.</p>
             </div>
             <div class="panel-actions">
-              <button id="refreshReportsButton" class="button button-secondary" type="button">Refresh Reports</button>
+              <button id="refreshReportsButton" class="button button-secondary" type="button">Update Reports</button>
             </div>
           </div>
 
@@ -1466,18 +1468,18 @@
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="kicker">CSV Export</small>
-              <h2>Download operational report data</h2>
-              <p>Export current client, invoice, and support request records as clean CSV files for offline review or external analysis.</p>
+              <small class="kicker">CSV Downloads</small>
+              <h2>Download report data</h2>
+              <p>Download current client, invoice, and support request records as CSV files for offline review.</p>
             </div>
             <div class="panel-actions">
-              <button id="exportClientsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Clients</button>
-              <button id="exportRevenueReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Revenue</button>
-              <button id="exportProjectsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Projects</button>
-              <button id="exportInvoicesReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Invoices</button>
-              <button id="exportSalesReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Sales</button>
-              <button id="exportMaintenanceReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Maintenance</button>
-              <button id="exportRequestsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Export Requests</button>
+              <button id="exportClientsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Clients</button>
+              <button id="exportRevenueReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Income</button>
+              <button id="exportProjectsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Projects</button>
+              <button id="exportInvoicesReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Invoices</button>
+              <button id="exportSalesReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Employee Leads</button>
+              <button id="exportMaintenanceReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Maintenance</button>
+              <button id="exportRequestsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Requests</button>
             </div>
           </div>
           <div class="metric-list" id="reportsExportList"></div>
@@ -1492,7 +1494,7 @@
               <h2>Admin users and roles</h2>
               <p>Review staff access, role assignments, and account state without exposing password data.</p>
             </div>
-            <button id="refreshUsersButton" class="button button-secondary" type="button">Refresh Users</button>
+            <button id="refreshUsersButton" class="button button-secondary" type="button">Update Users</button>
           </div>
 
           <div class="filters">
@@ -1542,7 +1544,7 @@
               <h2>Admin audit logs</h2>
               <p>Track sensitive admin activity across users, billing, projects, files, sales, and support operations.</p>
             </div>
-            <button id="refreshAuditLogsButton" class="button button-secondary" type="button">Refresh Logs</button>
+            <button id="refreshAuditLogsButton" class="button button-secondary" type="button">Update Logs</button>
           </div>
 
           <div class="filters">
@@ -1619,7 +1621,7 @@
               <div>
                 <small class="kicker">Appearance</small>
                 <h2>Console display preferences</h2>
-                <p>Theme preference is stored locally on this device so the owner dashboard stays readable in light or dark mode.</p>
+                <p>Theme preference is stored locally on this device so the Admin Panel stays readable in light or dark mode.</p>
               </div>
             </div>
             <label class="field-inline">
@@ -1640,7 +1642,7 @@
                 <div>
                   <small class="kicker">Company Profile</small>
                   <h2>Core AutomateX business details</h2>
-                  <p>Manage the business identity and contact details that should appear across the owner workspace and future billing defaults.</p>
+                  <p>Manage the business identity and contact details that should appear across the Admin Panel and future billing defaults.</p>
                 </div>
               </div>
               <div class="drawer-grid">
@@ -1709,7 +1711,7 @@
                 <div>
                   <small class="kicker">Support Settings</small>
                   <h2>Client support contact defaults</h2>
-                  <p>Set the support email, WhatsApp support line, and the standard message the owner team wants ready for support communication.</p>
+                  <p>Set the support email, WhatsApp support line, and the standard message admins want ready for support communication.</p>
                 </div>
               </div>
               <div class="drawer-grid">
@@ -1778,10 +1780,10 @@
                 <div>
                   <small class="kicker">Configuration Summary</small>
                   <h2>Current business defaults overview</h2>
-                  <p>Review the active billing and support defaults, then save or refresh the configuration without leaving the admin console.</p>
+                  <p>Review the active billing and support defaults, then save or update the settings without leaving the Admin Panel.</p>
                 </div>
                 <div class="panel-actions">
-                  <button id="refreshSettingsButton" class="button button-secondary" type="button">Refresh Settings</button>
+                  <button id="refreshSettingsButton" class="button button-secondary" type="button">Update Settings</button>
                 </div>
               </div>
               <div class="settings-grid" id="settingsBusinessSummary"></div>

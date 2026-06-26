@@ -294,15 +294,15 @@ function buildSalesExecutivePayload(body, currentExecutive = null) {
   const percentageRate = normalizeMoney(commissionRules.percentageRate ?? 0);
 
   if (!fullName) {
-    errors.push("Sales executive full name is required.");
+    errors.push("Employee full name is required.");
   }
 
   if (!phone) {
-    errors.push("Sales executive phone is required.");
+    errors.push("Employee phone is required.");
   }
 
   if (!isValidEmail(email)) {
-    errors.push("Sales executive email must be a valid email address.");
+    errors.push("Employee email must be a valid email address.");
   }
 
   if (joinedDate === undefined) {
@@ -310,7 +310,7 @@ function buildSalesExecutivePayload(body, currentExecutive = null) {
   }
 
   if (!status) {
-    errors.push("Sales executive status must be Active, Inactive, or Suspended.");
+    errors.push("Employee status must be Active, Inactive, or Suspended.");
   }
 
   if (!workType) {
@@ -580,10 +580,10 @@ async function ensureUniqueSalesExecutive(payload, currentId = null) {
 
   const errors = [];
   if (conflict.phone === payload.phone) {
-    errors.push("A sales executive with this phone number already exists.");
+    errors.push("An employee with this phone number already exists.");
   }
   if (payload.email && conflict.email === payload.email) {
-    errors.push("A sales executive with this email already exists.");
+    errors.push("An employee with this email already exists.");
   }
 
   return errors;
@@ -602,7 +602,7 @@ function employeeUserStatusForSalesStatus(status) {
   return status === "Suspended" ? "suspended" : "inactive";
 }
 
-function getPersistenceErrorDetails(error, fallbackMessage = "Unable to save the sales executive right now.") {
+function getPersistenceErrorDetails(error, fallbackMessage = "Unable to save the employee right now.") {
   if (!error) {
     return { statusCode: 500, message: fallbackMessage, details: [] };
   }
@@ -612,10 +612,10 @@ function getPersistenceErrorDetails(error, fallbackMessage = "Unable to save the
     const details = [];
 
     if (fields.includes("email")) {
-      details.push("A user account with this employee email already exists.");
+      details.push("An account with this employee email already exists.");
     }
     if (fields.includes("phone")) {
-      details.push("A sales executive with this phone number already exists.");
+      details.push("An employee with this phone number already exists.");
     }
     if (!details.length) {
       details.push("A duplicate record already exists for this employee.");
@@ -623,7 +623,7 @@ function getPersistenceErrorDetails(error, fallbackMessage = "Unable to save the
 
     return {
       statusCode: 409,
-      message: "Please fix the sales executive form and try again.",
+      message: "Please fix the employee form and try again.",
       details
     };
   }
@@ -635,7 +635,7 @@ function getPersistenceErrorDetails(error, fallbackMessage = "Unable to save the
 
     return {
       statusCode: 400,
-      message: "Please fix the sales executive form and try again.",
+      message: "Please fix the employee form and try again.",
       details
     };
   }
@@ -663,7 +663,7 @@ async function validateEmployeeAccountRequest(payload, body = {}, currentUserId 
 
   const emailOwner = await User.findOne({ email }).lean();
   if (emailOwner && (!currentUserId || String(emailOwner._id) !== String(currentUserId))) {
-    errors.push("A user account with this employee email already exists.");
+    errors.push("An account with this employee email already exists.");
   }
 
   return errors;
@@ -772,7 +772,7 @@ async function getAdminSalesExecutives(req, res) {
       })
     });
   } catch {
-    return sendError(res, 500, "Unable to load sales executives right now.");
+    return sendError(res, 500, "Unable to load employees right now.");
   }
 }
 
@@ -785,7 +785,7 @@ async function createAdminSalesExecutive(req, res) {
       : await validateEmployeeAccountRequest(payload, req.body);
 
     if (errors.length || uniquenessErrors.length || accountErrors.length) {
-      return sendError(res, 400, "Please fix the sales executive form and try again.", [...errors, ...uniquenessErrors, ...accountErrors]);
+      return sendError(res, 400, "Please fix the employee form and try again.", [...errors, ...uniquenessErrors, ...accountErrors]);
     }
 
     const executive = await SalesExecutive.create({
@@ -805,7 +805,7 @@ async function createAdminSalesExecutive(req, res) {
 
     if (accountSync.errors.length) {
       await SalesExecutive.deleteOne({ _id: executive._id });
-      return sendError(res, 400, "Sales profile was created, but employee login could not be enabled.", accountSync.errors);
+      return sendError(res, 400, "Employee was saved, but the login account could not be created.", accountSync.errors);
     }
     if (accountSync.userId) {
       executive.userId = accountSync.userId;
@@ -822,11 +822,11 @@ async function createAdminSalesExecutive(req, res) {
     });
 
     return sendSuccess(res, 201, {
-      message: "Sales executive created successfully.",
+      message: "Employee created successfully.",
       salesExecutive: serializeSalesExecutive(executive.toObject(), { includeSensitiveFields: true })
     });
   } catch (error) {
-    const formattedError = getPersistenceErrorDetails(error, "Unable to create the sales executive right now.");
+    const formattedError = getPersistenceErrorDetails(error, "Unable to create the employee right now.");
     return sendError(res, formattedError.statusCode, formattedError.message, formattedError.details);
   }
 }
@@ -835,29 +835,29 @@ async function getAdminSalesExecutiveById(req, res) {
   try {
     const executive = await findSalesExecutiveById(req.params.id, req.query.includeArchived === "true");
     if (executive === undefined) {
-      return sendError(res, 400, "Invalid sales executive ID.");
+      return sendError(res, 400, "This employee could not be found.");
     }
     if (!executive) {
-      return sendError(res, 404, "Sales executive not found.");
+      return sendError(res, 404, "This employee could not be found.");
     }
 
     return sendSuccess(res, 200, {
       salesExecutive: serializeSalesExecutive(executive, { includeSensitiveFields: true })
     });
   } catch {
-    return sendError(res, 500, "Unable to load the sales executive right now.");
+    return sendError(res, 500, "Unable to load the employee right now.");
   }
 }
 
 async function updateAdminSalesExecutive(req, res) {
   try {
     if (!isValidObjectId(req.params.id)) {
-      return sendError(res, 400, "Invalid sales executive ID.");
+      return sendError(res, 400, "This employee could not be found.");
     }
 
     const executive = await SalesExecutive.findOne({ _id: req.params.id, isArchived: false });
     if (!executive) {
-      return sendError(res, 404, "Sales executive not found.");
+      return sendError(res, 404, "This employee could not be found.");
     }
     const oldValue = executive.toObject();
 
@@ -868,7 +868,7 @@ async function updateAdminSalesExecutive(req, res) {
       : await validateEmployeeAccountRequest(payload, req.body, executive.userId);
 
     if (errors.length || uniquenessErrors.length || accountErrors.length) {
-      return sendError(res, 400, "Please fix the sales executive form and try again.", [...errors, ...uniquenessErrors, ...accountErrors]);
+      return sendError(res, 400, "Please fix the employee form and try again.", [...errors, ...uniquenessErrors, ...accountErrors]);
     }
 
     Object.assign(executive, payload, { updatedBy: req.user.id });
@@ -899,11 +899,11 @@ async function updateAdminSalesExecutive(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Sales executive updated successfully.",
+      message: "Employee updated successfully.",
       salesExecutive: serializeSalesExecutive(executive.toObject(), { includeSensitiveFields: true })
     });
   } catch (error) {
-    const formattedError = getPersistenceErrorDetails(error, "Unable to update the sales executive right now.");
+    const formattedError = getPersistenceErrorDetails(error, "Unable to update the employee right now.");
     return sendError(res, formattedError.statusCode, formattedError.message, formattedError.details);
   }
 }
@@ -919,7 +919,7 @@ async function updateAdminSalesExecutiveStatus(req, res) {
 async function archiveAdminSalesExecutive(req, res) {
   try {
     if (!isValidObjectId(req.params.id)) {
-      return sendError(res, 400, "Invalid sales executive ID.");
+      return sendError(res, 400, "This employee could not be found.");
     }
 
     const executive = await SalesExecutive.findOneAndUpdate(
@@ -934,7 +934,7 @@ async function archiveAdminSalesExecutive(req, res) {
     ).lean();
 
     if (!executive) {
-      return sendError(res, 404, "Sales executive not found.");
+      return sendError(res, 404, "This employee could not be found.");
     }
     if (executive.userId) {
       await User.findByIdAndUpdate(executive.userId, {
@@ -953,11 +953,11 @@ async function archiveAdminSalesExecutive(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Sales executive archived successfully.",
+      message: "Employee hidden from active list successfully.",
       salesExecutive: serializeSalesExecutive(executive, { includeSensitiveFields: true })
     });
   } catch {
-    return sendError(res, 500, "Unable to archive the sales executive right now.");
+    return sendError(res, 500, "Unable to hide the employee from the active list right now.");
   }
 }
 
@@ -967,7 +967,7 @@ async function getAdminLeads(req, res) {
 
     if (req.query.salesExecutiveId) {
       if (!isValidObjectId(req.query.salesExecutiveId)) {
-        return sendError(res, 400, "Invalid sales executive filter.");
+        return sendError(res, 400, "This employee could not be found.");
       }
       match.salesExecutiveId = req.query.salesExecutiveId;
     }
@@ -1031,7 +1031,7 @@ async function createAdminLead(req, res) {
   try {
     const salesExecutive = await findSalesExecutiveById(req.body.salesExecutiveId);
     if (salesExecutive === undefined) {
-      return sendError(res, 400, "Invalid assigned sales executive.");
+      return sendError(res, 400, "This employee could not be found.");
     }
 
     const { payload, errors } = buildLeadPayload(req.body);
@@ -1106,7 +1106,7 @@ async function updateAdminLead(req, res) {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, "salesExecutiveId")) {
       const salesExecutive = await findSalesExecutiveById(req.body.salesExecutiveId);
       if (salesExecutive === undefined) {
-        return sendError(res, 400, "Invalid assigned sales executive.");
+        return sendError(res, 400, "This employee could not be found.");
       }
       lead.salesExecutiveId = salesExecutive ? salesExecutive._id : null;
     }
@@ -1300,7 +1300,7 @@ async function getAdminCommissions(req, res) {
 
     if (req.query.salesExecutiveId) {
       if (!isValidObjectId(req.query.salesExecutiveId)) {
-        return sendError(res, 400, "Invalid sales executive filter.");
+        return sendError(res, 400, "This employee could not be found.");
       }
       match.salesExecutiveId = req.query.salesExecutiveId;
     }
@@ -1349,7 +1349,7 @@ async function resolveCommissionLinks(body, currentCommission = null) {
   const salesExecutive = await findSalesExecutiveById(salesExecutiveId);
 
   if (salesExecutive === undefined || !salesExecutive) {
-    errors.push("Select a valid active sales executive.");
+    errors.push("Select a valid active employee.");
   } else {
     links.salesExecutiveId = salesExecutive._id;
   }
@@ -1602,12 +1602,12 @@ async function cancelAdminCommission(req, res) {
 async function getSalesExecutiveCommissionSummary(req, res) {
   try {
     if (!isValidObjectId(req.params.id)) {
-      return sendError(res, 400, "Invalid sales executive ID.");
+      return sendError(res, 400, "This employee could not be found.");
     }
 
     const executive = await SalesExecutive.findOne({ _id: req.params.id, isArchived: false }).lean();
     if (!executive) {
-      return sendError(res, 404, "Sales executive not found.");
+      return sendError(res, 404, "This employee could not be found.");
     }
 
     const currentMonthYear = getCurrentMonthYear();
@@ -1695,8 +1695,11 @@ async function getAdminSalesSummary(req, res) {
     }
 
     const { monthStart, monthEnd } = getMonthWindow(month, year);
-    const [activeSalesExecutives, totalLeadsThisMonth, newLeads, followUpLeads, confirmedPaidClients, pendingApprovalClients, commissions, executives] = await Promise.all([
+    const [totalEmployees, activeEmployees, inactiveEmployees, suspendedEmployees, totalLeadsThisMonth, newLeads, followUpLeads, confirmedPaidClients, pendingApprovalClients, commissions, executives] = await Promise.all([
+      SalesExecutive.countDocuments({ isArchived: false }),
       SalesExecutive.countDocuments({ status: "Active", isArchived: false }),
+      SalesExecutive.countDocuments({ status: "Inactive", isArchived: false }),
+      SalesExecutive.countDocuments({ status: "Suspended", isArchived: false }),
       Lead.countDocuments({ isArchived: false, createdAt: { $gte: monthStart, $lt: monthEnd } }),
       Lead.countDocuments({ status: { $in: ["New", "New Lead"] }, isArchived: false }),
       Lead.countDocuments({ status: { $in: ["Follow Up", "Contacted", "Interested", "Quotation Sent", "Proposal Sent"] }, isArchived: false }),
@@ -1739,7 +1742,11 @@ async function getAdminSalesSummary(req, res) {
       salesSummary: {
         month,
         year,
-        activeSalesExecutives,
+        totalEmployees,
+        activeEmployees,
+        inactiveEmployees,
+        suspendedEmployees,
+        activeSalesExecutives: activeEmployees,
         totalLeadsThisMonth,
         newLeads,
         followUpLeads,

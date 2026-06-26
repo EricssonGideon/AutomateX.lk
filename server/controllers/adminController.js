@@ -274,7 +274,7 @@ async function resolveInvoiceOptionalLinks(body, clientId = "") {
     ["projectId", Project, { isArchived: false }, "project"],
     ["maintenancePlanId", MaintenancePlan, {}, "maintenance plan"],
     ["leadId", Lead, { isArchived: false }, "lead"],
-    ["salesExecutiveId", SalesExecutive, { isArchived: false }, "sales executive"]
+    ["salesExecutiveId", SalesExecutive, { isArchived: false }, "employee"]
   ];
 
   for (const [field, Model, extraMatch, label] of optionalLinks) {
@@ -689,7 +689,7 @@ function safeCommissionRow(commission, executiveMap = new Map()) {
   return {
     id: String(commission._id || commission.id || ""),
     salesExecutiveId: commission.salesExecutiveId ? String(commission.salesExecutiveId) : "",
-    salesExecutiveName: executiveMap.get(String(commission.salesExecutiveId)) || "Sales Executive",
+    salesExecutiveName: executiveMap.get(String(commission.salesExecutiveId)) || "Employee",
     commissionType: commission.commissionType || "Manual Bonus",
     commissionMonth: commission.commissionMonth || null,
     commissionYear: commission.commissionYear || null,
@@ -736,7 +736,7 @@ async function loadReportData() {
     SupportRequest.find({}).lean()
   ]);
 
-  const executiveMap = new Map(salesExecutives.map((executive) => [String(executive._id), executive.fullName || "Sales Executive"]));
+  const executiveMap = new Map(salesExecutives.map((executive) => [String(executive._id), executive.fullName || "Employee"]));
 
   return {
     clients: clients.map(serializeAdminClient).filter((client) => client.role === "client"),
@@ -1258,7 +1258,7 @@ async function countActiveAdmins(excludeUserId = "") {
 
 async function ensureAdminCanLoseAccess(user, currentAdminId) {
   if (isOfficialAdminEmail(user.email)) {
-    return "The official AutomateX owner account must remain an active admin.";
+    return "The official AutomateX admin account must remain active.";
   }
 
   if (String(user._id) === String(currentAdminId) && resolveTrustedRole(user) === "admin") {
@@ -1334,6 +1334,10 @@ async function getStats(_req, res) {
       totalInquiries,
       pendingReviews,
       totalReviews,
+      totalEmployees,
+      activeEmployees,
+      inactiveEmployees,
+      suspendedEmployees,
       clientRecords
     ] = await Promise.all([
       User.countDocuments(CLIENT_BASE_QUERY),
@@ -1346,6 +1350,10 @@ async function getStats(_req, res) {
       Inquiry.countDocuments({}),
       Review.countDocuments({ status: "pending" }),
       Review.countDocuments({}),
+      SalesExecutive.countDocuments({ isArchived: false }),
+      SalesExecutive.countDocuments({ status: "Active", isArchived: false }),
+      SalesExecutive.countDocuments({ status: "Inactive", isArchived: false }),
+      SalesExecutive.countDocuments({ status: "Suspended", isArchived: false }),
       User.find(
         CLIENT_BASE_QUERY,
         { plan: 1, monthlyFee: 1, accountStatus: 1, paymentStatus: 1, nextPaymentDate: 1, isActive: 1 }
@@ -1399,6 +1407,10 @@ async function getStats(_req, res) {
       totalInquiries,
       totalReviewsPendingModeration: pendingReviews,
       totalReviews,
+      totalEmployees,
+      activeEmployees,
+      inactiveEmployees,
+      suspendedEmployees,
       monthlyRevenueEstimate: estimateMonthlyRevenue(clientRecords.filter((client) => resolveAccountStatus(client) === "active")),
       unpaidMonthlyFees,
       overdueClients,
@@ -1665,7 +1677,7 @@ async function updateAdminSettings(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Admin settings updated successfully.",
+      message: "Settings updated successfully.",
       settings: serializeAppSettings(settings)
     });
   } catch (_error) {
@@ -1901,7 +1913,7 @@ async function exportClientsReport(req, res) {
       "createdAt"
     ], rows);
   } catch (_error) {
-    return sendError(res, 500, "Unable to export the client report right now.");
+    return sendError(res, 500, "Unable to download the client report right now.");
   }
 }
 
@@ -1947,7 +1959,7 @@ async function exportInvoicesReport(req, res) {
       "createdAt"
     ], rows);
   } catch (_error) {
-    return sendError(res, 500, "Unable to export the invoice report right now.");
+    return sendError(res, 500, "Unable to download the invoice report right now.");
   }
 }
 
@@ -1988,7 +2000,7 @@ async function exportRequestsReport(req, res) {
       "resolvedAt"
     ], rows);
   } catch (_error) {
-    return sendError(res, 500, "Unable to export the support request report right now.");
+    return sendError(res, 500, "Unable to download the support request report right now.");
   }
 }
 
@@ -2025,7 +2037,7 @@ async function exportRevenueReport(req, res) {
       "pending"
     ], rows);
   } catch {
-    return sendError(res, 500, "Unable to export the revenue report right now.");
+    return sendError(res, 500, "Unable to download the income report right now.");
   }
 }
 
@@ -2061,7 +2073,7 @@ async function exportProjectsReport(req, res) {
       "balanceAmount"
     ], rows);
   } catch {
-    return sendError(res, 500, "Unable to export the project report right now.");
+    return sendError(res, 500, "Unable to download the project report right now.");
   }
 }
 
@@ -2095,7 +2107,7 @@ async function exportSalesReport(req, res) {
       "createdAt"
     ], rows);
   } catch {
-    return sendError(res, 500, "Unable to export the sales report right now.");
+    return sendError(res, 500, "Unable to download the employee leads report right now.");
   }
 }
 
@@ -2131,7 +2143,7 @@ async function exportMaintenanceReport(req, res) {
       "endDate"
     ], rows);
   } catch {
-    return sendError(res, 500, "Unable to export the maintenance report right now.");
+    return sendError(res, 500, "Unable to download the maintenance report right now.");
   }
 }
 
@@ -2394,7 +2406,7 @@ async function updateClient(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Client updated successfully.",
+      message: "Client saved successfully.",
       client: serializeAdminClient(client.toObject())
     });
   } catch (_error) {
@@ -2912,7 +2924,7 @@ async function createInvoice(req, res) {
     });
 
     return sendSuccess(res, 201, {
-      message: "Invoice created successfully.",
+      message: "Invoice saved successfully.",
       invoice: serializeInvoice(invoice)
     });
   } catch (_error) {
@@ -2982,7 +2994,7 @@ async function updateInvoice(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Invoice updated successfully.",
+      message: "Invoice saved successfully.",
       invoice: serializeInvoice(invoice)
     });
   } catch (_error) {
@@ -3344,12 +3356,12 @@ async function getAdminRequests(req, res) {
 async function getAdminRequestById(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return sendError(res, 400, "Invalid request ID.");
+      return sendError(res, 400, "This request could not be found.");
     }
 
     const request = await SupportRequest.findById(req.params.id).lean();
     if (!request) {
-      return sendError(res, 404, "Request not found.");
+      return sendError(res, 404, "This request could not be found.");
     }
 
     return sendSuccess(res, 200, {
@@ -3363,12 +3375,12 @@ async function getAdminRequestById(req, res) {
 async function updateAdminRequest(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return sendError(res, 400, "Invalid request ID.");
+      return sendError(res, 400, "This request could not be found.");
     }
 
     const request = await SupportRequest.findById(req.params.id);
     if (!request) {
-      return sendError(res, 404, "Request not found.");
+      return sendError(res, 404, "This request could not be found.");
     }
     const oldValue = serializeSupportRequest(request, { includeAdminFields: true });
 
@@ -3406,7 +3418,7 @@ async function updateAdminRequest(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Request updated successfully.",
+      message: "Request saved successfully.",
       request: serializeSupportRequest(request, { includeAdminFields: true })
     });
   } catch (_error) {
@@ -3417,12 +3429,12 @@ async function updateAdminRequest(req, res) {
 async function deleteAdminRequest(req, res) {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return sendError(res, 400, "Invalid request ID.");
+      return sendError(res, 400, "This request could not be found.");
     }
 
     const request = await SupportRequest.findById(req.params.id);
     if (!request) {
-      return sendError(res, 404, "Request not found.");
+      return sendError(res, 404, "This request could not be found.");
     }
     const oldValue = serializeSupportRequest(request, { includeAdminFields: true });
 
@@ -3446,7 +3458,7 @@ async function deleteAdminRequest(req, res) {
     });
 
     return sendSuccess(res, 200, {
-      message: "Request closed successfully.",
+      message: "Request marked as completed successfully.",
       request: serializeSupportRequest(request, { includeAdminFields: true })
     });
   } catch (_error) {

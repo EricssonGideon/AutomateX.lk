@@ -110,7 +110,7 @@
     const SECTION_META = {
       dashboard: {
         title: "Dashboard",
-        subtitle: "Monitor approvals, revenue pressure, and platform activity from one professional admin control center."
+        subtitle: "Review approvals, income, and platform activity from the Admin Panel."
       },
       clients: {
         title: "Clients",
@@ -125,20 +125,20 @@
         subtitle: "See how service tiers are distributed across the AutomateX client base."
       },
       invoices: {
-        title: "Invoices",
-        subtitle: "Create manual invoices, track balances, and follow payment progress without changing the current payment-gateway setup."
+        title: "Payments & Invoices",
+        subtitle: "Create invoices, track balances, and follow payment progress without changing the current payment-gateway setup."
       },
       payments: {
         title: "Payments",
-        subtitle: "Review collections pressure, payment states, and expected recurring revenue across active accounts."
+        subtitle: "Review unpaid balances, payment states, and expected recurring income across active accounts."
       },
       projects: {
         title: "Projects",
         subtitle: "Manage AutomateX client projects, milestones, deliverables, deadlines, and payment progress."
       },
       sales: {
-        title: "Employees / Staff",
-        subtitle: "Manage sales employees, employee login access, lead approval, targets, and commission tracking."
+        title: "Employees",
+        subtitle: "Manage employees, login access, lead approval, targets, and commission tracking."
       },
       bookings: {
         title: "Bookings",
@@ -146,7 +146,7 @@
       },
       inquiries: {
         title: "Inquiries",
-        subtitle: "Track the lead pipeline, follow-up progress, and message volume across AutomateX."
+        subtitle: "Track current inquiries, follow-up progress, and message volume across AutomateX."
       },
       reviews: {
         title: "Reviews",
@@ -158,7 +158,7 @@
       },
       reports: {
         title: "Reports",
-        subtitle: "Review revenue, client, package, and support performance, then export clean CSV snapshots from the owner control center."
+        subtitle: "Review income, clients, packages, and support, then download CSV reports from the Admin Panel."
       },
       users: {
         title: "Users & Roles",
@@ -170,7 +170,7 @@
       },
       settings: {
         title: "Settings",
-        subtitle: "Manage AutomateX business defaults, billing configuration, support contacts, and owner workspace preferences."
+        subtitle: "Manage AutomateX business defaults, billing settings, support contacts, and Admin Panel preferences."
       }
     };
     const state = {
@@ -495,6 +495,10 @@
     }
 
     function formatStatusLabel(value) {
+      if (String(value || "").toLowerCase() === "resolved") {
+        return "Completed";
+      }
+
       return String(value || "")
         .replace(/_/g, " ")
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -1402,33 +1406,53 @@
       return `${message} ${details.slice(0, 4).join(" ")}`;
     }
 
+    function formatForbiddenMessage(payload) {
+      const message = String(payload && payload.message || "");
+      const error = String(payload && payload.error || "");
+      const combined = `${message} ${error}`.toLowerCase();
+
+      if (/csrf|security/.test(combined)) {
+        return "Security check failed. Please refresh and try again.";
+      }
+
+      if (/permission|access|forbidden|role|not allowed|not have access/.test(combined)) {
+        return "You do not have permission to do this.";
+      }
+
+      return "This action is not allowed.";
+    }
+
     async function apiFetch(path, options = {}) {
       const token = getToken();
       if (!token) {
         redirectToLogin();
-        throw new Error("Missing admin token.");
+        throw new Error("Your session expired. Please log in again.");
       }
 
-      const response = await fetch(path, {
-        ...options,
-        headers: {
-          "Content-Type": "application/json",
-          ...(getCsrfToken() ? { "X-CSRF-Token": getCsrfToken() } : {}),
-          Authorization: `Bearer ${token}`,
-          ...(options.headers || {})
-        }
-      });
+      let response;
+      try {
+        response = await fetch(path, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            ...(getCsrfToken() ? { "X-CSRF-Token": getCsrfToken() } : {}),
+            Authorization: `Bearer ${token}`,
+            ...(options.headers || {})
+          }
+        });
+      } catch (_error) {
+        throw new Error("Connection problem. Please try again.");
+      }
 
       const payload = await response.json().catch(() => ({}));
 
       if (response.status === 401) {
         redirectToLogin();
-        throw new Error(payload.message || "Authentication failed.");
+        throw new Error("Your session expired. Please log in again.");
       }
 
       if (response.status === 403) {
-        redirectToLogin();
-        throw new Error(payload.message || "Admin access is required.");
+        throw new Error(formatForbiddenMessage(payload));
       }
 
       if (!response.ok) {
@@ -1442,24 +1466,29 @@
       const token = getToken();
       if (!token) {
         redirectToLogin();
-        throw new Error("Missing admin token.");
+        throw new Error("Your session expired. Please log in again.");
       }
 
-      const response = await fetch(path, {
-        headers: {
-          ...(getCsrfToken() ? { "X-CSRF-Token": getCsrfToken() } : {}),
-          Authorization: `Bearer ${token}`
-        }
-      });
+      let response;
+      try {
+        response = await fetch(path, {
+          headers: {
+            ...(getCsrfToken() ? { "X-CSRF-Token": getCsrfToken() } : {}),
+            Authorization: `Bearer ${token}`
+          }
+        });
+      } catch (_error) {
+        throw new Error("Connection problem. Please try again.");
+      }
 
       if (response.status === 401) {
         redirectToLogin();
-        throw new Error("Authentication failed.");
+        throw new Error("Your session expired. Please log in again.");
       }
 
       if (response.status === 403) {
-        redirectToLogin();
-        throw new Error("Admin access is required.");
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(formatForbiddenMessage(payload));
       }
 
       if (!response.ok) {
@@ -1515,9 +1544,9 @@
     }
 
     function setSection(sectionName) {
-      if (["users", "audit-logs", "settings"].includes(sectionName) && !canManageSystem()) {
+      if (["reports", "users", "audit-logs", "settings"].includes(sectionName) && !canManageSystem()) {
         sectionName = "dashboard";
-        showBanner("Full admin access is required for system management sections.", "error");
+        showBanner("You do not have permission to open this admin section.", "error");
       }
 
       state.currentSection = sectionName;
@@ -1550,7 +1579,7 @@
       tableBody.innerHTML = items.map(rowMarkup).join("");
     }
 
-    function renderMetricList(containerId, rows, emptyMessage = "No data available yet.") {
+    function renderMetricList(containerId, rows, emptyMessage = "No records found.") {
       const container = document.getElementById(containerId);
 
       if (!rows.length) {
@@ -1596,6 +1625,11 @@
           copy: "Live service accounts currently active on the platform."
         },
         {
+          label: "Total Employees",
+          value: String(state.salesSummary?.totalEmployees ?? stats.totalEmployees ?? state.allSalesExecutives.length ?? 0),
+          copy: "Employee records currently saved in the admin system."
+        },
+        {
           label: "Total Projects",
           value: String(kpis.totalProjects ?? state.allProjects.length ?? 0),
           copy: "Non-archived AutomateX projects currently tracked."
@@ -1611,7 +1645,7 @@
           copy: "Projects marked completed across the workspace."
         },
         {
-          label: "Monthly Revenue",
+          label: "Monthly Income",
           value: formatInvoiceCurrency(kpis.monthlyRevenue || 0),
           copy: "Invoice value issued in the active reports period."
         },
@@ -1662,9 +1696,9 @@
 
       renderMetricList("revenueOverviewList", [
         {
-          label: "Expected monthly revenue",
+          label: "Expected monthly income",
           value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
-          hint: "Active-package recurring revenue estimate from the current admin stats endpoint."
+          hint: "Expected recurring income from active client packages."
         },
         {
           label: "Paid amount this month",
@@ -1672,12 +1706,12 @@
           hint: "Monthly payment-history totals are not returned by the current backend."
         },
         {
-          label: "Pending and unpaid revenue",
+          label: "Pending and unpaid income",
           value: formatCurrency(payment.pendingRevenue),
           hint: "Estimated value tied to accounts marked pending or unpaid."
         },
         {
-          label: "Overdue revenue",
+          label: "Overdue income",
           value: formatCurrency(payment.overdueRevenue),
           hint: "Estimated value tied to accounts already marked overdue."
         }
@@ -1803,7 +1837,7 @@
         "dashboardRecentInquiries",
         getRecentItems(state.allInquiries, 3),
         recentInquiryMarkup,
-        "No inquiries are available yet."
+        "No inquiries yet."
       );
 
       renderPreviewList(
@@ -2102,7 +2136,7 @@
             </div>
           </td>
         </tr>
-      `, "No invoices match the current search or status filters.");
+      `, "No invoices found.");
     }
 
     function renderPaymentsSection() {
@@ -2114,17 +2148,17 @@
 
       document.getElementById("paymentsKpiGrid").innerHTML = [
         {
-          label: "Expected Revenue",
+          label: "Expected Income",
           value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
-          copy: "Recurring revenue estimate from currently active client assignments."
+          copy: "Expected recurring income from currently active client assignments."
         },
         {
-          label: "Outstanding Revenue",
+          label: "Unpaid Income",
           value: formatCurrency(payment.pendingRevenue + payment.overdueRevenue),
           copy: "Estimated pending, unpaid, and overdue value requiring follow-up."
         },
         {
-          label: "Overdue Revenue",
+          label: "Overdue Income",
           value: formatCurrency(payment.overdueRevenue),
           copy: "Estimated monthly value currently tied to overdue accounts."
         },
@@ -2210,7 +2244,7 @@
         {
           label: "Total Projects",
           value: String(analytics.totalProjects),
-          copy: "All active project records inside the AutomateX control center."
+          copy: "All active project records inside the Admin Panel."
         },
         {
           label: "Active Delivery",
@@ -2225,7 +2259,7 @@
         {
           label: "High Priority",
           value: String(analytics.highPriorityProjects),
-          copy: "Projects marked High or Urgent for owner attention."
+          copy: "Projects marked High or Urgent for admin attention."
         },
         {
           label: "Average Progress",
@@ -2267,12 +2301,12 @@
                 ? `<button class="mini-button" type="button" data-project-id="${escapeHtml(project.id)}">${canManageProjects ? "Edit" : "Update"}</button>`
                 : ""}
               ${canManageProjects
-                ? `<button class="mini-button is-warning" type="button" data-project-id="${escapeHtml(project.id)}" data-project-action="archive">Archive</button>`
+                ? `<button class="mini-button is-warning" type="button" data-project-id="${escapeHtml(project.id)}" data-project-action="archive">Hide from active list</button>`
                 : ""}
             </div>
           </td>
         </tr>
-      `, "No projects match the current filters.");
+      `, "No projects found.");
     }
 
     function renderMaintenanceSection() {
@@ -2312,15 +2346,15 @@
 
     function updateSalesFilterOptions() {
       const salesExecutiveOptions = state.allSalesExecutives.map((executive) => `
-        <option value="${escapeHtml(executive.id)}">${escapeHtml(executive.fullName || "Sales Executive")}</option>
+        <option value="${escapeHtml(executive.id)}">${escapeHtml(executive.fullName || "Employee")}</option>
       `).join("");
       const leadSalesExecutiveFilter = document.getElementById("leadSalesExecutiveFilter");
       const commissionSalesExecutiveFilter = document.getElementById("commissionSalesExecutiveFilter");
       const currentLeadValue = leadSalesExecutiveFilter.value;
       const currentCommissionValue = commissionSalesExecutiveFilter.value;
 
-      leadSalesExecutiveFilter.innerHTML = `<option value="">All executives</option>${salesExecutiveOptions}`;
-      commissionSalesExecutiveFilter.innerHTML = `<option value="">All executives</option>${salesExecutiveOptions}`;
+      leadSalesExecutiveFilter.innerHTML = `<option value="">All employees</option>${salesExecutiveOptions}`;
+      commissionSalesExecutiveFilter.innerHTML = `<option value="">All employees</option>${salesExecutiveOptions}`;
       leadSalesExecutiveFilter.value = currentLeadValue;
       commissionSalesExecutiveFilter.value = currentCommissionValue;
     }
@@ -2340,13 +2374,13 @@
       document.getElementById("salesKpiGrid").innerHTML = [
         {
           label: "Active Employees",
-          value: String(salesSummary.activeSalesExecutives || 0),
-          copy: "Sales employees currently active and able to log in."
+          value: String(salesSummary.activeEmployees ?? salesSummary.activeSalesExecutives ?? 0),
+          copy: "Employees currently active and able to log in."
         },
         {
           label: "Leads This Month",
           value: String(salesSummary.totalLeadsThisMonth || 0),
-          copy: "Employee-created and admin-created sales leads this month."
+          copy: "Employee-created and admin-created leads this month."
         },
         {
           label: "New Leads",
@@ -2389,7 +2423,7 @@
       setTableState("salesExecutivesTableBody", "salesExecutivesEmptyState", salesExecutives, (executive) => `
         <tr>
           <td>
-            <div class="cell-title">${renderTextValue(executive.fullName || "Sales Executive", "text-ellipsis")}</div>
+            <div class="cell-title">${renderTextValue(executive.fullName || "Employee", "text-ellipsis")}</div>
             <div class="cell-subtitle">${renderTextValue(executive.email || "No email", "text-ellipsis text-email")}</div>
           </td>
           <td>${renderTextValue(executive.phone || "—", "text-ellipsis text-mono")}</td>
@@ -2404,11 +2438,11 @@
             <div class="table-actions">
               ${canManageSales ? `<button class="mini-button" type="button" data-sales-executive-id="${escapeHtml(executive.id)}">Edit</button>` : ""}
               <button class="mini-button" type="button" data-sales-executive-id="${escapeHtml(executive.id)}" data-sales-executive-action="summary">Summary</button>
-              ${canManageSales ? `<button class="mini-button is-warning" type="button" data-sales-executive-id="${escapeHtml(executive.id)}" data-sales-executive-action="archive">Archive</button>` : ""}
+              ${canManageSales ? `<button class="mini-button is-warning" type="button" data-sales-executive-id="${escapeHtml(executive.id)}" data-sales-executive-action="archive">Hide from active list</button>` : ""}
             </div>
           </td>
         </tr>
-      `, "No sales executives match the current filters.");
+      `, "No employees found.");
 
       setTableState("leadsTableBody", "leadsEmptyState", leads, (lead) => `
         <tr class="${lead.priority === "High" ? "pending-row" : ""}">
@@ -2442,7 +2476,7 @@
 
       setTableState("commissionsTableBody", "commissionsEmptyState", commissions, (commission) => `
         <tr>
-          <td>${renderTextValue(commission.salesExecutiveName || "Sales Executive", "text-ellipsis")}</td>
+          <td>${renderTextValue(commission.salesExecutiveName || "Employee", "text-ellipsis")}</td>
           <td>
             <div class="cell-title">${renderTextValue(commission.projectTitle || commission.clientBusinessName || commission.clientName || commission.leadBusinessName || "Manual commission", "text-ellipsis")}</div>
             <div class="cell-subtitle">${renderTextValue(commission.paymentReference || commission.invoiceNumber || "No payment reference", "text-ellipsis")}</div>
@@ -2565,7 +2599,7 @@
         {
           label: "Open Requests",
           value: String(analytics.statusCounts.open || 0),
-          copy: "Newly submitted requests that still need owner attention."
+          copy: "Newly submitted requests that still need admin attention."
         },
         {
           label: "In Progress",
@@ -2573,7 +2607,7 @@
           copy: "Requests currently being handled by the AutomateX admin team."
         },
         {
-          label: "Resolved",
+          label: "Completed",
           value: String(analytics.statusCounts.resolved || 0),
           copy: "Requests that have been completed successfully."
         },
@@ -2616,7 +2650,7 @@
             <div class="actions">
               <button class="mini-button" type="button" data-request-id="${escapeHtml(request.id)}" data-request-action="manage">Manage</button>
               ${["open", "in_progress"].includes(request.status)
-                ? `<button class="mini-button is-warning" type="button" data-request-id="${escapeHtml(request.id)}" data-request-action="resolve">Resolve</button>`
+                ? `<button class="mini-button is-warning" type="button" data-request-id="${escapeHtml(request.id)}" data-request-action="resolve">Mark as completed</button>`
                 : ""}
             </div>
           </td>
@@ -2799,7 +2833,7 @@
 
       setTableState("reportsCommissionsTableBody", "reportsCommissionsEmptyState", tables.pendingCommissions || [], (commission) => `
         <tr>
-          <td>${renderTextValue(commission.salesExecutiveName || "Sales Executive", "text-ellipsis")}</td>
+          <td>${renderTextValue(commission.salesExecutiveName || "Employee", "text-ellipsis")}</td>
           <td>${renderTextValue(commission.commissionType || "Commission", "text-ellipsis")}</td>
           <td>${renderTextValue(formatInvoiceCurrency(commission.amount || 0), "text-ellipsis text-money")}</td>
           <td><span class="${projectBadgeClass(commission.status)}">${escapeHtml(commission.status || "Pending")}</span></td>
@@ -2884,7 +2918,7 @@
           copy: "Invoices past due or marked overdue."
         },
         {
-          label: "Monthly Revenue",
+          label: "Monthly Income",
           value: formatInvoiceCurrency(kpis.monthlyRevenue || revenue.totalInvoiced || 0),
           copy: "Invoice value issued in the selected period."
         },
@@ -2972,14 +3006,14 @@
           value: formatInvoiceCurrency(revenue.totalPending || revenue.pendingAmount || 0),
           hint: "Open balances still in draft, sent, or partial payment states."
         }
-      ], "No revenue reporting data is available yet.");
+      ], "No income report data found.");
       renderDistributionBars("reportsRevenueBars", revenue.revenueByInvoiceType || {}, formatInvoiceCurrency);
 
       renderMetricList("reportsClientList", [
         {
           label: "Total clients",
           value: String(clients.totalClients ?? 0),
-          hint: "All client records excluding the trusted AutomateX owner account."
+          hint: "All client records excluding the official AutomateX admin account."
         },
         {
           label: "Active clients",
@@ -3012,22 +3046,22 @@
         {
           label: "Starter clients",
           value: `${String(packageCounts.starter ?? 0)} • ${formatInvoiceCurrency(packageRevenue.starter || 0)}`,
-          hint: "Client count and expected monthly revenue from active Starter accounts."
+          hint: "Client count and expected monthly income from active Starter accounts."
         },
         {
           label: "Standard clients",
           value: `${String(packageCounts.standard ?? 0)} • ${formatInvoiceCurrency(packageRevenue.standard || 0)}`,
-          hint: "Client count and expected monthly revenue from active Standard accounts."
+          hint: "Client count and expected monthly income from active Standard accounts."
         },
         {
           label: "Pro clients",
           value: `${String(packageCounts.pro ?? 0)} • ${formatInvoiceCurrency(packageRevenue.pro || 0)}`,
-          hint: "Client count and expected monthly revenue from active Pro accounts."
+          hint: "Client count and expected monthly income from active Pro accounts."
         },
         {
           label: "Custom clients",
           value: `${String(packageCounts.custom ?? 0)} • ${formatInvoiceCurrency(packageRevenue.custom || 0)}`,
-          hint: "Client count and expected monthly revenue from active Custom accounts."
+          hint: "Client count and expected monthly income from active Custom accounts."
         },
         {
           label: "Not assigned clients",
@@ -3035,9 +3069,9 @@
           hint: "Clients without an assigned service package yet."
         },
         {
-          label: "Expected monthly revenue",
+          label: "Expected monthly income",
           value: formatInvoiceCurrency(packageRevenue.total || 0),
-          hint: "Combined active package revenue expectation based on current client fees."
+          hint: "Combined active package income estimate based on current client fees."
         }
       ], "No package reporting data is available yet.");
 
@@ -3058,9 +3092,9 @@
           hint: "Requests currently being worked through by the admin."
         },
         {
-          label: "Resolved requests",
+          label: "Completed requests",
           value: String(requests.resolvedRequests ?? 0),
-          hint: "Requests already resolved and closed out operationally."
+          hint: "Requests already completed and closed."
         },
         {
           label: "Upgrade requests",
@@ -3080,12 +3114,12 @@
         {
           label: "Leads this period",
           value: String(salesReport.leadsThisPeriod ?? 0),
-          hint: "New leads created in the selected analytics period."
+          hint: "New leads created in the selected report period."
         },
         {
           label: "Converted leads",
           value: String(salesReport.convertedLeads ?? 0),
-          hint: "Leads converted during the selected analytics period."
+          hint: "Leads converted during the selected report period."
         },
         {
           label: "Conversion rate",
@@ -3134,29 +3168,29 @@
         {
           label: "Clients CSV",
           value: `${String(clients.totalClients ?? 0)} rows`,
-          hint: "Exports business, owner, package, billing, and account-status fields only."
+          hint: "Downloads business, owner, package, billing, and account-status fields only."
         },
         {
           label: "Invoices CSV",
           value: `${String((revenue.totals && revenue.totals.invoiceCount) || revenue.totalInvoices || 0)} rows`,
-          hint: "Exports safe invoice, balance, due-date, and notes fields for manual reporting."
+          hint: "Downloads invoice, balance, due-date, and notes fields for manual reporting."
         },
         {
-          label: "Revenue / Projects / Sales / Maintenance CSV",
+          label: "Income / Projects / Employee Leads / Maintenance CSV",
           value: "Available",
-          hint: "Exports focused report rows using the active report period filters."
+          hint: "Downloads focused report rows using the active report period filters."
         },
         {
           label: "Requests CSV",
           value: `${String(requests.totalRequests ?? 0)} rows`,
-          hint: "Exports client support and upgrade request history, including admin notes."
+          hint: "Downloads client support and upgrade request history, including admin notes."
         },
         {
           label: "Security scope",
           value: "Sensitive auth fields excluded",
-          hint: "Password hashes, tokens, and private authentication data are never exported."
+          hint: "Password hashes, tokens, and private login data are never downloaded."
         }
-      ], "No export metadata is available yet.");
+      ], "No download details found.");
 
       setTableState("reportsActivityTableBody", "reportsActivityEmptyState", activityFeed, (entry) => `
         <tr>
@@ -3272,14 +3306,17 @@
       const packageAnalytics = getPackageAnalytics();
       const invoiceAnalytics = getInvoiceAnalytics();
       const requestAnalytics = getSupportRequestAnalytics();
+      const billingAttentionCount = invoiceAnalytics.pendingInvoices + invoiceAnalytics.overdueInvoices + getPaymentAnalytics().overdueAccounts;
       document.getElementById("navCountClients").textContent = String(state.allClients.length);
       document.getElementById("navCountPending").textContent = String(getPendingApprovals().length);
       document.getElementById("navCountPackages").textContent = String(packageAnalytics.reduce((sum, entry) => sum + entry.active, 0));
-      document.getElementById("navCountInvoices").textContent = String(invoiceAnalytics.pendingInvoices + invoiceAnalytics.overdueInvoices);
+      document.getElementById("navCountInvoices").textContent = String(billingAttentionCount);
       document.getElementById("navCountPayments").textContent = String(getPaymentAnalytics().overdueAccounts);
       document.getElementById("navCountProjects").textContent = String(state.allProjects.length);
       document.getElementById("navCountSales").textContent = String(
-        state.allLeads.filter((lead) => ["New", "Follow Up"].includes(lead.status)).length
+        state.salesSummary && Number.isFinite(Number(state.salesSummary.totalEmployees))
+          ? Number(state.salesSummary.totalEmployees)
+          : state.allSalesExecutives.length
       );
       document.getElementById("navCountBookings").textContent = String(state.allBookings.length);
       document.getElementById("navCountInquiries").textContent = String(state.allInquiries.length);
@@ -3443,23 +3480,36 @@
     }
 
     async function refreshAllData() {
-      await Promise.all([
-        loadStats(),
-        loadSettings(),
-        loadReportsSummary(),
-        loadClients(),
-        loadInvoices(),
-        loadProjects(),
-        loadMaintenancePlans(),
-        loadSalesData(),
-        loadRequests(),
-        loadBookings(),
-        loadInquiries(),
-        loadReviews(),
-        loadUsers(),
-        loadAuditLogs()
-      ]);
+      const loaders = [
+        { label: "admin stats", run: loadStats },
+        { label: "settings", run: loadSettings },
+        { label: "reports", run: loadReportsSummary },
+        { label: "clients", run: loadClients },
+        { label: "invoices", run: loadInvoices },
+        { label: "projects", run: loadProjects },
+        { label: "maintenance plans", run: loadMaintenancePlans },
+        { label: "employee data", run: loadSalesData },
+        { label: "support requests", run: loadRequests },
+        { label: "bookings", run: loadBookings },
+        { label: "inquiries", run: loadInquiries },
+        { label: "reviews", run: loadReviews },
+        { label: "users", run: loadUsers },
+        { label: "audit logs", run: loadAuditLogs }
+      ];
+      const results = await Promise.allSettled(loaders.map((loader) => loader.run()));
+      const failedModules = results
+        .map((result, index) => result.status === "rejected" ? loaders[index].label : "")
+        .filter(Boolean);
+
       renderAll();
+
+      if (failedModules.length) {
+        showBanner(`Some admin data could not be updated: ${failedModules.join(", ")}. Other sections are still available.`, "warning");
+      } else {
+        hideBanner();
+      }
+
+      return failedModules;
     }
 
     function openDrawer(config) {
@@ -3485,7 +3535,7 @@
         <form id="userRoleForm">
           <input type="hidden" name="userId" value="${escapeHtml(user.id)}">
           <div class="inline-note">
-            Role and status changes affect admin access immediately. The final active admin and the official AutomateX owner account are protected by the server.
+            Role and status changes affect admin access immediately. The final active admin and the official AutomateX admin account are protected by the server.
           </div>
           <div class="drawer-grid admin-mt-16">
             <div class="field">
@@ -3959,7 +4009,7 @@
       const clients = getInvoiceClients();
 
       if (!clients.length) {
-        return `<option value="">No clients available</option>`;
+        return `<option value="">No clients added yet</option>`;
       }
 
       return clients.map((client) => `
@@ -4010,12 +4060,12 @@
 
     function invoiceSalesExecutiveOptionsMarkup(selectedExecutiveId = "") {
       return [
-        `<option value="">No sales executive</option>`,
+        `<option value="">No employee</option>`,
         ...state.allSalesExecutives
           .sort((left, right) => compareStrings(left.fullName, right.fullName))
           .map((executive) => `
             <option value="${escapeHtml(executive.id)}" ${selectedExecutiveId === executive.id ? "selected" : ""}>
-              ${escapeHtml(executive.fullName || "Sales Executive")}
+              ${escapeHtml(executive.fullName || "Employee")}
             </option>
           `)
       ].join("");
@@ -4696,7 +4746,7 @@
 
           <div class="drawer-actions">
             ${!["resolved", "rejected", "closed"].includes(request.status)
-              ? `<button class="button button-secondary" id="requestResolveButton" type="button">Mark Resolved</button>`
+              ? `<button class="button button-secondary" id="requestResolveButton" type="button">Mark as completed</button>`
               : ""}
             ${!["rejected", "closed"].includes(request.status)
               ? `<button class="button button-danger" id="requestRejectButton" type="button">Reject Request</button>`
@@ -4761,9 +4811,9 @@
       }
     }
 
-    function selectOptionsMarkup(options, selectedValue) {
+    function selectOptionsMarkup(options, selectedValue, labelMap = {}) {
       return options.map((option) => `
-        <option value="${escapeHtml(option)}" ${selectedValue === option ? "selected" : ""}>${escapeHtml(option)}</option>
+        <option value="${escapeHtml(option)}" ${selectedValue === option ? "selected" : ""}>${escapeHtml(labelMap[option] || option)}</option>
       `).join("");
     }
 
@@ -4771,7 +4821,7 @@
       const clients = getInvoiceClients();
 
       if (!clients.length) {
-        return `<option value="">No clients available</option>`;
+        return `<option value="">No clients added yet</option>`;
       }
 
       return clients.map((client) => `
@@ -4859,7 +4909,7 @@
 
     function projectOptionsMarkup(selectedProjectId = "", includeBlank = true) {
       if (!state.allProjects.length) {
-        return `<option value="">No projects available</option>`;
+        return `<option value="">No projects added yet</option>`;
       }
 
       const options = state.allProjects.map((project) => `
@@ -4891,7 +4941,7 @@
                 ${canManageFiles
                   ? `
                       <button class="mini-button" type="button" data-file-id="${escapeHtml(file.id)}" data-file-action="visibility" data-visibility="${escapeHtml(file.visibility === "Client Visible" ? "Admin Only" : "Client Visible")}">${file.visibility === "Client Visible" ? "Admin Only" : "Client Visible"}</button>
-                      <button class="mini-button is-warning" type="button" data-file-id="${escapeHtml(file.id)}" data-file-action="archive">Archive</button>
+                      <button class="mini-button is-warning" type="button" data-file-id="${escapeHtml(file.id)}" data-file-action="archive">Hide from active list</button>
                     `
                   : ""}
               </div>
@@ -5077,10 +5127,10 @@
 
     function salesExecutiveOptionsMarkup(selectedExecutiveId = "", includeBlank = true) {
       const options = state.allSalesExecutives.map((executive) => `
-        <option value="${escapeHtml(executive.id)}" ${selectedExecutiveId === executive.id ? "selected" : ""}>${escapeHtml(executive.fullName || "Sales Executive")}</option>
+        <option value="${escapeHtml(executive.id)}" ${selectedExecutiveId === executive.id ? "selected" : ""}>${escapeHtml(executive.fullName || "Employee")}</option>
       `).join("");
 
-      return `${includeBlank ? `<option value="">Unassigned</option>` : ""}${options || `<option value="">No sales executives available</option>`}`;
+      return `${includeBlank ? `<option value="">Unassigned</option>` : ""}${options || `<option value="">No employees added yet</option>`}`;
     }
 
     function clientOptionsMarkup(selectedClientId = "", includeBlank = true) {
@@ -5088,7 +5138,7 @@
         <option value="${escapeHtml(client.id)}" ${selectedClientId === client.id ? "selected" : ""}>${escapeHtml(client.businessName || client.name)} • ${escapeHtml(client.email)}</option>
       `).join("");
 
-      return `${includeBlank ? `<option value="">Not linked</option>` : ""}${options || `<option value="">No clients available</option>`}`;
+      return `${includeBlank ? `<option value="">Not linked</option>` : ""}${options || `<option value="">No clients added yet</option>`}`;
     }
 
     function leadOptionsMarkup(selectedLeadId = "", includeBlank = true) {
@@ -5104,7 +5154,7 @@
         <option value="${escapeHtml(invoice.id)}" ${selectedInvoiceId === invoice.id ? "selected" : ""}>${escapeHtml(invoice.invoiceNumber || invoice.title || "Invoice")} • ${escapeHtml(invoice.clientBusinessName || invoice.businessName || "")}</option>
       `).join("");
 
-      return `${includeBlank ? `<option value="">No invoice link</option>` : ""}${options || `<option value="">No invoices available</option>`}`;
+      return `${includeBlank ? `<option value="">No invoice link</option>` : ""}${options || `<option value="">No invoices found</option>`}`;
     }
 
     function valueOrDefault(value, fallback = "") {
@@ -5126,7 +5176,7 @@
           <div class="form-grid">
             <label>
               <span>Full name</span>
-              <input class="input" name="fullName" value="${escapeHtml(executive.fullName || "")}" placeholder="Sales executive name">
+              <input class="input" name="fullName" value="${escapeHtml(executive.fullName || "")}" placeholder="Employee name">
             </label>
             <label>
               <span>Phone</span>
@@ -5211,8 +5261,8 @@
             <textarea class="textarea" name="notes">${escapeHtml(executive.notes || "")}</textarea>
           </label>
           <div class="form-actions">
-            <button class="button button-primary" type="submit">${isCreate ? "Create Executive" : "Save Executive"}</button>
-            ${isCreate || !hasAdminPermission("sales:manage") ? "" : `<button class="button button-danger" id="archiveSalesExecutiveButton" type="button">Archive Executive</button>`}
+            <button class="button button-primary" type="submit">${isCreate ? "Create Employee" : "Save Employee"}</button>
+            ${isCreate || !hasAdminPermission("sales:manage") ? "" : `<button class="button button-danger" id="archiveSalesExecutiveButton" type="button">Hide from active list</button>`}
           </div>
         </form>
       `;
@@ -5226,7 +5276,7 @@
           <input type="hidden" name="leadId" value="${escapeHtml(lead.id || "")}">
           <div class="form-grid">
             <label>
-              <span>Sales executive</span>
+              <span>Employee</span>
               <select class="select" name="salesExecutiveId">${salesExecutiveOptionsMarkup(lead.salesExecutiveId || "")}</select>
             </label>
             <label>
@@ -5259,7 +5309,7 @@
             </label>
             <label>
               <span>Lead source</span>
-              <select class="select" name="leadSource">${selectOptionsMarkup(LEAD_SOURCE_OPTIONS, lead.leadSource || "Sales Executive")}</select>
+              <select class="select" name="leadSource">${selectOptionsMarkup(LEAD_SOURCE_OPTIONS, lead.leadSource || "Sales Executive", { "Sales Executive": "Employee" })}</select>
             </label>
             <label>
               <span>Status</span>
@@ -5335,7 +5385,7 @@
           <input type="hidden" name="commissionId" value="${escapeHtml(commission.id || "")}">
           <div class="form-grid">
             <label>
-              <span>Sales executive</span>
+              <span>Employee</span>
               <select class="select" name="salesExecutiveId">${salesExecutiveOptionsMarkup(commission.salesExecutiveId || "", false)}</select>
             </label>
             <label>
@@ -5491,7 +5541,7 @@
 
           <div class="form-actions">
             <button class="button button-primary" type="submit">${isCreate ? "Create Project" : canManageProjects ? "Save Project" : "Update Status"}</button>
-            ${isCreate || !canManageProjects ? "" : `<button class="button button-danger" id="archiveProjectButton" type="button">Archive Project</button>`}
+            ${isCreate || !canManageProjects ? "" : `<button class="button button-danger" id="archiveProjectButton" type="button">Hide from active list</button>`}
           </div>
         </form>
         ${projectFileSection(project)}
@@ -5542,7 +5592,7 @@
       });
       await refreshAllData();
       closeDrawer();
-      showToast("Project archived", "The project was safely archived and removed from active admin/client views.");
+      showToast("Project hidden", "The project was hidden from active admin and client views.");
     }
 
     function readFileAsDataUrl(file) {
@@ -5635,7 +5685,7 @@
       if (state.drawer && state.drawer.projectId) {
         await openProjectDrawer(state.drawer.projectId);
       }
-      showToast("Project file updated", "Project document visibility or archive state was updated.");
+      showToast("Project file updated", "Project document visibility was updated.");
     }
 
     function salesExecutiveSummarySection(summary = {}) {
@@ -5649,7 +5699,7 @@
           <span class="data-chip"><strong>${escapeHtml(`${summary.month}/${summary.year}`)}</strong>Month</span>
         </div>
         <div class="settings-grid admin-mt-18">
-          <div class="settings-item"><span>Sales Executive</span><strong>${escapeHtml(executive.fullName || "Sales Executive")}</strong></div>
+          <div class="settings-item"><span>Employee</span><strong>${escapeHtml(executive.fullName || "Employee")}</strong></div>
           <div class="settings-item"><span>Monthly Target</span><strong>${escapeHtml(summary.monthlyTarget || 0)} clients</strong></div>
           <div class="settings-item"><span>Target Progress</span><strong>${escapeHtml(summary.monthlyTargetProgress || 0)}%</strong></div>
           <div class="settings-item"><span>Pending Commission</span><strong>${escapeHtml(formatInvoiceCurrency(summary.totalCommissionPending || 0))}</strong></div>
@@ -5661,8 +5711,8 @@
     function openCreateSalesExecutiveDrawer() {
       openDrawer({
         eyebrow: "Sales",
-        title: "Add Sales Executive",
-        subtitle: "Create a part-time, full-time, or freelance sales profile with target and commission rules.",
+        title: "Add Employee",
+        subtitle: "Create a part-time, full-time, or freelance employee profile with target and commission rules.",
         body: salesExecutiveDetailSection({
           status: "Active",
           workType: "Part Time",
@@ -5683,8 +5733,8 @@
       const executive = payload.salesExecutive;
 
       openDrawer({
-        eyebrow: "Sales Executive",
-        title: executive.fullName || "Sales Executive",
+        eyebrow: "Employee",
+        title: executive.fullName || "Employee",
         subtitle: "Update profile, payment method, bank details, and commission rules.",
         body: salesExecutiveDetailSection(executive)
       });
@@ -5697,7 +5747,7 @@
       });
       await refreshAllData();
       closeDrawer();
-      showToast("Sales executive archived", "The sales executive was safely archived.");
+      showToast("Employee hidden", "The employee was hidden from the active list.");
     }
 
     async function openSalesExecutiveSummaryDrawer(executiveId) {
@@ -5706,7 +5756,7 @@
 
       openDrawer({
         eyebrow: "Commission Summary",
-        title: summary.salesExecutive && summary.salesExecutive.fullName ? summary.salesExecutive.fullName : "Sales Executive",
+        title: summary.salesExecutive && summary.salesExecutive.fullName ? summary.salesExecutive.fullName : "Employee",
         subtitle: "Monthly lead conversion, target progress, and commission totals.",
         body: salesExecutiveSummarySection(summary)
       });
@@ -5716,7 +5766,7 @@
       openDrawer({
         eyebrow: "Lead",
         title: "Add Lead",
-        subtitle: "Create a lead and assign it to a sales executive for follow-up.",
+        subtitle: "Create a lead and assign it to an employee for follow-up.",
         body: leadDetailSection({
           leadSource: "Sales Executive",
           status: "New",
@@ -5751,7 +5801,7 @@
 
     function openCreateCommissionDrawer() {
       if (!state.allSalesExecutives.length) {
-        showBanner("Add at least one sales executive before creating commissions.", "warning");
+        showBanner("Add at least one employee before creating commissions.", "warning");
         return;
       }
 
@@ -6092,13 +6142,12 @@
             await refreshAllData();
             closeDrawer();
             const savedExecutive = result.salesExecutive || {};
-            const loginMessage = savedExecutive.loginEnabled ? "Login enabled." : "Login disabled.";
-            const successTitle = mode === "create"
-              ? `Employee created successfully. ${loginMessage}`
-              : `Employee saved successfully. ${loginMessage}`;
-            showToast(successTitle, "The employee list has been refreshed.");
+            const successTitle = savedExecutive.loginEnabled
+              ? (mode === "create" ? "Employee created successfully. Login account created." : "Employee saved successfully. Login account created.")
+              : "Employee saved. Login account not created.";
+            showToast(successTitle, "The employee list has been updated.");
           } catch (error) {
-            showBanner(error.message || "Unable to save the sales executive.", "error");
+            showBanner(error.message || "Unable to save the employee.", "error");
           }
         });
 
@@ -6108,7 +6157,7 @@
             try {
               await archiveSalesExecutive(new FormData(salesExecutiveForm).get("salesExecutiveId"));
             } catch (error) {
-              showBanner(error.message || "Unable to archive the sales executive.", "error");
+              showBanner(error.message || "Unable to hide the employee from the active list.", "error");
             }
           });
         }
@@ -6818,9 +6867,9 @@
         refreshAllData()
           .then(() => {
             hideBanner();
-            showToast("Data refreshed", "Admin dashboard data has been refreshed.");
+            showToast("Data updated", "Admin dashboard data has been updated.");
           })
-          .catch((error) => showBanner(error.message || "Unable to refresh admin data.", "error"));
+          .catch((error) => showBanner(error.message || "Unable to update admin data.", "error"));
       });
 
       document.addEventListener("click", (event) => {
@@ -6875,13 +6924,13 @@
           const action = salesExecutiveButton.dataset.salesExecutiveAction || "edit";
           if (action === "archive") {
             archiveSalesExecutive(salesExecutiveButton.dataset.salesExecutiveId)
-              .catch((error) => showBanner(error.message || "Unable to archive the sales executive.", "error"));
+              .catch((error) => showBanner(error.message || "Unable to hide the employee from the active list.", "error"));
           } else if (action === "summary") {
             openSalesExecutiveSummaryDrawer(salesExecutiveButton.dataset.salesExecutiveId)
-              .catch((error) => showBanner(error.message || "Unable to load sales executive summary.", "error"));
+              .catch((error) => showBanner(error.message || "Unable to load employee summary.", "error"));
           } else {
             openSalesExecutiveDrawer(salesExecutiveButton.dataset.salesExecutiveId)
-              .catch((error) => showBanner(error.message || "Unable to open sales executive record.", "error"));
+              .catch((error) => showBanner(error.message || "Unable to open employee record.", "error"));
           }
           return;
         }
@@ -6974,95 +7023,95 @@
       document.getElementById("createLeadButton").addEventListener("click", openCreateLeadDrawer);
       document.getElementById("createCommissionButton").addEventListener("click", openCreateCommissionDrawer);
       document.getElementById("refreshClientsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh clients.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update clients.", "error"));
       });
       document.getElementById("refreshPendingApprovalsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh pending approvals.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update pending approvals.", "error"));
       });
       document.getElementById("refreshInvoicesButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh invoices.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update invoices.", "error"));
       });
       document.getElementById("refreshPaymentsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh payments.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update payments.", "error"));
       });
       document.getElementById("refreshProjectsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh projects.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update projects.", "error"));
       });
       document.getElementById("refreshMaintenanceButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh maintenance plans.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update maintenance plans.", "error"));
       });
       document.getElementById("refreshSalesButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh sales data.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update employee data.", "error"));
       });
       document.getElementById("refreshBookingsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh bookings.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update bookings.", "error"));
       });
       document.getElementById("refreshInquiriesButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh inquiries.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update inquiries.", "error"));
       });
       document.getElementById("refreshReviewsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reviews.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update reviews.", "error"));
       });
       document.getElementById("refreshSupportButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh support requests.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update support requests.", "error"));
       });
       document.getElementById("refreshReportsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh reports.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update reports.", "error"));
       });
       document.getElementById("applyReportsFilterButton").addEventListener("click", () => {
         refreshAllData()
-          .then(() => showToast("Reports updated", "Business analytics were refreshed for the selected period."))
+          .then(() => showToast("Reports updated", "Reports were updated for the selected period."))
           .catch((error) => showBanner(error.message || "Unable to apply the report filter.", "error"));
       });
       document.getElementById("reportsCurrentMonthButton").addEventListener("click", () => {
         setReportsCurrentMonthFields();
         refreshAllData()
-          .then(() => showToast("Reports updated", "Business analytics were reset to the current month."))
-          .catch((error) => showBanner(error.message || "Unable to refresh current-month reports.", "error"));
+          .then(() => showToast("Reports updated", "Reports were reset to the current month."))
+          .catch((error) => showBanner(error.message || "Unable to update current-month reports.", "error"));
       });
       document.getElementById("refreshUsersButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh users.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update users.", "error"));
       });
       document.getElementById("refreshAuditLogsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh audit logs.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update audit logs.", "error"));
       });
       document.getElementById("refreshSettingsButton").addEventListener("click", () => {
-        refreshAllData().catch((error) => showBanner(error.message || "Unable to refresh settings.", "error"));
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update settings.", "error"));
       });
       document.getElementById("exportClientsReportButton").addEventListener("click", () => {
         downloadAdminFile("/api/admin/reports/export/clients", "automatex-clients-report.csv")
-          .then(() => showToast("Clients CSV ready", "The client report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the client report.", "error"));
+          .then(() => showToast("Clients CSV ready", "The client report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the client report.", "error"));
       });
       document.getElementById("exportRevenueReportButton").addEventListener("click", () => {
-        downloadAdminFile(`/api/admin/reports/export/revenue${buildReportsQueryString()}`, "automatex-revenue-report.csv")
-          .then(() => showToast("Revenue CSV ready", "The revenue report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the revenue report.", "error"));
+        downloadAdminFile(`/api/admin/reports/export/revenue${buildReportsQueryString()}`, "automatex-income-report.csv")
+          .then(() => showToast("Income CSV ready", "The income report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the income report.", "error"));
       });
       document.getElementById("exportProjectsReportButton").addEventListener("click", () => {
         downloadAdminFile(`/api/admin/reports/export/projects${buildReportsQueryString()}`, "automatex-projects-report.csv")
-          .then(() => showToast("Projects CSV ready", "The project report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the project report.", "error"));
+          .then(() => showToast("Projects CSV ready", "The project report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the project report.", "error"));
       });
       document.getElementById("exportInvoicesReportButton").addEventListener("click", () => {
         downloadAdminFile("/api/admin/reports/export/invoices", "automatex-invoices-report.csv")
-          .then(() => showToast("Invoices CSV ready", "The invoice report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the invoice report.", "error"));
+          .then(() => showToast("Invoices CSV ready", "The invoice report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the invoice report.", "error"));
       });
       document.getElementById("exportSalesReportButton").addEventListener("click", () => {
         downloadAdminFile(`/api/admin/reports/export/sales${buildReportsQueryString()}`, "automatex-sales-report.csv")
-          .then(() => showToast("Sales CSV ready", "The sales and commission report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the sales report.", "error"));
+          .then(() => showToast("Employee leads CSV ready", "The employee leads and commission report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the employee leads report.", "error"));
       });
       document.getElementById("exportMaintenanceReportButton").addEventListener("click", () => {
         downloadAdminFile(`/api/admin/reports/export/maintenance${buildReportsQueryString()}`, "automatex-maintenance-report.csv")
-          .then(() => showToast("Maintenance CSV ready", "The maintenance report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the maintenance report.", "error"));
+          .then(() => showToast("Maintenance CSV ready", "The maintenance report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the maintenance report.", "error"));
       });
       document.getElementById("exportRequestsReportButton").addEventListener("click", () => {
         downloadAdminFile("/api/admin/reports/export/requests", "automatex-requests-report.csv")
-          .then(() => showToast("Requests CSV ready", "The support request report export has been downloaded."))
-          .catch((error) => showBanner(error.message || "Unable to export the support request report.", "error"));
+          .then(() => showToast("Requests CSV ready", "The support request report has been downloaded."))
+          .catch((error) => showBanner(error.message || "Unable to download the support request report.", "error"));
       });
       document.getElementById("adminSettingsForm").addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -7222,9 +7271,8 @@
 
         await verifyAdminSession();
         await refreshAllData();
-        hideBanner();
       } catch (error) {
-        showBanner(error.message || "Unable to load the admin control center.", "error");
+        showBanner(error.message || "Unable to load the Admin Panel.", "error");
       }
     }
 
