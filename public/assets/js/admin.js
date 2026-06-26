@@ -1389,6 +1389,19 @@
       }, 4200);
     }
 
+    function formatApiErrorMessage(payload, fallbackMessage = "Request failed.") {
+      const message = payload && payload.message ? payload.message : fallbackMessage;
+      const details = Array.isArray(payload && payload.details)
+        ? payload.details.filter(Boolean)
+        : [];
+
+      if (!details.length) {
+        return message;
+      }
+
+      return `${message} ${details.slice(0, 4).join(" ")}`;
+    }
+
     async function apiFetch(path, options = {}) {
       const token = getToken();
       if (!token) {
@@ -1419,7 +1432,7 @@
       }
 
       if (!response.ok) {
-        throw new Error(payload.message || "Request failed.");
+        throw new Error(formatApiErrorMessage(payload));
       }
 
       return payload;
@@ -6011,13 +6024,17 @@
           }
 
           try {
-            await apiFetch(mode === "create" ? "/api/admin/sales-executives" : `/api/admin/sales-executives/${executiveId}`, {
+            const result = await apiFetch(mode === "create" ? "/api/admin/sales-executives" : `/api/admin/sales-executives/${executiveId}`, {
               method: mode === "create" ? "POST" : "PATCH",
               body: JSON.stringify(payload)
             });
             await refreshAllData();
             closeDrawer();
-            showToast(mode === "create" ? "Sales executive created" : "Sales executive saved", "Sales executive records were updated successfully.");
+            const savedExecutive = result.salesExecutive || {};
+            const loginMessage = savedExecutive.loginEnabled
+              ? "Employee profile was saved and login is active."
+              : "Employee profile was saved. Login stays disabled until an email, password, and Active status are saved.";
+            showToast(mode === "create" ? "Sales executive created" : "Sales executive saved", loginMessage);
           } catch (error) {
             showBanner(error.message || "Unable to save the sales executive.", "error");
           }

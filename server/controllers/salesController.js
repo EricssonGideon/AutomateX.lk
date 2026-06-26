@@ -594,6 +594,55 @@ function normalizeEmployeePassword(value) {
   return password.length >= 8 && password.length <= 128 ? password : "";
 }
 
+function employeeUserStatusForSalesStatus(status) {
+  if (status === "Active") {
+    return "active";
+  }
+
+  return status === "Suspended" ? "suspended" : "inactive";
+}
+
+function getPersistenceErrorDetails(error, fallbackMessage = "Unable to save the sales executive right now.") {
+  if (!error) {
+    return { statusCode: 500, message: fallbackMessage, details: [] };
+  }
+
+  if (error.code === 11000) {
+    const fields = Object.keys(error.keyPattern || error.keyValue || {});
+    const details = [];
+
+    if (fields.includes("email")) {
+      details.push("A user account with this employee email already exists.");
+    }
+    if (fields.includes("phone")) {
+      details.push("A sales executive with this phone number already exists.");
+    }
+    if (!details.length) {
+      details.push("A duplicate record already exists for this employee.");
+    }
+
+    return {
+      statusCode: 409,
+      message: "Please fix the sales executive form and try again.",
+      details
+    };
+  }
+
+  if (error.name === "ValidationError") {
+    const details = Object.values(error.errors || {})
+      .map((validationError) => validationError.message)
+      .filter(Boolean);
+
+    return {
+      statusCode: 400,
+      message: "Please fix the sales executive form and try again.",
+      details
+    };
+  }
+
+  return { statusCode: 500, message: fallbackMessage, details: [] };
+}
+
 async function validateEmployeeAccountRequest(payload, body = {}, currentUserId = null) {
   const errors = [];
   const email = normalizeEmailAddress(payload && payload.email);
@@ -640,7 +689,7 @@ async function syncEmployeeUserAccount(executive, body = {}) {
       email,
       passwordHash: await bcrypt.hash(requestedPassword, SALT_ROUNDS),
       role: "employee",
-      status: executive.status === "Active" ? "active" : "inactive",
+      status: employeeUserStatusForSalesStatus(executive.status),
       isActive: executive.status === "Active",
       plan: "not_assigned",
       accountStatus: "active",
@@ -655,7 +704,7 @@ async function syncEmployeeUserAccount(executive, body = {}) {
     }
   }
 
-  user.status = executive.status === "Active" ? "active" : "inactive";
+  user.status = employeeUserStatusForSalesStatus(executive.status);
   user.isActive = executive.status === "Active";
   await user.save();
 
@@ -744,8 +793,18 @@ async function createAdminSalesExecutive(req, res) {
       createdBy: req.user.id,
       updatedBy: req.user.id
     });
-    const accountSync = await syncEmployeeUserAccount(executive, req.body);
+
+    let accountSync;
+    try {
+      accountSync = await syncEmployeeUserAccount(executive, req.body);
+    } catch (error) {
+      await SalesExecutive.deleteOne({ _id: executive._id });
+      const formattedError = getPersistenceErrorDetails(error, "Employee profile was not created because login setup failed.");
+      return sendError(res, formattedError.statusCode, formattedError.message, formattedError.details);
+    }
+
     if (accountSync.errors.length) {
+      await SalesExecutive.deleteOne({ _id: executive._id });
       return sendError(res, 400, "Sales profile was created, but employee login could not be enabled.", accountSync.errors);
     }
     if (accountSync.userId) {
@@ -766,8 +825,9 @@ async function createAdminSalesExecutive(req, res) {
       message: "Sales executive created successfully.",
       salesExecutive: serializeSalesExecutive(executive.toObject(), { includeSensitiveFields: true })
     });
-  } catch {
-    return sendError(res, 500, "Unable to create the sales executive right now.");
+  } catch (error) {
+    const formattedError = getPersistenceErrorDetails(error, "Unable to create the sales executive right now.");
+    return sendError(res, formattedError.statusCode, formattedError.message, formattedError.details);
   }
 }
 
@@ -812,7 +872,14 @@ async function updateAdminSalesExecutive(req, res) {
     }
 
     Object.assign(executive, payload, { updatedBy: req.user.id });
-    const accountSync = await syncEmployeeUserAccount(executive, req.body);
+    let accountSync;
+    try {
+      accountSync = await syncEmployeeUserAccount(executive, req.body);
+    } catch (error) {
+      const formattedError = getPersistenceErrorDetails(error, "Employee login could not be updated.");
+      return sendError(res, formattedError.statusCode, formattedError.message, formattedError.details);
+    }
+
     if (accountSync.errors.length) {
       return sendError(res, 400, "Employee login could not be updated.", accountSync.errors);
     }
@@ -835,8 +902,9 @@ async function updateAdminSalesExecutive(req, res) {
       message: "Sales executive updated successfully.",
       salesExecutive: serializeSalesExecutive(executive.toObject(), { includeSensitiveFields: true })
     });
-  } catch {
-    return sendError(res, 500, "Unable to update the sales executive right now.");
+  } catch (error) {
+    const formattedError = getPersistenceErrorDetails(error, "Unable to update the sales executive right now.");
+    return sendError(res, formattedError.statusCode, formattedError.message, formattedError.details);
   }
 }
 
