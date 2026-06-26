@@ -13,6 +13,11 @@ const Lead = require("../models/Lead");
 const Commission = require("../models/Commission");
 const SalesExecutive = require("../models/SalesExecutive");
 const AuditLog = require("../models/AuditLog");
+const Expense = require("../models/Expense");
+const {
+  EXPENSE_CATEGORIES,
+  EXPENSE_PAYMENT_METHODS
+} = require("../models/Expense");
 const {
   OFFICIAL_ADMIN_EMAIL,
   isOfficialAdminEmail,
@@ -52,6 +57,8 @@ const {
   normalizeInvoiceStatus,
   normalizeInvoiceType,
   normalizeInvoicePaymentMethod,
+  normalizeInvoiceModelPackage,
+  normalizeOverallDiscountType,
   calculateInvoiceTotals,
   resolveInvoiceStatus,
   statusToPaymentStatus,
@@ -90,6 +97,20 @@ const CLIENT_BASE_QUERY = {
 };
 const REPORT_ACTIVITY_LIMIT = 5;
 const REPORT_PACKAGE_KEYS = ["starter", "standard", "pro", "custom", "not_assigned"];
+
+function getDayRange(value = new Date()) {
+  const date = new Date(value);
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  return { start, end };
+}
+
+function getCurrentYearRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const end = new Date(now.getFullYear() + 1, 0, 1);
+  return { start, end };
+}
 
 function getCurrentMonthRange() {
   const now = new Date();
@@ -137,6 +158,210 @@ function isDateWithinRange(value, start, end) {
   return timestamp >= start.getTime() && timestamp < end.getTime();
 }
 
+function normalizeExpenseText(value, maxLength = 500) {
+  return String(value || "").trim().slice(0, maxLength);
+}
+
+function normalizeExpenseDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function normalizeExpenseCategory(value) {
+  const normalized = String(value || "").trim();
+  return EXPENSE_CATEGORIES.includes(normalized) ? normalized : "";
+}
+
+function normalizeExpensePaymentMethod(value) {
+  const normalized = String(value || "").trim();
+  return EXPENSE_PAYMENT_METHODS.includes(normalized) ? normalized : "Cash";
+}
+
+function serializeExpense(expense) {
+  return {
+    id: String(expense._id || expense.id || ""),
+    expenseDate: expense.expenseDate || null,
+    title: expense.title || "",
+    category: expense.category || "Other",
+    amount: normalizeMoney(expense.amount),
+    paymentMethod: expense.paymentMethod || "Cash",
+    notes: expense.notes || "",
+    createdAt: expense.createdAt || null,
+    updatedAt: expense.updatedAt || null
+  };
+}
+
+function buildExpenseMutationPayload(body = {}, currentExpense = null) {
+  const hasOwn = (key) => Object.prototype.hasOwnProperty.call(body || {}, key);
+  const expenseDate = normalizeExpenseDate(
+    hasOwn("expenseDate") ? body.expenseDate : currentExpense && currentExpense.expenseDate
+  );
+  const title = normalizeExpenseText(
+    hasOwn("title") ? body.title : currentExpense && currentExpense.title,
+    180
+  );
+  const category = normalizeExpenseCategory(
+    hasOwn("category") ? body.category : currentExpense && currentExpense.category
+  );
+  const amount = normalizeMoney(hasOwn("amount") ? body.amount : currentExpense && currentExpense.amount);
+  const paymentMethod = normalizeExpensePaymentMethod(
+    hasOwn("paymentMethod") ? body.paymentMethod : currentExpense && currentExpense.paymentMethod
+  );
+  const notes = normalizeExpenseText(
+    hasOwn("notes") ? body.notes : currentExpense && currentExpense.notes,
+    2000
+  );
+
+  if (!expenseDate) {
+    return { error: "Select expense date." };
+  }
+
+  if (!title) {
+    return { error: "Enter expense title." };
+  }
+
+  if (!category) {
+    return { error: "Select an expense category." };
+  }
+
+  if (amount <= 0) {
+    return { error: "Enter a valid expense amount." };
+  }
+
+  return {
+    expenseDate,
+    title,
+    category,
+    amount,
+    paymentMethod,
+    notes
+  };
+}
+
+function buildExpenseSummaries(expenses = []) {
+  const todayRange = getDayRange();
+  const monthRange = getCurrentMonthRange();
+  const yearRange = getCurrentYearRange();
+  const total = sumMoney(expenses, "amount");
+  const today = sumMoney(expenses.filter((expense) => inReportRange(expense.expenseDate || expense.createdAt, todayRange)), "amount");
+  const month = sumMoney(expenses.filter((expense) => inReportRange(expense.expenseDate || expense.createdAt, monthRange)), "amount");
+  const year = sumMoney(expenses.filter((expense) => inReportRange(expense.expenseDate || expense.createdAt, yearRange)), "amount");
+
+  return {
+    today,
+    month,
+    year,
+    total,
+    count: expenses.length
+  };
+}
+
+function sumPaidIncomeInRange(invoices = [], range) {
+  return sumMoney(
+    invoices
+      .filter((invoice) => invoice.status !== "cancelled")
+      .filter((invoice) => inReportRange(invoice.paidDate || (invoice.status === "paid" ? invoice.updatedAt : null), range)),
+    "paidAmount"
+  );
+}
+
+function sumExpensesInRange(expenses = [], range) {
+  return sumMoney(
+    expenses.filter((expense) => inReportRange(expense.expenseDate || expense.createdAt, range)),
+    "amount"
+  );
+}
+
+function calculateProfit(income, expenses) {
+  return roundMoney(normalizeMoney(income) - normalizeMoney(expenses));
+}
+
+function calculateProfitMargin(income, profit) {
+  const normalizedIncome = normalizeMoney(income);
+  if (normalizedIncome <= 0) {
+    return 0;
+  }
+
+  return Number(((normalizeMoney(profit) / normalizedIncome) * 100).toFixed(1));
+}
+
+function buildFinancialPeriod(label, range, invoices = [], expenses = [], breakdown = []) {
+  const income = sumPaidIncomeInRange(invoices, range);
+  const expenseTotal = sumExpensesInRange(expenses, range);
+  const profit = calculateProfit(income, expenseTotal);
+
+  return {
+    label,
+    range: {
+      startDate: range.start.toISOString(),
+      endDate: new Date(range.end.getTime() - 1).toISOString()
+    },
+    income,
+    expenses: expenseTotal,
+    profit,
+    profitMargin: calculateProfitMargin(income, profit),
+    breakdown
+  };
+}
+
+function buildDailyBreakdown(invoices = [], expenses = [], monthRange = getCurrentMonthRange()) {
+  const days = [];
+  for (let cursor = new Date(monthRange.start); cursor < monthRange.end; cursor.setDate(cursor.getDate() + 1)) {
+    const dayRange = getDayRange(cursor);
+    const label = formatLocalDateKey(dayRange.start);
+    const income = sumPaidIncomeInRange(invoices, dayRange);
+    const expenseTotal = sumExpensesInRange(expenses, dayRange);
+    days.push({
+      label,
+      income,
+      expenses: expenseTotal,
+      profit: calculateProfit(income, expenseTotal)
+    });
+  }
+
+  return days;
+}
+
+function buildMonthlyBreakdown(invoices = [], expenses = [], yearRange = getCurrentYearRange()) {
+  const months = [];
+  for (let monthIndex = 0; monthIndex < 12; monthIndex += 1) {
+    const monthStart = new Date(yearRange.start.getFullYear(), monthIndex, 1);
+    const monthEnd = new Date(yearRange.start.getFullYear(), monthIndex + 1, 1);
+    const range = { start: monthStart, end: monthEnd };
+    const label = formatLocalMonthKey(monthStart);
+    const income = sumPaidIncomeInRange(invoices, range);
+    const expenseTotal = sumExpensesInRange(expenses, range);
+    months.push({
+      label,
+      income,
+      expenses: expenseTotal,
+      profit: calculateProfit(income, expenseTotal)
+    });
+  }
+
+  return months;
+}
+
+function buildFinancialSummary(invoices = [], expenses = []) {
+  const todayRange = getDayRange();
+  const monthRange = getCurrentMonthRange();
+  const yearRange = getCurrentYearRange();
+
+  return {
+    daily: buildFinancialPeriod("Today", todayRange, invoices, expenses),
+    monthly: buildFinancialPeriod("This Month", monthRange, invoices, expenses, buildDailyBreakdown(invoices, expenses, monthRange)),
+    yearly: buildFinancialPeriod("This Year", yearRange, invoices, expenses, buildMonthlyBreakdown(invoices, expenses, yearRange))
+  };
+}
+
 function createPackageAccumulator() {
   return REPORT_PACKAGE_KEYS.reduce((accumulator, plan) => {
     accumulator[plan] = 0;
@@ -172,6 +397,28 @@ function formatCsvDateTime(value) {
   }
 
   return new Date(timestamp).toISOString();
+}
+
+function formatLocalDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function formatLocalMonthKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function escapeCsvCell(value) {
@@ -340,6 +587,7 @@ function buildInvoiceAnalytics(invoices) {
 function buildReportSummaryPayload({
   clients,
   invoices,
+  expenses = [],
   requests,
   recentBookings,
   recentInquiries,
@@ -379,6 +627,8 @@ function buildReportSummaryPayload({
   });
 
   const invoiceAnalytics = buildInvoiceAnalytics(invoices);
+  const expenseSummary = buildExpenseSummaries(expenses);
+  const financialSummary = buildFinancialSummary(invoices, expenses);
   const revenue = invoices.reduce((totals, invoice) => {
     if (invoice.status === "cancelled") {
       return totals;
@@ -494,6 +744,8 @@ function buildReportSummaryPayload({
   return {
     generatedAt: new Date().toISOString(),
     revenue,
+    expenses: expenseSummary,
+    financial: financialSummary,
     clients: {
       totalClients: clients.length,
       activeClients,
@@ -720,6 +972,7 @@ async function loadReportData() {
     clients,
     projects,
     invoices,
+    expenses,
     maintenancePlans,
     leads,
     commissions,
@@ -729,6 +982,7 @@ async function loadReportData() {
     User.find(CLIENT_BASE_QUERY).lean(),
     Project.find({ isArchived: false }).lean(),
     Invoice.find({}).lean(),
+    Expense.find({}).lean(),
     MaintenancePlan.find({}).lean(),
     Lead.find({ isArchived: false }).lean(),
     Commission.find({}).lean(),
@@ -742,6 +996,7 @@ async function loadReportData() {
     clients: clients.map(serializeAdminClient).filter((client) => client.role === "client"),
     projects,
     invoices,
+    expenses,
     maintenancePlans,
     leads,
     commissions,
@@ -907,6 +1162,8 @@ function buildSupportReport(data, range) {
 
 function buildBusinessOverviewReport(data, range) {
   const revenue = buildRevenueReport(data, range);
+  const expenseSummary = buildExpenseSummaries(data.expenses);
+  const financial = buildFinancialSummary(data.invoices, data.expenses);
   const projects = buildProjectReport(data, range);
   const invoices = buildInvoiceReport(data, range);
   const sales = buildSalesReport(data, range);
@@ -927,6 +1184,9 @@ function buildBusinessOverviewReport(data, range) {
       overdueInvoices: invoices.totals.overdueInvoices,
       monthlyRevenue: revenue.totalInvoiced,
       monthlyPaidAmount: revenue.totalPaid,
+      monthlyExpenses: expenseSummary.month,
+      monthlyProfit: financial.monthly.profit,
+      monthlyProfitMargin: financial.monthly.profitMargin,
       monthlyPendingBalance: revenue.totalPending,
       pendingCommission: sales.pendingCommissionAmount,
       paidCommissionThisMonth: sales.paidCommissionAmount,
@@ -937,6 +1197,8 @@ function buildBusinessOverviewReport(data, range) {
       openSupportRequests: support.openRequests
     },
     revenue,
+    expenses: expenseSummary,
+    financial,
     projects,
     invoices,
     sales,
@@ -1002,8 +1264,19 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
   const issueDate = normalizeInvoiceDate(
     hasOwn("issueDate") ? body.issueDate : currentInvoice && currentInvoice.issueDate
   ) || (currentInvoice && currentInvoice.issueDate) || new Date();
+  const rawItems = hasOwn("items") ? body.items : currentInvoice && currentInvoice.items;
+  const overallDiscountType = normalizeOverallDiscountType(
+    hasOwn("overallDiscountType")
+      ? body.overallDiscountType
+      : currentInvoice && currentInvoice.overallDiscountType
+  );
+  const overallDiscountValue = hasOwn("overallDiscountValue")
+    ? body.overallDiscountValue
+    : currentInvoice && (typeof currentInvoice.overallDiscountValue !== "undefined"
+      ? currentInvoice.overallDiscountValue
+      : currentInvoice.discount);
   const totals = calculateInvoiceTotals({
-    items: hasOwn("items") ? body.items : currentInvoice && currentInvoice.items,
+    items: rawItems,
     discount: hasOwn("discount") ? body.discount : currentInvoice && currentInvoice.discount,
     tax: hasOwn("tax")
       ? body.tax
@@ -1011,15 +1284,61 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
         ? currentInvoice.tax
         : undefined,
     taxRate: !currentInvoice && !hasOwn("tax") ? options.defaultTaxRate : undefined,
-    paidAmount: hasOwn("paidAmount") ? body.paidAmount : currentInvoice && currentInvoice.paidAmount
+    paidAmount: hasOwn("paidAmount") ? body.paidAmount : currentInvoice && currentInvoice.paidAmount,
+    overallDiscountType,
+    overallDiscountValue
   });
 
   if (!title) {
     return { error: "Invoice title is required." };
   }
 
+  if (!Array.isArray(rawItems) || !rawItems.length) {
+    return { error: "Add at least one invoice item before saving." };
+  }
+
+  for (const item of rawItems) {
+    const itemName = normalizeInvoiceText(item && (item.name || item.description), 200);
+    const quantity = Number(item && item.quantity);
+    const unitPrice = Number(item && item.unitPrice);
+    const itemDiscount = Number(item && (item.itemDiscount ?? item.lineDiscount ?? item.discount ?? 0));
+    const lineSubtotal = (Number.isFinite(quantity) ? quantity : 0) * (Number.isFinite(unitPrice) ? unitPrice : 0);
+
+    if (!itemName) {
+      return { error: "Item name is required." };
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return { error: "Quantity must be greater than 0." };
+    }
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      return { error: "Unit price cannot be negative." };
+    }
+    if (!Number.isFinite(itemDiscount) || itemDiscount < 0) {
+      return { error: "Discount cannot be negative." };
+    }
+    if (roundMoney(itemDiscount) > roundMoney(lineSubtotal)) {
+      return { error: "Discount cannot exceed line subtotal." };
+    }
+  }
+
   if (!totals.items.length) {
     return { error: "Add at least one invoice item before saving." };
+  }
+
+  if (dueDate && issueDate && dueDate.getTime() < issueDate.getTime()) {
+    return { error: "Due date should not be before issue date." };
+  }
+
+  if (Number(hasOwn("paidAmount") ? body.paidAmount : currentInvoice && currentInvoice.paidAmount) < 0) {
+    return { error: "Paid amount cannot be negative." };
+  }
+
+  if (overallDiscountType === "percentage" && normalizeMoney(overallDiscountValue) > 100) {
+    return { error: "Overall discount cannot exceed subtotal." };
+  }
+
+  if (overallDiscountType === "fixed" && normalizeMoney(overallDiscountValue) > totals.subtotal) {
+    return { error: "Overall discount cannot exceed subtotal." };
   }
 
   if (totals.paidAmount > totals.totalAmount) {
@@ -1053,9 +1372,16 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
     title,
     description,
     items: totals.items,
+    lineItems: totals.items,
+    subtotalBeforeItemDiscounts: totals.subtotalBeforeItemDiscounts,
+    itemDiscountTotal: totals.itemDiscountTotal,
     subtotal: totals.subtotal,
     discount: totals.discount,
+    overallDiscountType: totals.overallDiscountType,
+    overallDiscountValue: totals.overallDiscountValue,
+    overallDiscount: totals.overallDiscount,
     tax: totals.tax,
+    taxAmount: totals.taxAmount,
     totalAmount: totals.totalAmount,
     paidAmount: totals.paidAmount,
     balance: totals.balance,
@@ -1069,6 +1395,8 @@ function buildInvoiceMutationPayload(body, currentInvoice = null, options = {}) 
     paymentNotes,
     paymentMethod: normalizeInvoicePaymentMethod(hasOwn("paymentMethod") ? body.paymentMethod : currentInvoice && currentInvoice.paymentMethod),
     invoiceType: normalizeInvoiceType(hasOwn("invoiceType") ? body.invoiceType : currentInvoice && currentInvoice.invoiceType),
+    modelPackage: normalizeInvoiceModelPackage(hasOwn("modelPackage") ? body.modelPackage : currentInvoice && currentInvoice.modelPackage),
+    customModelPackage: normalizeInvoiceText(hasOwn("customModelPackage") ? body.customModelPackage : currentInvoice && currentInvoice.customModelPackage, 120),
     paymentStatus: statusToPaymentStatus(status),
     status
   };
@@ -1338,7 +1666,8 @@ async function getStats(_req, res) {
       activeEmployees,
       inactiveEmployees,
       suspendedEmployees,
-      clientRecords
+      clientRecords,
+      expenses
     ] = await Promise.all([
       User.countDocuments(CLIENT_BASE_QUERY),
       User.countDocuments(activeAccountQuery),
@@ -1357,7 +1686,8 @@ async function getStats(_req, res) {
       User.find(
         CLIENT_BASE_QUERY,
         { plan: 1, monthlyFee: 1, accountStatus: 1, paymentStatus: 1, nextPaymentDate: 1, isActive: 1 }
-      ).lean()
+      ).lean(),
+      Expense.find({}).lean()
     ]);
 
     const activePackages = {
@@ -1370,6 +1700,7 @@ async function getStats(_req, res) {
     let overdueClients = 0;
     let paidClients = 0;
     let unpaidClients = 0;
+    const expenseSummary = buildExpenseSummaries(expenses);
 
     clientRecords.forEach((client) => {
       const plan = normalizePlan(client.plan);
@@ -1412,6 +1743,7 @@ async function getStats(_req, res) {
       inactiveEmployees,
       suspendedEmployees,
       monthlyRevenueEstimate: estimateMonthlyRevenue(clientRecords.filter((client) => resolveAccountStatus(client) === "active")),
+      expenseSummary,
       unpaidMonthlyFees,
       overdueClients,
       paidClients,
@@ -1685,6 +2017,175 @@ async function updateAdminSettings(req, res) {
   }
 }
 
+async function getExpenses(req, res) {
+  try {
+    const match = {};
+    const searchPattern = buildSearchRegex(req.query.search);
+
+    if (searchPattern) {
+      match.$or = [
+        { title: searchPattern },
+        { category: searchPattern },
+        { paymentMethod: searchPattern },
+        { notes: searchPattern }
+      ];
+    }
+
+    if (req.query.category && EXPENSE_CATEGORIES.includes(String(req.query.category))) {
+      match.category = String(req.query.category);
+    }
+
+    if (req.query.paymentMethod && EXPENSE_PAYMENT_METHODS.includes(String(req.query.paymentMethod))) {
+      match.paymentMethod = String(req.query.paymentMethod);
+    }
+
+    const expenses = await Expense.find(match).sort({ expenseDate: -1, createdAt: -1 }).lean();
+    return sendSuccess(res, 200, {
+      expenses: expenses.map(serializeExpense),
+      summary: buildExpenseSummaries(expenses),
+      options: {
+        categories: EXPENSE_CATEGORIES,
+        paymentMethods: EXPENSE_PAYMENT_METHODS
+      }
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to load expenses right now.");
+  }
+}
+
+async function createExpense(req, res) {
+  try {
+    const payload = buildExpenseMutationPayload(req.body || {});
+    if (payload.error) {
+      return sendError(res, 400, payload.error);
+    }
+
+    const expense = new Expense({
+      ...payload,
+      createdBy: req.user && req.user.id,
+      updatedBy: req.user && req.user.id
+    });
+    await expense.save();
+
+    await logAdminAction(req, {
+      module: "Expenses",
+      action: "expenses.created",
+      targetType: "Expense",
+      targetId: String(expense._id),
+      targetLabel: expense.title,
+      newValue: serializeExpense(expense),
+      severity: "Medium"
+    });
+
+    return sendSuccess(res, 201, {
+      message: "Expense saved successfully.",
+      expense: serializeExpense(expense)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to save the expense right now.");
+  }
+}
+
+async function updateExpense(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "This expense could not be found.");
+    }
+
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return sendError(res, 404, "This expense could not be found.");
+    }
+
+    const payload = buildExpenseMutationPayload(req.body || {}, expense);
+    if (payload.error) {
+      return sendError(res, 400, payload.error);
+    }
+
+    const oldValue = serializeExpense(expense);
+    Object.assign(expense, payload, {
+      updatedBy: req.user && req.user.id
+    });
+    await expense.save();
+
+    await logAdminAction(req, {
+      module: "Expenses",
+      action: "expenses.updated",
+      targetType: "Expense",
+      targetId: String(expense._id),
+      targetLabel: expense.title,
+      oldValue,
+      newValue: serializeExpense(expense),
+      severity: "Medium"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "Expense updated successfully.",
+      expense: serializeExpense(expense)
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to update the expense right now.");
+  }
+}
+
+async function deleteExpense(req, res) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return sendError(res, 400, "This expense could not be found.");
+    }
+
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) {
+      return sendError(res, 404, "This expense could not be found.");
+    }
+
+    const oldValue = serializeExpense(expense);
+    await Expense.deleteOne({ _id: expense._id });
+
+    await logAdminAction(req, {
+      module: "Expenses",
+      action: "expenses.deleted",
+      targetType: "Expense",
+      targetId: String(expense._id),
+      targetLabel: expense.title,
+      oldValue,
+      severity: "High"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "Expense deleted successfully."
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to delete the expense right now.");
+  }
+}
+
+async function clearTestExpenses(req, res) {
+  try {
+    const expenses = await Expense.find({}).lean();
+    const result = await Expense.deleteMany({});
+
+    await logAdminAction(req, {
+      module: "Expenses",
+      action: "expenses.cleared",
+      targetType: "Expense",
+      targetLabel: "All expense records",
+      oldValue: {
+        count: expenses.length,
+        totalAmount: sumMoney(expenses, "amount")
+      },
+      severity: "High"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "Expense records cleared successfully.",
+      deletedCount: result.deletedCount || 0
+    });
+  } catch (_error) {
+    return sendError(res, 500, "Unable to clear expenses right now.");
+  }
+}
+
 async function getReportsOverview(req, res) {
   try {
     const payload = await getBusinessReportPayload(req, res);
@@ -1805,6 +2306,7 @@ async function getReportsSummary(_req, res) {
     const [
       clientRecords,
       invoiceRecords,
+      expenseRecords,
       requestRecords,
       bookingRecords,
       inquiryRecords,
@@ -1812,6 +2314,7 @@ async function getReportsSummary(_req, res) {
     ] = await Promise.all([
       User.find(CLIENT_BASE_QUERY).lean(),
       Invoice.find({}).lean(),
+      Expense.find({}).lean(),
       SupportRequest.find({}).lean(),
       Booking.find({}).sort({ createdAt: -1 }).limit(REPORT_ACTIVITY_LIMIT).lean(),
       Inquiry.find({}).sort({ createdAt: -1 }).limit(REPORT_ACTIVITY_LIMIT).lean(),
@@ -1822,6 +2325,7 @@ async function getReportsSummary(_req, res) {
       .map(serializeAdminClient)
       .filter((client) => client.role === "client");
     const invoices = invoiceRecords.map(serializeInvoice);
+    const expenses = expenseRecords.map(serializeExpense);
     const requests = requestRecords.map((request) => serializeSupportRequest(request, { includeAdminFields: true }));
     const activityClientIds = [...new Set(
       [...bookingRecords, ...inquiryRecords, ...reviewRecords]
@@ -1864,6 +2368,7 @@ async function getReportsSummary(_req, res) {
     return sendSuccess(res, 200, buildReportSummaryPayload({
       clients,
       invoices,
+      expenses,
       requests,
       recentBookings,
       recentInquiries,
@@ -2887,6 +3392,10 @@ async function getInvoices(req, res) {
 
 async function createInvoice(req, res) {
   try {
+    if (!req.body.clientId) {
+      return sendError(res, 400, "Client is required.");
+    }
+
     const client = await findInvoiceClient(req.body.clientId);
     if (!client) {
       return sendError(res, 404, "Select a valid client before creating an invoice.");
@@ -3115,7 +3624,9 @@ async function addInvoicePayment(req, res) {
       items: invoice.items,
       discount: invoice.discount,
       tax: invoice.tax,
-      paidAmount: nextPaidAmount
+      paidAmount: nextPaidAmount,
+      overallDiscountType: invoice.overallDiscountType,
+      overallDiscountValue: invoice.overallDiscountValue
     });
     const status = resolveInvoiceStatus({
       requestedStatus: invoice.status === "draft" ? "sent" : invoice.status,
@@ -3478,6 +3989,11 @@ module.exports = {
   deactivateAdminUser,
   getAdminSettings,
   updateAdminSettings,
+  getExpenses,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  clearTestExpenses,
   getReportsOverview,
   getReportsRevenue,
   getReportsProjects,

@@ -57,8 +57,42 @@
     const CLIENT_ACCOUNT_STATUS_OPTIONS = ["pending", "active", "suspended", "rejected"];
     const CLIENT_PAYMENT_STATUS_OPTIONS = ["pending", "paid", "overdue", "trial"];
     const INVOICE_STATUS_OPTIONS = ["draft", "sent", "partial", "paid", "overdue", "cancelled"];
-    const INVOICE_TYPE_OPTIONS = ["Project", "Maintenance", "Upgrade", "Custom"];
+    const INVOICE_TYPE_OPTIONS = [
+      "Full Payment Invoice",
+      "Advance / Partial Payment Invoice",
+      "Final Payment Invoice",
+      "Maintenance Invoice",
+      "Extra Features / Add-on Invoice",
+      "Custom Invoice"
+    ];
+    const LEGACY_INVOICE_TYPE_MAP = {
+      Project: "Full Payment Invoice",
+      Maintenance: "Maintenance Invoice",
+      Upgrade: "Extra Features / Add-on Invoice",
+      Custom: "Custom Invoice"
+    };
+    const INVOICE_MODEL_PACKAGE_OPTIONS = [
+      "Website Starter",
+      "Website Standard",
+      "Website Premium",
+      "POS Starter",
+      "POS Standard",
+      "POS Premium",
+      "Business System",
+      "Custom Software",
+      "Maintenance Plan",
+      "Extra Feature / Add-on",
+      "Custom"
+    ];
+    const INVOICE_ITEM_TYPE_OPTIONS = ["Main Package", "Extra Feature", "Service", "Maintenance", "Support", "Discount Adjustment", "Custom"];
+    const INVOICE_DISCOUNT_TYPE_OPTIONS = [
+      { value: "none", label: "None" },
+      { value: "fixed", label: "Fixed Amount" },
+      { value: "percentage", label: "Percentage" }
+    ];
     const INVOICE_PAYMENT_METHOD_OPTIONS = ["Cash", "Bank Transfer", "Online", "Card", "Other"];
+    const EXPENSE_CATEGORY_OPTIONS = ["Software", "Hosting", "Domain", "Ads / Marketing", "Travel", "Food / Meeting", "Office", "Salary / Commission", "Client Work", "Other"];
+    const EXPENSE_PAYMENT_METHOD_OPTIONS = ["Cash", "Bank Transfer", "Card", "Online", "Other"];
     const REQUEST_TYPE_OPTIONS = ["support", "upgrade", "bug", "feature", "payment", "general"];
     const REQUEST_STATUS_OPTIONS = ["open", "in_progress", "resolved", "rejected", "closed"];
     const REQUEST_PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"];
@@ -110,67 +144,71 @@
     const SECTION_META = {
       dashboard: {
         title: "Dashboard",
-        subtitle: "Review approvals, income, and platform activity from the Admin Panel."
+        subtitle: ""
       },
       clients: {
         title: "Clients",
-        subtitle: "Manage client accounts, package assignment, billing state, and operational readiness."
+        subtitle: ""
       },
       "pending-approvals": {
         title: "Pending Approvals",
-        subtitle: "Review waiting signups, assign the right package, and activate dashboard access professionally."
+        subtitle: ""
       },
       packages: {
         title: "Packages",
-        subtitle: "See how service tiers are distributed across the AutomateX client base."
+        subtitle: ""
       },
       invoices: {
         title: "Payments & Invoices",
-        subtitle: "Create invoices, track balances, and follow payment progress without changing the current payment-gateway setup."
+        subtitle: ""
       },
       payments: {
         title: "Payments",
-        subtitle: "Review unpaid balances, payment states, and expected recurring income across active accounts."
+        subtitle: ""
       },
       projects: {
         title: "Projects",
-        subtitle: "Manage AutomateX client projects, milestones, deliverables, deadlines, and payment progress."
+        subtitle: ""
+      },
+      expenses: {
+        title: "Expenses",
+        subtitle: ""
       },
       sales: {
         title: "Employees",
-        subtitle: "Manage employees, login access, lead approval, targets, and commission tracking."
+        subtitle: ""
       },
       bookings: {
         title: "Bookings",
-        subtitle: "Manage booking activity platform-wide without altering the public booking experience."
+        subtitle: ""
       },
       inquiries: {
         title: "Inquiries",
-        subtitle: "Track current inquiries, follow-up progress, and message volume across AutomateX."
+        subtitle: ""
       },
       reviews: {
         title: "Reviews",
-        subtitle: "Moderate customer reviews with clear visibility into the connected client business."
+        subtitle: ""
       },
       support: {
         title: "Support Requests",
-        subtitle: "Manage support, upgrade, bug, feature, and payment requests from active AutomateX clients."
+        subtitle: ""
       },
       reports: {
         title: "Reports",
-        subtitle: "Review income, clients, packages, and support, then download CSV reports from the Admin Panel."
+        subtitle: ""
       },
       users: {
         title: "Users & Roles",
-        subtitle: "Manage admin, manager, staff, and client access without exposing passwords or authentication secrets."
+        subtitle: ""
       },
       "audit-logs": {
         title: "Audit Logs",
-        subtitle: "Review protected admin activity, severity, actor details, target records, IP addresses, and before/after summaries."
+        subtitle: ""
       },
       settings: {
         title: "Settings",
-        subtitle: "Manage AutomateX business defaults, billing settings, support contacts, and Admin Panel preferences."
+        subtitle: ""
       }
     };
     const state = {
@@ -182,6 +220,7 @@
       reportOverview: null,
       allClients: [],
       allInvoices: [],
+      allExpenses: [],
       allProjects: [],
       allMaintenancePlans: [],
       allSalesExecutives: [],
@@ -194,6 +233,7 @@
       allReviews: [],
       allUsers: [],
       allAuditLogs: [],
+      reportChartPeriod: "daily",
       drawer: null
     };
     const ROLE_PERMISSION_MAP = {
@@ -204,6 +244,8 @@
         "reports:export",
         "clients:view",
         "clients:manage",
+        "expenses:view",
+        "expenses:manage",
         "invoices:view",
         "invoices:manage",
         "invoices:payment-update",
@@ -235,6 +277,7 @@
         "stats:view",
         "reports:view",
         "clients:view",
+        "expenses:view",
         "invoices:view",
         "bookings:view",
         "inquiries:view",
@@ -349,6 +392,10 @@
     function toNumber(value) {
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function roundCurrency(value) {
+      return Number(toNumber(value).toFixed(2));
     }
 
     function normalizeCurrencyCode(value, fallback = DEFAULT_APP_SETTINGS.defaultCurrency) {
@@ -889,6 +936,92 @@
           cancelled: 0
         }
       });
+    }
+
+    function getExpenseFilters() {
+      return {
+        search: String(document.getElementById("expenseSearch")?.value || "").trim().toLowerCase(),
+        category: document.getElementById("expenseCategoryFilter")?.value || "",
+        paymentMethod: document.getElementById("expensePaymentFilter")?.value || "",
+        month: String(document.getElementById("expenseMonthFilter")?.value || "").trim()
+      };
+    }
+
+    function getFilteredExpenses() {
+      const { search, category, paymentMethod, month } = getExpenseFilters();
+      const expenses = state.allExpenses.filter((expense) => {
+        if (category && expense.category !== category) {
+          return false;
+        }
+
+        if (paymentMethod && expense.paymentMethod !== paymentMethod) {
+          return false;
+        }
+
+        if (month) {
+          const expenseMonth = expense.expenseDate ? new Date(expense.expenseDate).toISOString().slice(0, 7) : "";
+          if (expenseMonth !== month) {
+            return false;
+          }
+        }
+
+        return matchesSearch([expense.title, expense.category, expense.paymentMethod, expense.notes], search);
+      });
+
+      expenses.sort((left, right) => {
+        const dateDelta = parseDateNumber(right.expenseDate) - parseDateNumber(left.expenseDate);
+        if (dateDelta !== 0) {
+          return dateDelta;
+        }
+
+        return parseDateNumber(right.createdAt) - parseDateNumber(left.createdAt);
+      });
+
+      return expenses;
+    }
+
+    function isDateInRange(value, start, end) {
+      const time = parseDateNumber(value);
+      return Boolean(time && time >= start.getTime() && time < end.getTime());
+    }
+
+    function getExpenseSummary(items = state.allExpenses) {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const yearStart = new Date(now.getFullYear(), 0, 1);
+      const nextYearStart = new Date(now.getFullYear() + 1, 0, 1);
+      const sum = (rows) => rows.reduce((total, expense) => total + toNumber(expense.amount), 0);
+
+      return {
+        today: sum(items.filter((expense) => isDateInRange(expense.expenseDate, todayStart, tomorrowStart))),
+        month: sum(items.filter((expense) => isDateInRange(expense.expenseDate, monthStart, nextMonthStart))),
+        year: sum(items.filter((expense) => isDateInRange(expense.expenseDate, yearStart, nextYearStart))),
+        total: sum(items),
+        count: items.length
+      };
+    }
+
+    function getCurrentFinancialReport() {
+      const financial = state.reportOverview?.financial || state.reportsSummary?.financial || {};
+      return financial[state.reportChartPeriod] || {
+        income: 0,
+        expenses: 0,
+        profit: 0,
+        profitMargin: 0,
+        breakdown: []
+      };
+    }
+
+    function formatProfitMargin(value, income = 0) {
+      if (toNumber(income) <= 0) {
+        return "No income yet";
+      }
+
+      const margin = toNumber(value);
+      return `${Number.isFinite(margin) ? margin.toFixed(1) : "0.0"}%`;
     }
 
     function getProjectFilters() {
@@ -1560,7 +1693,10 @@
       });
 
       document.getElementById("pageTitle").textContent = SECTION_META[sectionName].title;
-      document.getElementById("pageSubtitle").textContent = SECTION_META[sectionName].subtitle;
+      const pageSubtitle = document.getElementById("pageSubtitle");
+      const subtitle = SECTION_META[sectionName].subtitle || "";
+      pageSubtitle.textContent = subtitle;
+      pageSubtitle.hidden = !subtitle;
       closeSidebar();
     }
 
@@ -1601,6 +1737,10 @@
     function renderPreviewList(containerId, items, itemMarkup, emptyMessage) {
       const container = document.getElementById(containerId);
 
+      if (!container) {
+        return;
+      }
+
       if (!items.length) {
         container.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
         return;
@@ -1613,71 +1753,83 @@
       const requestAnalytics = getSupportRequestAnalytics();
       const stats = state.stats || {};
       const kpis = state.reportOverview && state.reportOverview.kpis ? state.reportOverview.kpis : {};
+      const monthlyFinancial = state.reportOverview?.financial?.monthly || state.reportsSummary?.financial?.monthly || {};
+      const expenseSummary = state.reportOverview?.expenses || state.reportsSummary?.expenses || stats.expenseSummary || getExpenseSummary();
       const cards = [
         {
           label: "Total Clients",
           value: String(kpis.totalClients ?? stats.totalClients ?? state.allClients.length ?? 0),
-          copy: "All client business records currently stored in AutomateX."
+          copy: "All clients"
         },
         {
           label: "Active Clients",
           value: String(kpis.activeClients ?? stats.activeClients ?? 0),
-          copy: "Live service accounts currently active on the platform."
+          copy: "Active accounts"
         },
         {
           label: "Total Employees",
           value: String(state.salesSummary?.totalEmployees ?? stats.totalEmployees ?? state.allSalesExecutives.length ?? 0),
-          copy: "Employee records currently saved in the admin system."
+          copy: "All employees"
         },
         {
           label: "Total Projects",
           value: String(kpis.totalProjects ?? state.allProjects.length ?? 0),
-          copy: "Non-archived AutomateX projects currently tracked."
+          copy: "All projects"
         },
         {
           label: "Active Projects",
           value: String(kpis.activeProjects ?? state.allProjects.filter((project) => !["Completed", "Cancelled", "On Hold"].includes(project.status)).length),
-          copy: "Projects actively moving through planning, build, testing, or client-waiting states."
+          copy: "In progress"
         },
         {
           label: "Completed Projects",
           value: String(kpis.completedProjects ?? state.allProjects.filter((project) => project.status === "Completed").length),
-          copy: "Projects marked completed across the workspace."
+          copy: "Completed work"
         },
         {
           label: "Monthly Income",
           value: formatInvoiceCurrency(kpis.monthlyRevenue || 0),
-          copy: "Invoice value issued in the active reports period."
+          copy: "Invoice value"
         },
         {
           label: "Monthly Paid",
           value: formatInvoiceCurrency(kpis.monthlyPaidAmount || 0),
-          copy: "Invoice payments recorded in the active reports period."
+          copy: "Paid invoices"
+        },
+        {
+          label: "This Month Expenses",
+          value: formatInvoiceCurrency(kpis.monthlyExpenses ?? expenseSummary.month ?? 0),
+          copy: "Company spending"
+        },
+        {
+          label: "This Month Profit",
+          value: formatInvoiceCurrency(kpis.monthlyProfit ?? monthlyFinancial.profit ?? 0),
+          copy: "Income - expenses"
         },
         {
           label: "Pending Balance",
           value: formatInvoiceCurrency(kpis.monthlyPendingBalance || 0),
-          copy: "Open invoice balance from the active reports period."
+          copy: "Unpaid balance"
         },
         {
           label: "Overdue Invoices",
           value: String(kpis.overdueInvoices ?? 0),
-          copy: "Invoices past due or marked overdue."
+          copy: "Past due"
         },
         {
           label: "Pending Commission",
           value: formatInvoiceCurrency(kpis.pendingCommission || 0),
-          copy: "Pending or approved sales commission not yet paid."
+          copy: "Unpaid commission"
         },
         {
           label: "Active Maintenance",
           value: String(kpis.activeMaintenancePlans ?? state.allMaintenancePlans.filter((plan) => plan.status === "Active").length),
-          copy: "Maintenance plans currently active."
+          copy: "Active plans"
         },
         {
           label: "Support Requests",
           value: String(kpis.openSupportRequests ?? requestAnalytics.totalRequests),
-          copy: "Open or in-progress client support workload."
+          copy: "Open support"
         }
       ];
 
@@ -1698,22 +1850,22 @@
         {
           label: "Expected monthly income",
           value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
-          hint: "Expected recurring income from active client packages."
+          hint: "Active package income."
         },
         {
           label: "Paid amount this month",
           value: "Not available",
-          hint: "Monthly payment-history totals are not returned by the current backend."
+          hint: "Use invoice payments."
         },
         {
           label: "Pending and unpaid income",
           value: formatCurrency(payment.pendingRevenue),
-          hint: "Estimated value tied to accounts marked pending or unpaid."
+          hint: "Pending accounts."
         },
         {
           label: "Overdue income",
           value: formatCurrency(payment.overdueRevenue),
-          hint: "Estimated value tied to accounts already marked overdue."
+          hint: "Overdue accounts."
         }
       ]);
     }
@@ -1964,7 +2116,7 @@
         {
           label: "Active package assignments",
           value: String(activePackageCount),
-          hint: "Clients currently active on a package according to the admin stats endpoint."
+          hint: "Active package clients."
         },
         {
           label: "Accounts without package",
@@ -2017,37 +2169,37 @@
         {
           label: "Total Invoices",
           value: String(analytics.totalInvoices),
-          copy: "Every manual invoice currently stored inside AutomateX."
+          copy: "All invoices"
         },
         {
           label: "Paid Invoices",
           value: String(analytics.paidInvoices),
-          copy: "Invoices whose balances are fully cleared."
+          copy: "Fully paid"
         },
         {
           label: "Pending Invoices",
           value: String(analytics.pendingInvoices),
-          copy: "Draft, sent, or partial invoices still waiting for full collection."
+          copy: "Needs follow-up"
         },
         {
           label: "Overdue Invoices",
           value: String(analytics.overdueInvoices),
-          copy: "Invoices with unpaid balances whose due dates have already passed."
+          copy: "Past due"
         },
         {
           label: "Total Invoice Value",
           value: formatInvoiceCurrency(analytics.totalValue),
-          copy: "Combined face value of all invoice records."
+          copy: "Invoice total"
         },
         {
           label: "Total Paid",
           value: formatInvoiceCurrency(analytics.totalPaid),
-          copy: "Collected value recorded across manual invoice payments."
+          copy: "Collected amount"
         },
         {
           label: "Total Balance",
           value: formatInvoiceCurrency(analytics.totalBalance),
-          copy: "Outstanding balance that still remains to be collected."
+          copy: "Amount due"
         }
       ].map((card) => `
         <article class="kpi-card">
@@ -2061,17 +2213,17 @@
         {
           label: "Outstanding balance",
           value: formatInvoiceCurrency(analytics.totalBalance),
-          hint: "The remaining value not yet collected from all invoice records."
+          hint: "Amount due."
         },
         {
           label: "Collected value",
           value: formatInvoiceCurrency(analytics.totalPaid),
-          hint: "Manual invoice payments recorded so far."
+          hint: "Collected amount."
         },
         {
           label: "Invoices awaiting collection",
           value: String(analytics.pendingInvoices + analytics.overdueInvoices),
-          hint: "Invoices still open and not fully paid."
+          hint: "Needs follow-up."
         }
       ]);
 
@@ -2079,22 +2231,22 @@
         {
           label: "Draft invoices",
           value: String(analytics.statusCounts.draft || 0),
-          hint: "Created but not yet sent to the client."
+          hint: "Not sent."
         },
         {
           label: "Sent invoices",
           value: String(analytics.statusCounts.sent || 0),
-          hint: "Waiting for payment with no partial payment recorded yet."
+          hint: "Awaiting payment."
         },
         {
           label: "Partial payments",
           value: String(analytics.statusCounts.partial || 0),
-          hint: "Invoices that have received some payment but still have balance left."
+          hint: "Partly paid."
         },
         {
           label: "Cancelled invoices",
           value: String(analytics.statusCounts.cancelled || 0),
-          hint: "Invoices that were cancelled instead of collected."
+          hint: "Cancelled."
         }
       ]);
 
@@ -2121,8 +2273,10 @@
           <td class="actions-cell">
             <div class="actions">
               <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="view">View</button>
+              <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="preview">Preview</button>
               ${canManageInvoices ? `<button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="edit">Edit</button>` : ""}
-              <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="download-pdf">PDF</button>
+              <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="download-pdf">Download PDF</button>
+              <button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="print">Print</button>
               ${canSendInvoices ? `<button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="send-email">Email</button>` : ""}
               ${canUpdateInvoicePayments && invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
                 ? `<button class="mini-button" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="add-payment">Add Payment</button>`
@@ -2150,22 +2304,22 @@
         {
           label: "Expected Income",
           value: formatCurrency(stats.monthlyRevenueEstimate ?? 0),
-          copy: "Expected recurring income from currently active client assignments."
+          copy: "Expected income"
         },
         {
           label: "Unpaid Income",
           value: formatCurrency(payment.pendingRevenue + payment.overdueRevenue),
-          copy: "Estimated pending, unpaid, and overdue value requiring follow-up."
+          copy: "Needs follow-up"
         },
         {
           label: "Overdue Income",
           value: formatCurrency(payment.overdueRevenue),
-          copy: "Estimated monthly value currently tied to overdue accounts."
+          copy: "Past due"
         },
         {
           label: "Paid Accounts",
           value: String(payment.paidAccounts),
-          copy: "Accounts marked paid in the current client state."
+          copy: "Paid accounts"
         }
       ].map((card) => `
         <article class="kpi-card is-wide">
@@ -2179,17 +2333,17 @@
         {
           label: "Pending or unpaid accounts",
           value: String(payment.pendingAccounts + payment.unpaidAccounts),
-          hint: "Accounts marked pending or unpaid and not yet overdue."
+          hint: "Not yet overdue."
         },
         {
           label: "Overdue accounts",
           value: String(payment.overdueAccounts),
-          hint: "Accounts already marked overdue by the admin payment state."
+          hint: "Past due."
         },
         {
           label: "Accounts with scheduled next payment",
           value: String(payment.scheduledPayments),
-          hint: "Clients that currently have a next payment date set."
+          hint: "Next payment set."
         }
       ]);
 
@@ -2197,17 +2351,17 @@
         {
           label: "Unpaid monthly fees",
           value: formatCurrency(stats.unpaidMonthlyFees ?? 0),
-          hint: "Outstanding monthly fees from the current admin stats endpoint."
+          hint: "Outstanding fees."
         },
         {
           label: "Paid this month",
           value: "Not available",
-          hint: "Monthly paid totals need invoice or payment-history backend support."
+          hint: "Use invoice payments."
         },
         {
           label: "Overdue follow-up",
           value: payment.overdueAccounts ? `${payment.overdueAccounts} accounts` : "Clear",
-          hint: "Use the client drawer to manage overdue account status and billing fields."
+          hint: "Review overdue accounts."
         }
       ]);
 
@@ -2244,32 +2398,32 @@
         {
           label: "Total Projects",
           value: String(analytics.totalProjects),
-          copy: "All active project records inside the Admin Panel."
+          copy: "All projects"
         },
         {
           label: "Active Delivery",
           value: String(analytics.activeProjects),
-          copy: "Projects currently moving through planning, build, testing, or client review."
+          copy: "In progress"
         },
         {
           label: "Completed",
           value: String(analytics.completedProjects),
-          copy: "Projects marked completed and ready for maintenance or renewal workflows later."
+          copy: "Completed work"
         },
         {
           label: "High Priority",
           value: String(analytics.highPriorityProjects),
-          copy: "Projects marked High or Urgent for admin attention."
+          copy: "High or urgent"
         },
         {
           label: "Average Progress",
           value: `${averageProgress}%`,
-          copy: "Average completion percentage across visible project records."
+          copy: "Average progress"
         },
         {
           label: "Open Balance",
           value: formatInvoiceCurrency(analytics.balanceAmount),
-          copy: "Unpaid balance across current project records."
+          copy: "Unpaid balance"
         }
       ].map((card) => `
         <article class="kpi-card">
@@ -2307,6 +2461,58 @@
           </td>
         </tr>
       `, "No projects found.");
+    }
+
+    function renderExpensesSection() {
+      const expenses = getFilteredExpenses();
+      const summary = getExpenseSummary();
+      const canManageExpenses = hasAdminPermission("expenses:manage");
+
+      document.getElementById("expensesKpiGrid").innerHTML = [
+        {
+          label: "Today Expenses",
+          value: formatInvoiceCurrency(summary.today),
+          copy: "Spending recorded today."
+        },
+        {
+          label: "This Month Expenses",
+          value: formatInvoiceCurrency(summary.month),
+          copy: "Spending recorded this month."
+        },
+        {
+          label: "This Year Expenses",
+          value: formatInvoiceCurrency(summary.year),
+          copy: "Spending recorded this year."
+        },
+        {
+          label: "Total Expenses",
+          value: formatInvoiceCurrency(summary.total),
+          copy: `${summary.count} expense records saved.`
+        }
+      ].map((card) => `
+        <article class="kpi-card is-wide">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
+        </article>
+      `).join("");
+
+      setTableState("expensesTableBody", "expensesEmptyState", expenses, (expense) => `
+        <tr>
+          <td>${renderTextValue(formatShortDate(expense.expenseDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(expense.expenseDate) })}</td>
+          <td>${renderTextValue(expense.title || "Expense", "text-ellipsis text-title")}</td>
+          <td><span class="${badgeClass(expense.category)}">${escapeHtml(expense.category || "Other")}</span></td>
+          <td>${renderTextValue(formatInvoiceCurrency(expense.amount || 0), "text-ellipsis text-money")}</td>
+          <td>${renderTextValue(expense.paymentMethod || "Cash", "text-ellipsis")}</td>
+          <td>${renderTextValue(expense.notes || "—", "text-note", { titleValue: expense.notes || "—" })}</td>
+          <td class="actions-cell">
+            <div class="actions">
+              ${canManageExpenses ? `<button class="mini-button" type="button" data-expense-id="${escapeHtml(expense.id)}" data-expense-action="edit">Edit</button>` : ""}
+              ${canManageExpenses ? `<button class="mini-button is-danger" type="button" data-expense-id="${escapeHtml(expense.id)}" data-expense-action="delete">Delete</button>` : ""}
+            </div>
+          </td>
+        </tr>
+      `, "No expenses match the current filters.");
     }
 
     function renderMaintenanceSection() {
@@ -2375,42 +2581,42 @@
         {
           label: "Active Employees",
           value: String(salesSummary.activeEmployees ?? salesSummary.activeSalesExecutives ?? 0),
-          copy: "Employees currently active and able to log in."
+          copy: "Active accounts"
         },
         {
           label: "Leads This Month",
           value: String(salesSummary.totalLeadsThisMonth || 0),
-          copy: "Employee-created and admin-created leads this month."
+          copy: "Monthly leads"
         },
         {
           label: "New Leads",
           value: String(salesSummary.newLeads || 0),
-          copy: "Leads still waiting for first contact."
+          copy: "Needs first contact"
         },
         {
           label: "Follow-up Leads",
           value: String(salesSummary.followUpLeads || 0),
-          copy: "Leads currently scheduled for follow-up."
+          copy: "Follow-up scheduled"
         },
         {
           label: "Confirmed Paid Clients",
           value: String(salesSummary.confirmedPaidClients || salesSummary.convertedLeads || 0),
-          copy: "Only admin-approved paid clients count toward target and commission."
+          copy: "Approved paid clients"
         },
         {
           label: "Pending Approval",
           value: String(salesSummary.pendingApprovalClients || 0),
-          copy: "Paid clients submitted by employees and waiting for admin confirmation."
+          copy: "Awaiting approval"
         },
         {
           label: "Pending Commission",
           value: formatInvoiceCurrency(salesSummary.pendingCommission || 0),
-          copy: "Pending or approved commissions not yet marked paid."
+          copy: "Unpaid commission"
         },
         {
           label: "Paid This Month",
           value: formatInvoiceCurrency(salesSummary.paidCommissionThisMonth || 0),
-          copy: "Commissions paid in the active summary month."
+          copy: "Paid commission"
         }
       ].map((card) => `
         <article class="kpi-card">
@@ -2801,6 +3007,93 @@
       }).join("");
     }
 
+    function renderFinancialReportCharts() {
+      const report = getCurrentFinancialReport();
+      const income = toNumber(report.income);
+      const expenses = toNumber(report.expenses);
+      const profit = toNumber(report.profit);
+      const positiveProfit = Math.max(profit, 0);
+      const maxValue = Math.max(income, expenses, Math.abs(profit), 1);
+      const totalForDonut = Math.max(income + expenses + positiveProfit, 1);
+      const incomeDeg = (income / totalForDonut) * 360;
+      const expenseDeg = (expenses / totalForDonut) * 360;
+      const profitDeg = (positiveProfit / totalForDonut) * 360;
+      const donut = document.getElementById("financialDonutChart");
+
+      document.querySelectorAll("[data-financial-period]").forEach((button) => {
+        const isActive = button.dataset.financialPeriod === state.reportChartPeriod;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-selected", String(isActive));
+      });
+
+      document.getElementById("financialReportKpiGrid").innerHTML = [
+        { label: "Income", value: formatInvoiceCurrency(income), copy: report.label || "" },
+        { label: "Expenses", value: formatInvoiceCurrency(expenses), copy: "Recorded spending." },
+        { label: "Profit", value: formatInvoiceCurrency(profit), copy: "Income minus expenses." },
+        { label: "Profit Margin", value: formatProfitMargin(report.profitMargin, income), copy: "Profit / income." }
+      ].map((card) => `
+        <article class="kpi-card is-wide">
+          <div class="kpi-label">${escapeHtml(card.label)}</div>
+          <strong${buildTitleAttribute(card.value)}>${escapeHtml(card.value)}</strong>
+          <div class="kpi-copy">${escapeHtml(card.copy)}</div>
+        </article>
+      `).join("");
+
+      document.getElementById("financialBarChart").innerHTML = [
+        { label: "Income", value: income, className: "income" },
+        { label: "Expenses", value: expenses, className: "expenses" },
+        { label: "Profit", value: profit, className: profit < 0 ? "loss" : "profit" }
+      ].map((item) => {
+        const height = Math.max(8, Math.round((Math.abs(item.value) / maxValue) * 100));
+        return `
+          <div class="bar-chart-item ${escapeHtml(item.className)}">
+            <div class="bar-track">
+              <div class="bar-fill" style="height:${escapeHtml(height)}%"></div>
+            </div>
+            <strong>${escapeHtml(formatInvoiceCurrency(item.value))}</strong>
+            <span>${escapeHtml(item.label)}</span>
+          </div>
+        `;
+      }).join("");
+
+      donut.style.background = `conic-gradient(
+        var(--accent) 0deg ${incomeDeg}deg,
+        var(--danger) ${incomeDeg}deg ${incomeDeg + expenseDeg}deg,
+        var(--success) ${incomeDeg + expenseDeg}deg ${incomeDeg + expenseDeg + profitDeg}deg,
+        rgba(148, 163, 184, 0.16) ${incomeDeg + expenseDeg + profitDeg}deg 360deg
+      )`;
+      donut.innerHTML = `<span>${escapeHtml(profit < 0 ? "Loss" : "Profit")}</span><strong>${escapeHtml(formatInvoiceCurrency(profit))}</strong>`;
+      document.getElementById("financialDonutLegend").innerHTML = [
+        { label: "Income", value: income, className: "income" },
+        { label: "Expenses", value: expenses, className: "expenses" },
+        { label: profit < 0 ? "Loss" : "Profit", value: profit, className: profit < 0 ? "loss" : "profit" }
+      ].map((item) => `
+        <div class="donut-legend-row ${escapeHtml(item.className)}">
+          <span></span>
+          <strong>${escapeHtml(item.label)}</strong>
+          <em>${escapeHtml(formatInvoiceCurrency(item.value))}</em>
+        </div>
+      `).join("");
+
+      const breakdown = Array.isArray(report.breakdown) ? report.breakdown : [];
+      const visibleBreakdown = breakdown.filter((row) => toNumber(row.income) || toNumber(row.expenses) || toNumber(row.profit)).slice(-14);
+      const breakdownMax = Math.max(...visibleBreakdown.flatMap((row) => [toNumber(row.income), toNumber(row.expenses), Math.abs(toNumber(row.profit))]), 1);
+      document.getElementById("financialBreakdownTitle").textContent = state.reportChartPeriod === "yearly" ? "Monthly breakdown" : "Daily breakdown";
+      document.getElementById("financialBreakdownChart").innerHTML = visibleBreakdown.length
+        ? visibleBreakdown.map((row) => `
+          <div class="mini-bar-row">
+            <span>${escapeHtml(row.label)}</span>
+            <div class="mini-bars">
+              <i class="income" style="width:${escapeHtml(Math.max(4, Math.round((toNumber(row.income) / breakdownMax) * 100)))}%"></i>
+              <i class="expenses" style="width:${escapeHtml(Math.max(4, Math.round((toNumber(row.expenses) / breakdownMax) * 100)))}%"></i>
+              <i class="${toNumber(row.profit) < 0 ? "loss" : "profit"}" style="width:${escapeHtml(Math.max(4, Math.round((Math.abs(toNumber(row.profit)) / breakdownMax) * 100)))}%"></i>
+            </div>
+            <strong>${escapeHtml(formatInvoiceCurrency(toNumber(row.profit)))}</strong>
+          </div>
+        `).join("")
+        : `<div class="empty-state">No chart data available yet.</div>`;
+    }
+
     function renderReportsTables(overview) {
       const tables = overview.tables || {};
 
@@ -2880,27 +3173,48 @@
       const packageCounts = packages.counts || {};
       const packageRevenue = packages.expectedMonthlyRevenue || {};
       const activityFeed = buildReportsActivityFeed();
+      const financialReport = getCurrentFinancialReport();
 
       document.getElementById("reportsKpiGrid").innerHTML = [
         {
+          label: "Income",
+          value: formatInvoiceCurrency(financialReport.income || 0),
+          copy: "Paid income"
+        },
+        {
+          label: "Expenses",
+          value: formatInvoiceCurrency(financialReport.expenses || 0),
+          copy: "Recorded company spending."
+        },
+        {
+          label: "Profit",
+          value: formatInvoiceCurrency(financialReport.profit || 0),
+          copy: "Income minus expenses."
+        },
+        {
+          label: "Profit Margin",
+          value: formatProfitMargin(financialReport.profitMargin, financialReport.income),
+          copy: "Profit / income"
+        },
+        {
           label: "Total Clients",
           value: String(kpis.totalClients ?? clients.totalClients ?? 0),
-          copy: "All AutomateX client records in the reporting scope."
+          copy: "All clients"
         },
         {
           label: "Active Clients",
           value: String(kpis.activeClients ?? clients.activeClients ?? 0),
-          copy: "Clients currently approved and active."
+          copy: "Active accounts"
         },
         {
           label: "Total Projects",
           value: String(kpis.totalProjects ?? 0),
-          copy: "All non-archived projects currently tracked."
+          copy: "All projects"
         },
         {
           label: "Active Projects",
           value: String(kpis.activeProjects ?? 0),
-          copy: "Projects not completed, cancelled, or on hold."
+          copy: "In progress"
         },
         {
           label: "Completed Projects",
@@ -2910,62 +3224,62 @@
         {
           label: "Pending Invoices",
           value: String(kpis.pendingInvoices ?? ((revenue.totals && revenue.totals.pendingInvoiceCount) || 0)),
-          copy: "Draft, sent, partial, or overdue invoices with open balances."
+          copy: "Needs follow-up"
         },
         {
           label: "Overdue Invoices",
           value: String(kpis.overdueInvoices ?? ((revenue.totals && revenue.totals.overdueInvoiceCount) || 0)),
-          copy: "Invoices past due or marked overdue."
+          copy: "Past due"
         },
         {
           label: "Monthly Income",
           value: formatInvoiceCurrency(kpis.monthlyRevenue || revenue.totalInvoiced || 0),
-          copy: "Invoice value issued in the selected period."
+          copy: "Invoice value"
         },
         {
           label: "Monthly Paid",
           value: formatInvoiceCurrency(kpis.monthlyPaidAmount || revenue.totalPaid || 0),
-          copy: "Paid invoice amount recorded in the selected period."
+          copy: "Paid invoices"
         },
         {
           label: "Monthly Pending",
           value: formatInvoiceCurrency(kpis.monthlyPendingBalance || revenue.totalPending || 0),
-          copy: "Open invoice balance from the selected period."
+          copy: "Unpaid balance"
         },
         {
           label: "Pending Commission",
           value: formatInvoiceCurrency(kpis.pendingCommission || salesReport.pendingCommissionAmount || 0),
-          copy: "Pending or approved commissions not yet paid."
+          copy: "Unpaid commission"
         },
         {
           label: "Paid Commission",
           value: formatInvoiceCurrency(kpis.paidCommissionThisMonth || salesReport.paidCommissionAmount || 0),
-          copy: "Commission paid in the selected period."
+          copy: "Paid commission"
         },
         {
           label: "Active Maintenance",
           value: String(kpis.activeMaintenancePlans ?? maintenanceReport.activePlans ?? 0),
-          copy: "Maintenance plans currently active."
+          copy: "Active plans"
         },
         {
           label: "Expiring Soon",
           value: String(kpis.expiringSoonMaintenancePlans ?? maintenanceReport.expiringSoonPlans ?? 0),
-          copy: "Maintenance renewals needing near-term follow-up."
+          copy: "Renewals due"
         },
         {
           label: "New Leads",
           value: String(kpis.newLeadsThisMonth ?? salesReport.leadsThisPeriod ?? 0),
-          copy: "Leads created in the selected period."
+          copy: "New leads"
         },
         {
           label: "Converted Leads",
           value: String(kpis.convertedLeadsThisMonth ?? salesReport.convertedLeads ?? 0),
-          copy: "Leads converted during the selected period."
+          copy: "Converted leads"
         },
         {
           label: "Open Support",
           value: String(kpis.openSupportRequests ?? requests.openRequests ?? 0),
-          copy: "Open or in-progress support workload."
+          copy: "Open support"
         }
       ].map((card) => `
         <article class="kpi-card">
@@ -2975,36 +3289,38 @@
         </article>
       `).join("");
 
+      renderFinancialReportCharts();
+
       renderMetricList("reportsRevenueList", [
         {
           label: "Total invoice value",
           value: formatInvoiceCurrency(revenue.totalInvoiced || revenue.totalInvoiceValue || 0),
-          hint: "All active invoice totals combined, excluding cancelled records."
+          hint: "Invoice total."
         },
         {
           label: "Total paid",
           value: formatInvoiceCurrency(revenue.totalPaid || 0),
-          hint: "Current paid amounts recorded on manual invoices."
+          hint: "Collected amount."
         },
         {
           label: "Total balance",
           value: formatInvoiceCurrency(revenue.totalPending || revenue.totalBalance || 0),
-          hint: "Remaining balances still outstanding across the invoice ledger."
+          hint: "Amount due."
         },
         {
           label: "Overdue amount",
           value: formatInvoiceCurrency(revenue.overdueBalance || revenue.overdueAmount || 0),
-          hint: "Invoice balances already past due and still unpaid."
+          hint: "Past due."
         },
         {
           label: "Paid this month",
           value: formatInvoiceCurrency(revenue.totalPaid || revenue.paidThisMonth || 0),
-          hint: "Invoices recorded as paid during the current month."
+          hint: "Paid this month."
         },
         {
           label: "Pending amount",
           value: formatInvoiceCurrency(revenue.totalPending || revenue.pendingAmount || 0),
-          hint: "Open balances still in draft, sent, or partial payment states."
+          hint: "Open balance."
         }
       ], "No income report data found.");
       renderDistributionBars("reportsRevenueBars", revenue.revenueByInvoiceType || {}, formatInvoiceCurrency);
@@ -3013,32 +3329,32 @@
         {
           label: "Total clients",
           value: String(clients.totalClients ?? 0),
-          hint: "All client records excluding the official AutomateX admin account."
+          hint: "All clients."
         },
         {
           label: "Active clients",
           value: String(clients.activeClients ?? 0),
-          hint: "Clients currently approved and able to use their dashboards normally."
+          hint: "Active accounts."
         },
         {
           label: "Pending clients",
           value: String(clients.pendingClients ?? 0),
-          hint: "Signups still waiting on package assignment or approval."
+          hint: "Awaiting approval."
         },
         {
           label: "Suspended clients",
           value: String(clients.suspendedClients ?? 0),
-          hint: "Accounts currently paused from full client access."
+          hint: "Suspended accounts."
         },
         {
           label: "Rejected clients",
           value: String(clients.rejectedClients ?? 0),
-          hint: "Accounts declined through the client-management approval process."
+          hint: "Rejected accounts."
         },
         {
           label: "New clients this month",
           value: String(clients.newClientsThisMonth ?? 0),
-          hint: "Fresh signups created in the current month."
+          hint: "New signups."
         }
       ], "No client reporting data is available yet.");
 
@@ -3046,32 +3362,32 @@
         {
           label: "Starter clients",
           value: `${String(packageCounts.starter ?? 0)} • ${formatInvoiceCurrency(packageRevenue.starter || 0)}`,
-          hint: "Client count and expected monthly income from active Starter accounts."
+          hint: "Starter income."
         },
         {
           label: "Standard clients",
           value: `${String(packageCounts.standard ?? 0)} • ${formatInvoiceCurrency(packageRevenue.standard || 0)}`,
-          hint: "Client count and expected monthly income from active Standard accounts."
+          hint: "Standard income."
         },
         {
           label: "Pro clients",
           value: `${String(packageCounts.pro ?? 0)} • ${formatInvoiceCurrency(packageRevenue.pro || 0)}`,
-          hint: "Client count and expected monthly income from active Pro accounts."
+          hint: "Pro income."
         },
         {
           label: "Custom clients",
           value: `${String(packageCounts.custom ?? 0)} • ${formatInvoiceCurrency(packageRevenue.custom || 0)}`,
-          hint: "Client count and expected monthly income from active Custom accounts."
+          hint: "Custom income."
         },
         {
           label: "Not assigned clients",
           value: `${String(packageCounts.not_assigned ?? 0)} • ${formatInvoiceCurrency(packageRevenue.not_assigned || 0)}`,
-          hint: "Clients without an assigned service package yet."
+          hint: "No package."
         },
         {
           label: "Expected monthly income",
           value: formatInvoiceCurrency(packageRevenue.total || 0),
-          hint: "Combined active package income estimate based on current client fees."
+          hint: "Package income."
         }
       ], "No package reporting data is available yet.");
 
@@ -3079,32 +3395,32 @@
         {
           label: "Total requests",
           value: String(requests.openRequests ?? ((reports.requests && reports.requests.totalRequests) || 0)),
-          hint: "All support, upgrade, bug, feature, payment, and general requests on record."
+          hint: "All requests."
         },
         {
           label: "Open requests",
           value: String(requests.openRequests ?? 0),
-          hint: "Tickets that still need first response or follow-up."
+          hint: "Needs follow-up."
         },
         {
           label: "In progress",
           value: String(requests.inProgressRequests ?? 0),
-          hint: "Requests currently being worked through by the admin."
+          hint: "In progress."
         },
         {
           label: "Completed requests",
           value: String(requests.resolvedRequests ?? 0),
-          hint: "Requests already completed and closed."
+          hint: "Completed."
         },
         {
           label: "Upgrade requests",
           value: String(requests.upgradeRequests ?? 0),
-          hint: "Manual package-change requests that still require admin action in client management."
+          hint: "Package requests."
         },
         {
           label: "Bug / urgent-high priority",
           value: `${String(requests.bugReports ?? 0)} • ${String(requests.urgentHighPriorityRequests ?? 0)}`,
-          hint: "Bug reports alongside tickets marked high or urgent priority."
+          hint: "Urgent items."
         }
       ], "No request reporting data is available yet.");
 
@@ -3114,27 +3430,27 @@
         {
           label: "Leads this period",
           value: String(salesReport.leadsThisPeriod ?? 0),
-          hint: "New leads created in the selected report period."
+          hint: "New leads."
         },
         {
           label: "Converted leads",
           value: String(salesReport.convertedLeads ?? 0),
-          hint: "Leads converted during the selected report period."
+          hint: "Converted leads."
         },
         {
           label: "Conversion rate",
           value: `${toNumber(salesReport.conversionRate).toFixed(1)}%`,
-          hint: "Converted leads divided by new leads in the selected period."
+          hint: "Conversion rate."
         },
         {
           label: "Pending commission",
           value: formatInvoiceCurrency(salesReport.pendingCommissionAmount || 0),
-          hint: "Pending or approved commissions not yet paid."
+          hint: "Unpaid commission."
         },
         {
           label: "Paid commission",
           value: formatInvoiceCurrency(salesReport.paidCommissionAmount || 0),
-          hint: "Commission paid during the selected period."
+          hint: "Paid commission."
         }
       ], "No sales reporting data is available yet.");
 
@@ -3142,22 +3458,22 @@
         {
           label: "Active plans",
           value: String(maintenanceReport.activePlans ?? 0),
-          hint: "Maintenance plans currently active."
+          hint: "Active plans."
         },
         {
           label: "Expiring soon",
           value: String(maintenanceReport.expiringSoonPlans ?? 0),
-          hint: "Renewals marked expiring soon or due within 30 days."
+          hint: "Renewals due."
         },
         {
           label: "Expired plans",
           value: String(maintenanceReport.expiredPlans ?? 0),
-          hint: "Plans currently marked expired."
+          hint: "Expired plans."
         },
         {
           label: "Expected renewal amount",
           value: formatInvoiceCurrency(maintenanceReport.renewalAmountExpected || 0),
-          hint: "Open balance expected from expiring maintenance renewals."
+          hint: "Renewal value."
         }
       ], "No maintenance reporting data is available yet.");
 
@@ -3168,27 +3484,27 @@
         {
           label: "Clients CSV",
           value: `${String(clients.totalClients ?? 0)} rows`,
-          hint: "Downloads business, owner, package, billing, and account-status fields only."
+          hint: "Client export."
         },
         {
           label: "Invoices CSV",
           value: `${String((revenue.totals && revenue.totals.invoiceCount) || revenue.totalInvoices || 0)} rows`,
-          hint: "Downloads invoice, balance, due-date, and notes fields for manual reporting."
+          hint: "Invoice export."
         },
         {
           label: "Income / Projects / Employee Leads / Maintenance CSV",
           value: "Available",
-          hint: "Downloads focused report rows using the active report period filters."
+          hint: "Filtered exports."
         },
         {
           label: "Requests CSV",
           value: `${String(requests.totalRequests ?? 0)} rows`,
-          hint: "Downloads client support and upgrade request history, including admin notes."
+          hint: "Request export."
         },
         {
           label: "Security scope",
           value: "Sensitive auth fields excluded",
-          hint: "Password hashes, tokens, and private login data are never downloaded."
+          hint: "Private login data excluded."
         }
       ], "No download details found.");
 
@@ -3298,7 +3614,7 @@
       renderMetricList("settingsHealthList", getSystemHealthRows().map(([label, value]) => ({
         label,
         value: formatStatusLabel(value),
-        hint: "Backend-reported system health field."
+        hint: "System health field."
       })));
     }
 
@@ -3313,6 +3629,7 @@
       document.getElementById("navCountInvoices").textContent = String(billingAttentionCount);
       document.getElementById("navCountPayments").textContent = String(getPaymentAnalytics().overdueAccounts);
       document.getElementById("navCountProjects").textContent = String(state.allProjects.length);
+      document.getElementById("navCountExpenses").textContent = String(state.allExpenses.length);
       document.getElementById("navCountSales").textContent = String(
         state.salesSummary && Number.isFinite(Number(state.salesSummary.totalEmployees))
           ? Number(state.salesSummary.totalEmployees)
@@ -3347,6 +3664,7 @@
       renderInvoicesSection();
       renderPaymentsSection();
       renderProjectsSection();
+      renderExpensesSection();
       renderMaintenanceSection();
       renderSalesSection();
       renderBookingsSection();
@@ -3413,6 +3731,11 @@
     async function loadInvoices() {
       const payload = await apiFetch("/api/admin/invoices");
       state.allInvoices = payload.invoices || [];
+    }
+
+    async function loadExpenses() {
+      const payload = await apiFetch("/api/admin/expenses");
+      state.allExpenses = payload.expenses || [];
     }
 
     async function loadProjects() {
@@ -3486,6 +3809,7 @@
         { label: "reports", run: loadReportsSummary },
         { label: "clients", run: loadClients },
         { label: "invoices", run: loadInvoices },
+        { label: "expenses", run: loadExpenses },
         { label: "projects", run: loadProjects },
         { label: "maintenance plans", run: loadMaintenancePlans },
         { label: "employee data", run: loadSalesData },
@@ -3528,6 +3852,134 @@
       state.drawer = null;
       document.getElementById("drawerShell").classList.remove("is-open");
       document.getElementById("drawerBody").innerHTML = "";
+    }
+
+    function openConfirmDialog({ title, message, confirmLabel = "Confirm", tone = "danger" }) {
+      return new Promise((resolve) => {
+        const shell = document.getElementById("confirmShell");
+        const actionButton = document.getElementById("confirmActionButton");
+        const cancelButton = document.getElementById("confirmCancelButton");
+        const backdrop = document.getElementById("confirmBackdrop");
+        const cleanup = (value) => {
+          shell.classList.remove("is-open");
+          shell.setAttribute("aria-hidden", "true");
+          actionButton.onclick = null;
+          cancelButton.onclick = null;
+          backdrop.onclick = null;
+          resolve(value);
+        };
+
+        document.getElementById("confirmTitle").textContent = title;
+        document.getElementById("confirmMessage").textContent = message;
+        actionButton.textContent = confirmLabel;
+        actionButton.classList.toggle("button-danger", tone === "danger");
+        actionButton.classList.toggle("button-primary", tone !== "danger");
+        shell.classList.add("is-open");
+        shell.setAttribute("aria-hidden", "false");
+        actionButton.onclick = () => cleanup(true);
+        cancelButton.onclick = () => cleanup(false);
+        backdrop.onclick = () => cleanup(false);
+      });
+    }
+
+    function expenseForm(expense = {}) {
+      const mode = expense.id ? "edit" : "create";
+      const selectedDate = expense.expenseDate
+        ? new Date(expense.expenseDate).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+
+      return `
+        <form id="expenseForm" data-mode="${escapeHtml(mode)}">
+          <input type="hidden" name="expenseId" value="${escapeHtml(expense.id || "")}">
+          <div class="drawer-grid">
+            <div class="field">
+              <label for="expenseDateField">Date</label>
+              <input class="input" id="expenseDateField" name="expenseDate" type="date" value="${escapeHtml(selectedDate)}" required>
+            </div>
+            <div class="field">
+              <label for="expenseAmountField">Amount</label>
+              <input class="input" id="expenseAmountField" name="amount" type="number" min="0" step="0.01" value="${escapeHtml(expense.amount || "")}" required>
+            </div>
+            <div class="field admin-grid-span-2">
+              <label for="expenseTitleField">Title / Description</label>
+              <input class="input" id="expenseTitleField" name="title" value="${escapeHtml(expense.title || "")}" placeholder="Short expense title" required>
+            </div>
+            <div class="field">
+              <label for="expenseCategoryField">Category</label>
+              <select class="select" id="expenseCategoryField" name="category" required>
+                ${EXPENSE_CATEGORY_OPTIONS.map((category) => `
+                  <option value="${escapeHtml(category)}" ${(expense.category || "Other") === category ? "selected" : ""}>${escapeHtml(category)}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="field">
+              <label for="expensePaymentMethodField">Payment method</label>
+              <select class="select" id="expensePaymentMethodField" name="paymentMethod">
+                ${EXPENSE_PAYMENT_METHOD_OPTIONS.map((method) => `
+                  <option value="${escapeHtml(method)}" ${(expense.paymentMethod || "Cash") === method ? "selected" : ""}>${escapeHtml(method)}</option>
+                `).join("")}
+              </select>
+            </div>
+            <div class="field admin-grid-span-2">
+              <label for="expenseNotesField">Notes</label>
+              <textarea class="textarea" id="expenseNotesField" name="notes" placeholder="Optional">${escapeHtml(expense.notes || "")}</textarea>
+            </div>
+          </div>
+          <div class="drawer-actions">
+            <button class="button button-ghost" type="button" data-drawer-close="true">Cancel</button>
+            <button class="button button-primary" type="submit">${mode === "create" ? "Save Expense" : "Update Expense"}</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function openExpenseDrawer(expenseId = "") {
+      const expense = expenseId
+        ? state.allExpenses.find((item) => item.id === expenseId)
+        : {};
+
+      if (expenseId && !expense) {
+        throw new Error("This expense could not be found.");
+      }
+
+      openDrawer({
+        eyebrow: "Expenses",
+        title: expenseId ? "Edit Expense" : "Add Expense",
+        subtitle: "",
+        body: expenseForm(expense)
+      });
+    }
+
+    async function deleteExpenseRecord(expenseId) {
+      const confirmed = await openConfirmDialog({
+        title: "Delete expense",
+        message: "Delete this expense record?",
+        confirmLabel: "Delete"
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      await apiFetch(`/api/admin/expenses/${expenseId}`, { method: "DELETE" });
+      await refreshAllData();
+      showToast("Expense deleted", "The expense list has been updated.");
+    }
+
+    async function clearTestExpenses() {
+      const confirmed = await openConfirmDialog({
+        title: "Clear Test Expenses",
+        message: "This will delete all expense records. Use this only for testing. Continue?",
+        confirmLabel: "Clear Expenses"
+      });
+
+      if (!confirmed) {
+        return;
+      }
+
+      await apiFetch("/api/admin/expenses/test-records", { method: "DELETE" });
+      await refreshAllData();
+      showToast("Expenses cleared", "Expense totals have been updated.");
     }
 
     function userDetailSection(user) {
@@ -4073,7 +4525,8 @@
 
     function invoiceReferenceLabel(invoice) {
       return [
-        invoice.invoiceType || "Custom",
+        normalizeInvoiceTypeLabel(invoice.invoiceType),
+        invoice.modelPackage === "Custom" ? invoice.customModelPackage : invoice.modelPackage,
         invoice.projectTitle,
         invoice.maintenancePlanName,
         invoice.leadBusinessName,
@@ -4081,29 +4534,142 @@
       ].filter(Boolean).join(" • ");
     }
 
+    function normalizeInvoiceTypeLabel(value) {
+      return LEGACY_INVOICE_TYPE_MAP[value] || value || "Custom Invoice";
+    }
+
+    function invoiceModelPackageLabel(invoice = {}) {
+      return invoice.modelPackage === "Custom"
+        ? invoice.customModelPackage || "Custom"
+        : invoice.modelPackage || "Custom";
+    }
+
+    function invoicePaidLabel(invoiceType) {
+      return normalizeInvoiceTypeLabel(invoiceType) === "Advance / Partial Payment Invoice"
+        ? "Advance Paid"
+        : "Paid Amount";
+    }
+
+    function invoiceTotalLabel(invoiceType) {
+      const normalized = normalizeInvoiceTypeLabel(invoiceType);
+      if (normalized === "Advance / Partial Payment Invoice") {
+        return "Total Project Amount";
+      }
+      if (normalized === "Extra Features / Add-on Invoice") {
+        return "Add-on Total";
+      }
+      return "Total Amount";
+    }
+
+    function defaultInvoiceTitle(invoiceType) {
+      return normalizeInvoiceTypeLabel(invoiceType);
+    }
+
+    function defaultInvoiceNote(invoiceType) {
+      const normalized = normalizeInvoiceTypeLabel(invoiceType);
+      if (normalized === "Advance / Partial Payment Invoice") {
+        return "This invoice confirms the advance payment for the project. The remaining balance must be settled according to the agreed payment schedule before final handover.";
+      }
+      if (normalized === "Extra Features / Add-on Invoice") {
+        return "This invoice includes additional features or services requested after the original project scope. These items may require additional development time and cost.";
+      }
+      return "";
+    }
+
+    function calculateInvoiceFormTotals(items, options = {}) {
+      const normalizedItems = (Array.isArray(items) ? items : []).map((item) => {
+        const quantity = Math.max(0, toNumber(item.quantity));
+        const unitPrice = Math.max(0, toNumber(item.unitPrice));
+        const lineSubtotal = roundCurrency(quantity * unitPrice);
+        const lineDiscount = Math.min(lineSubtotal, Math.max(0, toNumber(item.itemDiscount)));
+        const lineTotal = roundCurrency(Math.max(0, lineSubtotal - lineDiscount));
+        return {
+          ...item,
+          quantity,
+          unitPrice,
+          itemDiscount: lineDiscount,
+          lineSubtotal,
+          lineDiscount,
+          lineTotal,
+          total: lineTotal,
+          amount: lineTotal
+        };
+      });
+      const subtotalBeforeItemDiscounts = roundCurrency(normalizedItems.reduce((sum, item) => sum + item.lineSubtotal, 0));
+      const itemDiscountTotal = roundCurrency(normalizedItems.reduce((sum, item) => sum + item.lineDiscount, 0));
+      const subtotal = roundCurrency(normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0));
+      const overallDiscountType = options.overallDiscountType || "none";
+      const overallDiscountValue = Math.max(0, toNumber(options.overallDiscountValue));
+      const overallDiscount = overallDiscountType === "percentage"
+        ? Math.min(subtotal, roundCurrency(subtotal * (Math.min(overallDiscountValue, 100) / 100)))
+        : overallDiscountType === "fixed"
+          ? Math.min(subtotal, overallDiscountValue)
+          : 0;
+      const tax = Math.max(0, toNumber(options.tax));
+      const totalAmount = roundCurrency(Math.max(0, subtotal - overallDiscount + tax));
+      const paidAmount = Math.max(0, toNumber(options.paidAmount));
+      const balance = roundCurrency(Math.max(0, totalAmount - paidAmount));
+
+      return {
+        items: normalizedItems,
+        subtotalBeforeItemDiscounts,
+        itemDiscountTotal,
+        subtotal,
+        overallDiscountType,
+        overallDiscountValue,
+        overallDiscount,
+        discount: overallDiscount,
+        tax,
+        taxAmount: tax,
+        totalAmount,
+        paidAmount,
+        balance
+      };
+    }
+
     function invoiceItemEditorMarkup(item = {}) {
       const quantity = toNumber(item.quantity) || 1;
       const unitPrice = toNumber(item.unitPrice);
-      const total = toNumber(item.total || quantity * unitPrice);
+      const itemDiscount = toNumber(item.itemDiscount || item.lineDiscount || item.discount);
+      const lineSubtotal = roundCurrency(quantity * unitPrice);
+      const lineTotal = Math.max(0, lineSubtotal - itemDiscount);
 
       return `
-        <article class="preview-item" data-invoice-item-row>
-          <div class="drawer-grid">
+        <article class="preview-item invoice-item-editor" data-invoice-item-row>
+          <div class="drawer-grid invoice-item-grid">
+            <div class="field">
+              <label>Item / Service name</label>
+              <input class="input" name="itemName" value="${escapeHtml(item.name || "")}" placeholder="POS Standard System Development & Installation">
+            </div>
+            <div class="field">
+              <label>Type</label>
+              <select class="select" name="itemType">
+                ${selectOptionsMarkup(INVOICE_ITEM_TYPE_OPTIONS, item.type || "Service")}
+              </select>
+            </div>
             <div class="field admin-grid-span-2">
-              <label>Item name</label>
-              <input class="input" name="itemName" value="${escapeHtml(item.name || "")}" placeholder="Monthly service, campaign setup, support retainers">
+              <label>Description</label>
+              <textarea class="textarea textarea-compact" name="itemDescription" placeholder="Describe the feature, service, or package">${escapeHtml(item.description || item.name || "")}</textarea>
             </div>
             <div class="field">
               <label>Quantity</label>
-              <input class="input" name="itemQuantity" type="number" min="0" step="0.01" value="${escapeHtml(quantity)}">
+              <input class="input" name="itemQuantity" type="number" min="0.01" step="0.01" value="${escapeHtml(quantity)}">
             </div>
             <div class="field">
               <label>Unit price</label>
               <input class="input" name="itemUnitPrice" type="number" min="0" step="0.01" value="${escapeHtml(unitPrice)}">
             </div>
+            <div class="field">
+              <label>Discount</label>
+              <input class="input" name="itemDiscount" type="number" min="0" step="0.01" value="${escapeHtml(itemDiscount)}">
+            </div>
+            <div class="field">
+              <label>Line total</label>
+              <output class="input output-field" data-invoice-item-total>${escapeHtml(formatInvoiceCurrency(lineTotal))}</output>
+            </div>
           </div>
           <div class="preview-actions admin-mt-16">
-            <span class="data-chip"><strong data-invoice-item-total>${escapeHtml(formatInvoiceCurrency(total))}</strong>Item Total</span>
+            <span class="data-chip"><strong data-invoice-item-subtotal>${escapeHtml(formatInvoiceCurrency(lineSubtotal))}</strong>Subtotal</span>
             <button class="mini-button is-danger" type="button" data-remove-invoice-item="true">Remove</button>
           </div>
         </article>
@@ -4236,7 +4802,9 @@
           : ""}
 
         <div class="drawer-actions">
+          <button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="preview">Preview</button>
           <button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="download-pdf">Download PDF</button>
+          <button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="print">Print</button>
           ${canSendInvoices ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="send-email">Email Client</button>` : ""}
           ${canManageInvoices ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="edit">Edit Invoice</button>` : ""}
           ${canUpdateInvoicePayments && invoice.status !== "cancelled" && toNumber(invoice.balance) > 0
@@ -4246,6 +4814,137 @@
             ? `<button class="button button-primary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="mark-paid">Mark Paid</button>`
             : ""}
         </div>
+      `;
+    }
+
+    function invoicePreviewA4Markup(invoice) {
+      const settings = getAppSettings();
+      const invoiceType = normalizeInvoiceTypeLabel(invoice.invoiceType);
+      const paymentInstructions = buildPaymentInstructionsText(settings);
+      const items = Array.isArray(invoice.items) && invoice.items.length ? invoice.items : [];
+      const paidLabel = invoicePaidLabel(invoiceType);
+      const projectReference = invoice.projectTitle || invoice.maintenancePlanName || invoice.leadBusinessName || "Not linked";
+      const notes = invoice.clientNotes || invoice.notes || defaultInvoiceNote(invoiceType) || "This invoice is issued for the services listed below.";
+
+      return `
+        <div class="invoice-preview-toolbar no-print">
+          <button class="button button-secondary" type="button" data-print-invoice-preview="true">Print</button>
+          ${invoice.id ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(invoice.id)}" data-invoice-action="download-pdf">Download PDF</button>` : ""}
+        </div>
+        <article class="invoice-preview-a4">
+          <header class="invoice-a4-header">
+            <div class="invoice-brand-block">
+              <img src="/Images/AutomateX-logo.PNG" alt="AutomateX logo">
+              <div>
+                <h1>AutomateX</h1>
+                <strong>STREAMLINE YOUR SUCCESS</strong>
+                <span>automatex.lk</span>
+                <small>Websites, POS Systems, Business Software & Automation</small>
+              </div>
+            </div>
+            <div class="invoice-a4-meta">
+              <div><span>Invoice No</span><strong>${escapeHtml(invoice.invoiceNumber || "Preview")}</strong></div>
+              <div><span>Invoice Date</span><strong>${escapeHtml(formatShortDate(invoice.issueDate))}</strong></div>
+              <div><span>Due Date</span><strong>${escapeHtml(formatShortDate(invoice.dueDate))}</strong></div>
+              <b class="${badgeClass(invoice.status)}">${escapeHtml(invoice.paymentStatus || formatStatusLabel(invoice.status))}</b>
+            </div>
+          </header>
+
+          <section class="invoice-a4-title">
+            <h2>${escapeHtml(invoiceType)}</h2>
+            <p>${escapeHtml(invoice.description || "Professional AutomateX service invoice.")}</p>
+          </section>
+
+          <section class="invoice-a4-parties">
+            <div>
+              <small>Bill To</small>
+              <h3>${escapeHtml(invoice.businessName || invoice.clientName || "Client")}</h3>
+              <p>${escapeHtml(invoice.clientName || "")}</p>
+              <p>${escapeHtml(invoice.clientPhone || "")}</p>
+              <p>${escapeHtml(invoice.clientEmail || "")}</p>
+              <p>${escapeHtml(invoice.clientAddress || "")}</p>
+            </div>
+            <div>
+              <small>Project Details</small>
+              <dl>
+                <dt>Project</dt><dd>${escapeHtml(projectReference)}</dd>
+                <dt>Model / Package</dt><dd>${escapeHtml(invoiceModelPackageLabel(invoice))}</dd>
+                <dt>Payment Type</dt><dd>${escapeHtml(invoice.paymentMethod || "Other")}</dd>
+              </dl>
+            </div>
+          </section>
+
+          <table class="invoice-a4-table">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Discount</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((item, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td><strong>${escapeHtml(item.name || "Invoice item")}</strong><br><span>${escapeHtml(item.description || "")}</span></td>
+                  <td>${escapeHtml(item.type || "Service")}</td>
+                  <td>${escapeHtml(item.quantity || 0)}</td>
+                  <td>${escapeHtml(formatInvoiceCurrency(item.unitPrice || 0, invoice.currency))}</td>
+                  <td>${escapeHtml(formatInvoiceCurrency(item.itemDiscount || item.lineDiscount || 0, invoice.currency))}</td>
+                  <td>${escapeHtml(formatInvoiceCurrency(item.lineTotal || item.total || item.amount || 0, invoice.currency))}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+
+          <section class="invoice-a4-lower">
+            <div class="invoice-a4-notes">
+              <h3>Notes</h3>
+              <p>${escapeHtml(notes)}</p>
+              <h3>Terms</h3>
+              <ol>
+                <li>This invoice is issued for the services listed above.</li>
+                <li>Remaining balance is payable before final delivery unless otherwise agreed.</li>
+                <li>Extra features, revisions, or new service requests may be charged separately.</li>
+                <li>Payments made for completed work, setup, design, or custom development are non-refundable.</li>
+              </ol>
+            </div>
+            <div class="invoice-a4-summary ${invoiceType === "Advance / Partial Payment Invoice" ? "is-prominent-balance" : ""}">
+              <div><span>Subtotal</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.subtotal || 0, invoice.currency))}</strong></div>
+              <div><span>Item Discounts</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.itemDiscountTotal || 0, invoice.currency))}</strong></div>
+              <div><span>Overall Discount</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.overallDiscount ?? invoice.discount ?? 0, invoice.currency))}</strong></div>
+              <div><span>Tax</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.taxAmount ?? invoice.tax ?? 0, invoice.currency))}</strong></div>
+              <div class="is-total"><span>${escapeHtml(invoiceTotalLabel(invoiceType))}</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.totalAmount || 0, invoice.currency))}</strong></div>
+              <div><span>${escapeHtml(paidLabel)}</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.paidAmount || 0, invoice.currency))}</strong></div>
+              <div class="is-balance"><span>Balance Due</span><strong>${escapeHtml(formatInvoiceCurrency(invoice.balance || 0, invoice.currency))}</strong></div>
+            </div>
+          </section>
+
+          <section class="invoice-a4-payment">
+            <div>
+              <h3>Payment Details</h3>
+              <p>${escapeHtml(paymentInstructions || "Please use the agreed AutomateX payment method and include the invoice number as the payment reference.")}</p>
+              <dl>
+                <dt>Method</dt><dd>${escapeHtml(invoice.paymentMethod || "Other")}</dd>
+                <dt>Account Name</dt><dd>${escapeHtml(settings.bankAccountName || settings.companyName || "AutomateX")}</dd>
+                <dt>Account Number</dt><dd>${escapeHtml(settings.bankAccountNumber || "Not set")}</dd>
+                <dt>Branch</dt><dd>${escapeHtml(settings.bankBranch || "Not set")}</dd>
+                <dt>Reference</dt><dd>${escapeHtml(invoice.invoiceNumber || "Preview")}</dd>
+              </dl>
+            </div>
+            <div class="invoice-a4-signature">
+              <span></span>
+              <strong>Authorized By</strong>
+              <p>AutomateX</p>
+            </div>
+          </section>
+
+          <footer class="invoice-a4-footer">Thank you for choosing AutomateX.</footer>
+        </article>
       `;
     }
 
@@ -4266,13 +4965,19 @@
         items: [{ name: "", quantity: 1, unitPrice: 0, total: 0 }],
         subtotal: 0,
         discount: 0,
+        overallDiscountType: "none",
+        overallDiscountValue: 0,
+        itemDiscountTotal: 0,
         tax: 0,
+        taxAmount: 0,
         totalAmount: 0,
         paidAmount: 0,
         balance: 0,
         currency: settings.defaultCurrency || "LKR",
         status: "draft",
-        invoiceType: "Custom",
+        invoiceType: "Custom Invoice",
+        modelPackage: "Custom",
+        customModelPackage: "",
         projectId: "",
         maintenancePlanId: "",
         leadId: "",
@@ -4296,80 +5001,100 @@
           id="invoiceDrawerForm"
           data-mode="${escapeHtml(mode)}"
           data-currency="${escapeHtml(currentInvoice.currency || "LKR")}"
-          data-paid-amount="${escapeHtml(currentInvoice.paidAmount || 0)}"
           data-default-tax-rate="${escapeHtml(settings.defaultTaxRate || 0)}"
           data-auto-tax="${autoTaxEnabled ? "true" : "false"}"
+          data-auto-title="${currentInvoice.title ? "false" : "true"}"
+          data-auto-note="${(currentInvoice.clientNotes || currentInvoice.notes) ? "false" : "true"}"
           data-default-payment-terms="${escapeHtml(settings.defaultPaymentTerms || 0)}"
           data-auto-due-date="${autoDueDateEnabled ? "true" : "false"}"
         >
           <input type="hidden" name="invoiceId" value="${escapeHtml(currentInvoice.id || "")}">
 
-          <div class="drawer-grid">
-            <div class="field">
-              <label>Client</label>
-              <select class="select" name="clientId">
-                ${invoiceClientOptionsMarkup(currentInvoice.clientId || "")}
-              </select>
+          <div class="drawer-section">
+            <small class="kicker">Invoice Details</small>
+            <div class="drawer-grid admin-mt-14">
+              <div class="field">
+                <label>Invoice type</label>
+                <select class="select" name="invoiceType">
+                  ${selectOptionsMarkup(INVOICE_TYPE_OPTIONS, normalizeInvoiceTypeLabel(currentInvoice.invoiceType))}
+                </select>
+              </div>
+              <div class="field">
+                <label>Status</label>
+                <select class="select" name="status">
+                  ${statusOptions.map((status) => `
+                    <option value="${status}" ${currentInvoice.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
+                  `).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label>Issue date</label>
+                <input class="input" name="issueDate" type="date" value="${escapeHtml(toDateInputValue(currentInvoice.issueDate))}">
+              </div>
+              <div class="field">
+                <label>Due date</label>
+                <input class="input" name="dueDate" type="date" value="${escapeHtml(toDateInputValue(currentInvoice.dueDate))}">
+              </div>
+              <div class="field admin-grid-span-2">
+                <label>Invoice title</label>
+                <input class="input" name="title" value="${escapeHtml(currentInvoice.title || "")}" placeholder="Advance / Partial Payment Invoice">
+              </div>
+              <div class="field admin-grid-span-2">
+                <label>Description</label>
+                <textarea class="textarea" name="description">${escapeHtml(currentInvoice.description || "")}</textarea>
+              </div>
             </div>
-            <div class="field">
-              <label>Status</label>
-              <select class="select" name="status">
-                ${statusOptions.map((status) => `
-                  <option value="${status}" ${currentInvoice.status === status ? "selected" : ""}>${escapeHtml(formatStatusLabel(status))}</option>
-                `).join("")}
-              </select>
-            </div>
-            <div class="field">
-              <label>Invoice type</label>
-              <select class="select" name="invoiceType">
-                ${selectOptionsMarkup(INVOICE_TYPE_OPTIONS, currentInvoice.invoiceType || "Custom")}
-              </select>
-            </div>
-            <div class="field">
-              <label>Payment method</label>
-              <select class="select" name="paymentMethod">
-                ${selectOptionsMarkup(INVOICE_PAYMENT_METHOD_OPTIONS, currentInvoice.paymentMethod || "Other")}
-              </select>
-            </div>
-            <div class="field admin-grid-span-2">
-              <label>Invoice title</label>
-              <input class="input" name="title" value="${escapeHtml(currentInvoice.title || "")}" placeholder="Monthly service retainer">
-            </div>
-            <div class="field admin-grid-span-2">
-              <label>Description</label>
-              <textarea class="textarea" name="description">${escapeHtml(currentInvoice.description || "")}</textarea>
-            </div>
-            <div class="field">
-              <label>Project link</label>
-              <select class="select" name="projectId">${invoiceProjectOptionsMarkup(currentInvoice.projectId || "")}</select>
-            </div>
-            <div class="field">
-              <label>Maintenance link</label>
-              <select class="select" name="maintenancePlanId">${invoiceMaintenanceOptionsMarkup(currentInvoice.maintenancePlanId || "")}</select>
-            </div>
-            <div class="field">
-              <label>Lead link</label>
-              <select class="select" name="leadId">${invoiceLeadOptionsMarkup(currentInvoice.leadId || "")}</select>
-            </div>
-            <div class="field">
-              <label>Sales executive</label>
-              <select class="select" name="salesExecutiveId">${invoiceSalesExecutiveOptionsMarkup(currentInvoice.salesExecutiveId || "")}</select>
-            </div>
-            <div class="field">
-              <label>Issue date</label>
-              <input class="input" name="issueDate" type="date" value="${escapeHtml(toDateInputValue(currentInvoice.issueDate))}">
-            </div>
-            <div class="field">
-              <label>Due date</label>
-              <input class="input" name="dueDate" type="date" value="${escapeHtml(toDateInputValue(currentInvoice.dueDate))}">
+          </div>
+
+          <div class="drawer-section">
+            <small class="kicker">Client & Links</small>
+            <div class="drawer-grid admin-mt-14">
+              <div class="field">
+                <label>Client</label>
+                <select class="select" name="clientId">
+                  ${invoiceClientOptionsMarkup(currentInvoice.clientId || "")}
+                </select>
+              </div>
+              <div class="field">
+                <label>Model / Package</label>
+                <select class="select" name="modelPackage">
+                  ${selectOptionsMarkup(INVOICE_MODEL_PACKAGE_OPTIONS, currentInvoice.modelPackage || "Custom")}
+                </select>
+              </div>
+              <div class="field admin-grid-span-2" data-custom-model-package-wrap>
+                <label>Custom model / package</label>
+                <input class="input" name="customModelPackage" value="${escapeHtml(currentInvoice.customModelPackage || "")}" placeholder="Enter custom model or package">
+              </div>
+              <div class="field">
+                <label>Project link</label>
+                <select class="select" name="projectId">${invoiceProjectOptionsMarkup(currentInvoice.projectId || "")}</select>
+              </div>
+              <div class="field">
+                <label>Maintenance link</label>
+                <select class="select" name="maintenancePlanId">${invoiceMaintenanceOptionsMarkup(currentInvoice.maintenancePlanId || "")}</select>
+              </div>
+              <div class="field">
+                <label>Lead link</label>
+                <select class="select" name="leadId">${invoiceLeadOptionsMarkup(currentInvoice.leadId || "")}</select>
+              </div>
+              <div class="field">
+                <label>Employee link</label>
+                <select class="select" name="salesExecutiveId">${invoiceSalesExecutiveOptionsMarkup(currentInvoice.salesExecutiveId || "")}</select>
+              </div>
+              <div class="field">
+                <label>Payment method</label>
+                <select class="select" name="paymentMethod">
+                  ${selectOptionsMarkup(INVOICE_PAYMENT_METHOD_OPTIONS, currentInvoice.paymentMethod || "Other")}
+                </select>
+              </div>
             </div>
           </div>
 
           <div class="drawer-section">
             <div class="panel-header admin-mb-14">
               <div>
-                <small class="kicker">Invoice Items</small>
-                <h3>Line items and pricing</h3>
+                <small class="kicker">Items & Pricing</small>
+                <h3>Invoice items</h3>
               </div>
               <div class="panel-actions">
                 <button class="button button-secondary" type="button" data-add-invoice-item="true">Add Item</button>
@@ -4381,38 +5106,64 @@
           </div>
 
           <div class="drawer-section">
+            <small class="kicker">Payment Summary</small>
             <div class="drawer-grid">
               <div class="field">
-                <label>Discount</label>
-                <input class="input" name="discount" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.discount || 0)}">
+                <label>Overall discount type</label>
+                <select class="select" name="overallDiscountType">
+                  ${INVOICE_DISCOUNT_TYPE_OPTIONS.map((option) => `
+                    <option value="${escapeHtml(option.value)}" ${(currentInvoice.overallDiscountType || (toNumber(currentInvoice.discount) > 0 ? "fixed" : "none")) === option.value ? "selected" : ""}>${escapeHtml(option.label)}</option>
+                  `).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label>Overall discount value</label>
+                <input class="input" name="overallDiscountValue" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.overallDiscountValue ?? currentInvoice.discount ?? 0)}">
               </div>
               <div class="field">
                 <label>Tax amount</label>
-                <input class="input" name="tax" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.tax || 0)}">
+                <input class="input" name="tax" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.taxAmount ?? currentInvoice.tax ?? 0)}">
                 <small class="subtle">Default tax rate: ${escapeHtml(toNumber(settings.defaultTaxRate).toFixed(2))}%</small>
+              </div>
+              <div class="field">
+                <label id="invoicePaidInputLabel">${escapeHtml(invoicePaidLabel(currentInvoice.invoiceType))}</label>
+                <input class="input" name="paidAmount" type="number" min="0" step="0.01" value="${escapeHtml(currentInvoice.paidAmount || 0)}">
               </div>
             </div>
             <div class="settings-grid admin-mt-16">
+              <div class="settings-item">
+                <span>Item Discounts</span>
+                <strong id="invoiceItemDiscountValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.itemDiscountTotal || 0, currentInvoice.currency))}</strong>
+              </div>
               <div class="settings-item">
                 <span>Subtotal</span>
                 <strong id="invoiceSubtotalValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.subtotal || 0, currentInvoice.currency))}</strong>
               </div>
               <div class="settings-item">
-                <span>Total</span>
+                <span>Overall Discount</span>
+                <strong id="invoiceOverallDiscountValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.overallDiscount ?? currentInvoice.discount ?? 0, currentInvoice.currency))}</strong>
+              </div>
+              <div class="settings-item">
+                <span>Tax</span>
+                <strong id="invoiceTaxValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.taxAmount ?? currentInvoice.tax ?? 0, currentInvoice.currency))}</strong>
+              </div>
+              <div class="settings-item">
+                <span id="invoiceTotalSummaryLabel">${escapeHtml(invoiceTotalLabel(currentInvoice.invoiceType))}</span>
                 <strong id="invoiceTotalValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.totalAmount || 0, currentInvoice.currency))}</strong>
               </div>
               <div class="settings-item">
-                <span>Paid Amount</span>
+                <span id="invoicePaidSummaryLabel">${escapeHtml(invoicePaidLabel(currentInvoice.invoiceType))}</span>
                 <strong id="invoicePaidValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.paidAmount || 0, currentInvoice.currency))}</strong>
               </div>
               <div class="settings-item">
-                <span>Balance</span>
+                <span>Balance Due</span>
                 <strong id="invoiceBalanceValue">${escapeHtml(formatInvoiceCurrency(currentInvoice.balance || 0, currentInvoice.currency))}</strong>
               </div>
             </div>
           </div>
 
           <div class="drawer-section">
+            <small class="kicker">Notes</small>
             <div class="field">
               <label>Client notes</label>
               <textarea class="textarea" name="notes">${escapeHtml(currentInvoice.clientNotes || currentInvoice.notes || "")}</textarea>
@@ -4443,10 +5194,12 @@
               : ""}
             ${mode === "create"
               ? `
+                  <button class="button button-secondary" type="button" data-preview-invoice-form="true">Preview</button>
                   <button class="button button-secondary" type="submit" data-submit-invoice-status="draft">Save Draft</button>
                   <button class="button button-primary" type="submit" data-submit-invoice-status="sent">Save & Send</button>
                 `
               : `
+                  <button class="button button-secondary" type="button" data-preview-invoice-form="true">Preview</button>
                   ${canUpdateInvoicePayments && currentInvoice.status !== "cancelled" && toNumber(currentInvoice.balance) > 0
                     ? `<button class="button button-secondary" type="button" data-invoice-id="${escapeHtml(currentInvoice.id)}" data-invoice-action="add-payment">Add Payment</button>`
                     : ""}
@@ -4456,7 +5209,7 @@
                   ${canManageInvoices && currentInvoice.status !== "cancelled"
                     ? `<button class="button button-danger" type="button" data-invoice-id="${escapeHtml(currentInvoice.id)}" data-invoice-action="cancel">Cancel Invoice</button>`
                     : ""}
-                  <button class="button button-primary" type="submit">Save Invoice</button>
+                  <button class="button button-primary" type="submit">Save Changes</button>
                 `}
           </div>
         </form>
@@ -4515,9 +5268,13 @@
     function collectInvoiceItems(invoiceForm) {
       return Array.from(invoiceForm.querySelectorAll("[data-invoice-item-row]")).map((row) => ({
         name: row.querySelector('[name="itemName"]').value.trim(),
+        description: row.querySelector('[name="itemDescription"]').value.trim(),
+        type: row.querySelector('[name="itemType"]').value,
         quantity: toNumber(row.querySelector('[name="itemQuantity"]').value),
         unitPrice: toNumber(row.querySelector('[name="itemUnitPrice"]').value),
-        total: toNumber(row.querySelector('[data-invoice-item-total]').textContent.replace(/[^0-9.-]/g, ""))
+        itemDiscount: toNumber(row.querySelector('[name="itemDiscount"]').value),
+        lineTotal: toNumber(row.querySelector("[data-invoice-item-total]").textContent.replace(/[^0-9.-]/g, "")),
+        total: toNumber(row.querySelector("[data-invoice-item-total]").textContent.replace(/[^0-9.-]/g, ""))
       }));
     }
 
@@ -4528,44 +5285,204 @@
       }
 
       const currency = invoiceForm.dataset.currency || "LKR";
-      const paidAmount = toNumber(invoiceForm.dataset.paidAmount);
-      let subtotal = 0;
+      const items = [];
 
       Array.from(invoiceForm.querySelectorAll("[data-invoice-item-row]")).forEach((row) => {
         const quantity = toNumber(row.querySelector('[name="itemQuantity"]').value);
         const unitPrice = toNumber(row.querySelector('[name="itemUnitPrice"]').value);
         const name = row.querySelector('[name="itemName"]').value.trim();
-        const total = Math.max(0, quantity * unitPrice);
+        const itemDiscount = toNumber(row.querySelector('[name="itemDiscount"]').value);
+        const totals = calculateInvoiceFormTotals([{ name, quantity, unitPrice, itemDiscount }], {});
 
-        row.querySelector("[data-invoice-item-total]").textContent = formatInvoiceCurrency(total, currency);
+        row.querySelector("[data-invoice-item-subtotal]").textContent = formatInvoiceCurrency(totals.subtotalBeforeItemDiscounts, currency);
+        row.querySelector("[data-invoice-item-total]").textContent = formatInvoiceCurrency(totals.totalAmount, currency);
         if (name && quantity > 0) {
-          subtotal += total;
+          items.push({ name, quantity, unitPrice, itemDiscount });
         }
       });
 
-      const discountField = invoiceForm.querySelector('[name="discount"]');
+      const invoiceTypeField = invoiceForm.querySelector('[name="invoiceType"]');
+      const titleField = invoiceForm.querySelector('[name="title"]');
+      const notesField = invoiceForm.querySelector('[name="notes"]');
+      const modelPackageField = invoiceForm.querySelector('[name="modelPackage"]');
+      const customModelWrap = invoiceForm.querySelector("[data-custom-model-package-wrap]");
+      const discountTypeField = invoiceForm.querySelector('[name="overallDiscountType"]');
+      const discountValueField = invoiceForm.querySelector('[name="overallDiscountValue"]');
       const taxField = invoiceForm.querySelector('[name="tax"]');
+      const paidField = invoiceForm.querySelector('[name="paidAmount"]');
       const issueDateField = invoiceForm.querySelector('[name="issueDate"]');
       const dueDateField = invoiceForm.querySelector('[name="dueDate"]');
-      const discount = Math.min(subtotal, Math.max(0, toNumber(discountField.value)));
       const defaultTaxRate = Math.max(0, toNumber(invoiceForm.dataset.defaultTaxRate));
+      const invoiceType = normalizeInvoiceTypeLabel(invoiceTypeField && invoiceTypeField.value);
+
+      if (titleField && (invoiceForm.dataset.autoTitle === "true" || INVOICE_TYPE_OPTIONS.includes(titleField.value.trim()))) {
+        titleField.value = defaultInvoiceTitle(invoiceType);
+      }
+
+      if (notesField && (invoiceForm.dataset.autoNote === "true" || !notesField.value.trim())) {
+        const defaultNote = defaultInvoiceNote(invoiceType);
+        if (defaultNote) {
+          notesField.value = defaultNote;
+        }
+      }
+
+      if (customModelWrap && modelPackageField) {
+        customModelWrap.hidden = modelPackageField.value !== "Custom";
+      }
 
       if (invoiceForm.dataset.autoTax === "true") {
-        taxField.value = Math.max(0, (subtotal - discount) * (defaultTaxRate / 100)).toFixed(2);
+        const autoTaxBase = calculateInvoiceFormTotals(items, {
+          overallDiscountType: discountTypeField.value,
+          overallDiscountValue: discountValueField.value
+        });
+        taxField.value = Math.max(0, (autoTaxBase.subtotal - autoTaxBase.overallDiscount) * (defaultTaxRate / 100)).toFixed(2);
       }
 
       if (invoiceForm.dataset.autoDueDate === "true" && dueDateField && issueDateField) {
         dueDateField.value = calculateDueDateInputValue(issueDateField.value, invoiceForm.dataset.defaultPaymentTerms);
       }
 
-      const tax = Math.max(0, toNumber(taxField.value));
-      const totalAmount = Math.max(0, subtotal - discount + tax);
-      const balance = Math.max(0, totalAmount - paidAmount);
+      const totals = calculateInvoiceFormTotals(items, {
+        overallDiscountType: discountTypeField.value,
+        overallDiscountValue: discountValueField.value,
+        tax: taxField.value,
+        paidAmount: paidField.value
+      });
 
-      document.getElementById("invoiceSubtotalValue").textContent = formatInvoiceCurrency(subtotal, currency);
-      document.getElementById("invoiceTotalValue").textContent = formatInvoiceCurrency(totalAmount, currency);
-      document.getElementById("invoicePaidValue").textContent = formatInvoiceCurrency(paidAmount, currency);
-      document.getElementById("invoiceBalanceValue").textContent = formatInvoiceCurrency(balance, currency);
+      document.getElementById("invoiceItemDiscountValue").textContent = formatInvoiceCurrency(totals.itemDiscountTotal, currency);
+      document.getElementById("invoiceSubtotalValue").textContent = formatInvoiceCurrency(totals.subtotal, currency);
+      document.getElementById("invoiceOverallDiscountValue").textContent = formatInvoiceCurrency(totals.overallDiscount, currency);
+      document.getElementById("invoiceTaxValue").textContent = formatInvoiceCurrency(totals.taxAmount, currency);
+      document.getElementById("invoiceTotalValue").textContent = formatInvoiceCurrency(totals.totalAmount, currency);
+      document.getElementById("invoicePaidValue").textContent = formatInvoiceCurrency(totals.paidAmount, currency);
+      document.getElementById("invoiceBalanceValue").textContent = formatInvoiceCurrency(totals.balance, currency);
+      document.getElementById("invoicePaidInputLabel").textContent = invoicePaidLabel(invoiceType);
+      document.getElementById("invoicePaidSummaryLabel").textContent = invoicePaidLabel(invoiceType);
+      document.getElementById("invoiceTotalSummaryLabel").textContent = invoiceTotalLabel(invoiceType);
+    }
+
+    function buildInvoicePayloadFromForm(invoiceForm, submitStatus = "") {
+      const formData = new FormData(invoiceForm);
+      const items = collectInvoiceItems(invoiceForm);
+      const totals = calculateInvoiceFormTotals(items, {
+        overallDiscountType: formData.get("overallDiscountType"),
+        overallDiscountValue: formData.get("overallDiscountValue"),
+        tax: formData.get("tax"),
+        paidAmount: formData.get("paidAmount")
+      });
+
+      if (!formData.get("clientId")) {
+        throw new Error("Client is required.");
+      }
+
+      if (!items.length) {
+        throw new Error("Add at least one invoice item before saving.");
+      }
+
+      for (const item of items) {
+        if (!item.name) {
+          throw new Error("Item name is required.");
+        }
+        if (toNumber(item.quantity) <= 0) {
+          throw new Error("Quantity must be greater than 0.");
+        }
+        if (toNumber(item.unitPrice) < 0) {
+          throw new Error("Unit price cannot be negative.");
+        }
+        if (toNumber(item.itemDiscount) < 0) {
+          throw new Error("Discount cannot be negative.");
+        }
+        if (toNumber(item.itemDiscount) > roundCurrency(toNumber(item.quantity) * toNumber(item.unitPrice))) {
+          throw new Error("Discount cannot exceed line subtotal.");
+        }
+      }
+
+      if (formData.get("dueDate") && formData.get("issueDate") && formData.get("dueDate") < formData.get("issueDate")) {
+        throw new Error("Due date should not be before issue date.");
+      }
+
+      if (toNumber(formData.get("paidAmount")) < 0) {
+        throw new Error("Paid amount cannot be negative.");
+      }
+
+      if (formData.get("overallDiscountType") === "percentage" && toNumber(formData.get("overallDiscountValue")) > 100) {
+        throw new Error("Overall discount cannot exceed subtotal.");
+      }
+
+      if (formData.get("overallDiscountType") === "fixed" && toNumber(formData.get("overallDiscountValue")) > totals.subtotal) {
+        throw new Error("Overall discount cannot exceed subtotal.");
+      }
+
+      if (toNumber(formData.get("paidAmount")) > totals.totalAmount) {
+        throw new Error("Paid amount cannot exceed the invoice total.");
+      }
+
+      return {
+        clientId: formData.get("clientId"),
+        title: formData.get("title"),
+        description: formData.get("description"),
+        invoiceType: formData.get("invoiceType"),
+        modelPackage: formData.get("modelPackage"),
+        customModelPackage: formData.get("customModelPackage"),
+        projectId: formData.get("projectId") || null,
+        maintenancePlanId: formData.get("maintenancePlanId") || null,
+        leadId: formData.get("leadId") || null,
+        salesExecutiveId: formData.get("salesExecutiveId") || null,
+        items,
+        lineItems: items,
+        overallDiscountType: formData.get("overallDiscountType"),
+        overallDiscountValue: formData.get("overallDiscountValue"),
+        discount: totals.overallDiscount,
+        itemDiscountTotal: totals.itemDiscountTotal,
+        subtotal: totals.subtotal,
+        tax: formData.get("tax"),
+        taxAmount: totals.taxAmount,
+        totalAmount: totals.totalAmount,
+        paidAmount: formData.get("paidAmount"),
+        balance: totals.balance,
+        issueDate: formData.get("issueDate"),
+        dueDate: formData.get("dueDate") || null,
+        status: submitStatus || formData.get("status"),
+        paymentMethod: formData.get("paymentMethod"),
+        paymentNotes: formData.get("paymentNotes"),
+        notes: formData.get("notes"),
+        clientNotes: formData.get("notes"),
+        adminNotes: formData.get("adminNotes")
+      };
+    }
+
+    function buildInvoicePreviewFromPayload(payload, invoiceId = "") {
+      const client = getInvoiceClients().find((item) => item.id === payload.clientId) || {};
+      const project = state.allProjects.find((item) => item.id === payload.projectId) || {};
+      const maintenancePlan = state.allMaintenancePlans.find((item) => item.id === payload.maintenancePlanId) || {};
+      const lead = state.allLeads.find((item) => item.id === payload.leadId) || {};
+      const salesExecutive = state.allSalesExecutives.find((item) => item.id === payload.salesExecutiveId) || {};
+      const currency = getAppSettings().defaultCurrency || "LKR";
+      const totals = calculateInvoiceFormTotals(payload.items, {
+        overallDiscountType: payload.overallDiscountType,
+        overallDiscountValue: payload.overallDiscountValue,
+        tax: payload.tax,
+        paidAmount: payload.paidAmount
+      });
+
+      return {
+        ...payload,
+        ...totals,
+        id: invoiceId,
+        invoiceNumber: invoiceId ? "" : "Preview",
+        currency,
+        businessName: client.businessName || client.name || "",
+        clientName: client.name || client.businessName || "Client",
+        clientEmail: client.email || "",
+        clientPhone: client.phone || "",
+        clientAddress: client.businessAddress || client.address || "",
+        projectTitle: project.projectTitle || project.title || "",
+        maintenancePlanName: maintenancePlan.planName || "",
+        leadBusinessName: lead.businessName || lead.contactPerson || "",
+        salesExecutiveName: salesExecutive.fullName || "",
+        paymentStatus: totals.balance <= 0 && totals.totalAmount > 0 ? "Paid" : totals.paidAmount > 0 ? "Partial" : formatStatusLabel(payload.status || "draft"),
+        emailStatus: "Not Sent"
+      };
     }
 
     function openCreateInvoiceDrawer() {
@@ -4577,7 +5494,7 @@
       openDrawer({
         eyebrow: "New Invoice",
         title: "Create Invoice",
-        subtitle: "Select a client, add line items, and save the invoice as a draft or sent record.",
+        subtitle: "Create a client invoice.",
         body: invoiceFormSection(null, { mode: "create" })
       });
     }
@@ -4590,8 +5507,8 @@
         eyebrow: mode === "view" ? "Invoice Record" : "Edit Invoice",
         title: invoice.invoiceNumber,
         subtitle: mode === "view"
-          ? "Review invoice totals, notes, and current collection status."
-          : "Update line items, due dates, notes, and invoice status safely.",
+          ? "Review invoice details."
+          : "Update invoice details.",
         body: mode === "view"
           ? invoiceReadonlySection(invoice)
           : invoiceFormSection(invoice, { mode: "edit" })
@@ -4605,8 +5522,38 @@
       openDrawer({
         eyebrow: "Record Payment",
         title: invoice.invoiceNumber,
-        subtitle: "Add a manual payment to this invoice and update the outstanding balance.",
+        subtitle: "Add a manual payment.",
         body: invoicePaymentSection(invoice)
+      });
+    }
+
+    async function openInvoicePreview(invoiceId) {
+      const payload = await apiFetch(`/api/admin/invoices/${invoiceId}`);
+      const invoice = payload.invoice;
+
+      openDrawer({
+        eyebrow: "Invoice Preview",
+        title: invoice.invoiceNumber || "Invoice Preview",
+        subtitle: "Preview only. This does not change invoice status.",
+        body: invoicePreviewA4Markup(invoice)
+      });
+    }
+
+    function openInvoiceFormPreview(invoiceForm) {
+      const formData = new FormData(invoiceForm);
+      const payload = buildInvoicePayloadFromForm(invoiceForm);
+      const invoice = buildInvoicePreviewFromPayload(payload, formData.get("invoiceId") || "");
+      const existingInvoice = state.allInvoices.find((item) => item.id === formData.get("invoiceId"));
+      if (existingInvoice) {
+        invoice.invoiceNumber = existingInvoice.invoiceNumber;
+        invoice.emailStatus = existingInvoice.emailStatus;
+      }
+
+      openDrawer({
+        eyebrow: "Invoice Preview",
+        title: invoice.invoiceNumber || "Invoice Preview",
+        subtitle: "Preview only. This does not change invoice status.",
+        body: invoicePreviewA4Markup(invoice)
       });
     }
 
@@ -4618,6 +5565,17 @@
 
       if (action === "edit") {
         await openInvoiceDrawer(invoiceId, "edit");
+        return;
+      }
+
+      if (action === "preview") {
+        await openInvoicePreview(invoiceId);
+        return;
+      }
+
+      if (action === "print") {
+        await openInvoicePreview(invoiceId);
+        setTimeout(() => window.print(), 250);
         return;
       }
 
@@ -5558,7 +6516,7 @@
       openDrawer({
         eyebrow: "Project",
         title: "Create Project",
-        subtitle: "Create a client-linked project with status, progress, milestones, deliverables, and payment summary.",
+        subtitle: "Create a client project.",
         body: projectDetailSection({
           projectType: "Website",
           status: "Planning",
@@ -5579,7 +6537,7 @@
       openDrawer({
         eyebrow: "Project",
         title: project.projectTitle || "Project",
-        subtitle: "Manage delivery status, payment progress, milestones, deliverables, and client-visible updates.",
+        subtitle: "Update project details.",
         projectId: project.id,
         body: projectDetailSection(project)
       });
@@ -5592,7 +6550,7 @@
       });
       await refreshAllData();
       closeDrawer();
-      showToast("Project hidden", "The project was hidden from active admin and client views.");
+      showToast("Project hidden", "Project hidden.");
     }
 
     function readFileAsDataUrl(file) {
@@ -5606,7 +6564,7 @@
 
     async function openCreateMaintenanceDrawer(projectId = "") {
       if (!state.allProjects.length) {
-        showBanner("Create a client-linked project before creating a maintenance plan.", "warning");
+        showBanner("Create a client project before creating a maintenance plan.", "warning");
         return;
       }
 
@@ -5657,7 +6615,7 @@
       });
       await refreshAllData();
       closeDrawer();
-      showToast("Maintenance updated", "The maintenance plan status was updated successfully.");
+      showToast("Maintenance updated", "Maintenance updated.");
     }
 
     async function handleProjectFileAction(button) {
@@ -5710,9 +6668,9 @@
 
     function openCreateSalesExecutiveDrawer() {
       openDrawer({
-        eyebrow: "Sales",
+        eyebrow: "Employee Leads",
         title: "Add Employee",
-        subtitle: "Create a part-time, full-time, or freelance employee profile with target and commission rules.",
+        subtitle: "Create an employee profile.",
         body: salesExecutiveDetailSection({
           status: "Active",
           workType: "Part Time",
@@ -5735,7 +6693,7 @@
       openDrawer({
         eyebrow: "Employee",
         title: executive.fullName || "Employee",
-        subtitle: "Update profile, payment method, bank details, and commission rules.",
+        subtitle: "Update employee details.",
         body: salesExecutiveDetailSection(executive)
       });
     }
@@ -5747,7 +6705,7 @@
       });
       await refreshAllData();
       closeDrawer();
-      showToast("Employee hidden", "The employee was hidden from the active list.");
+      showToast("Employee hidden", "Employee hidden.");
     }
 
     async function openSalesExecutiveSummaryDrawer(executiveId) {
@@ -5948,6 +6906,36 @@
         });
       }
 
+      const expenseFormElement = document.getElementById("expenseForm");
+      if (expenseFormElement) {
+        expenseFormElement.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(expenseFormElement);
+          const mode = expenseFormElement.dataset.mode || "create";
+          const expenseId = formData.get("expenseId");
+          const payload = {
+            expenseDate: formData.get("expenseDate"),
+            title: formData.get("title"),
+            category: formData.get("category"),
+            amount: formData.get("amount"),
+            paymentMethod: formData.get("paymentMethod"),
+            notes: formData.get("notes")
+          };
+
+          try {
+            await apiFetch(mode === "create" ? "/api/admin/expenses" : `/api/admin/expenses/${expenseId}`, {
+              method: mode === "create" ? "POST" : "PATCH",
+              body: JSON.stringify(payload)
+            });
+            await refreshAllData();
+            closeDrawer();
+            showToast(mode === "create" ? "Expense saved" : "Expense updated", "Expense updated.");
+          } catch (error) {
+            showBanner(error.message || "Unable to save the expense.", "error");
+          }
+        });
+      }
+
       const projectForm = document.getElementById("projectDrawerForm");
       if (projectForm) {
         projectForm.addEventListener("submit", async (event) => {
@@ -5994,7 +6982,7 @@
 
             await refreshAllData();
             closeDrawer();
-            showToast(mode === "create" ? "Project created" : "Project saved", "Project management records were updated successfully.");
+            showToast(mode === "create" ? "Project created" : "Project saved", "Project updated.");
           } catch (error) {
             showBanner(error.message || "Unable to save the project.", "error");
           }
@@ -6037,7 +7025,7 @@
 
             await refreshAllData();
             await openProjectDrawer(projectFileForm.dataset.projectId);
-            showToast("Project file added", "The document is now connected to this project.");
+            showToast("Project file added", "Project file added.");
           } catch (error) {
             showBanner(error.message || "Unable to add the project file.", "error");
           }
@@ -6089,7 +7077,7 @@
 
             await refreshAllData();
             closeDrawer();
-            showToast(mode === "create" ? "Maintenance plan created" : "Maintenance plan saved", "Maintenance tracking was updated successfully.");
+            showToast(mode === "create" ? "Maintenance plan created" : "Maintenance plan saved", "Maintenance updated.");
           } catch (error) {
             showBanner(error.message || "Unable to save the maintenance plan.", "error");
           }
@@ -6145,7 +7133,7 @@
             const successTitle = savedExecutive.loginEnabled
               ? (mode === "create" ? "Employee created successfully. Login account created." : "Employee saved successfully. Login account created.")
               : "Employee saved. Login account not created.";
-            showToast(successTitle, "The employee list has been updated.");
+            showToast(successTitle, "Employee list updated.");
           } catch (error) {
             showBanner(error.message || "Unable to save the employee.", "error");
           }
@@ -6200,7 +7188,7 @@
             });
             await refreshAllData();
             closeDrawer();
-            showToast(mode === "create" ? "Lead created" : "Lead saved", "Sales lead records were updated successfully.");
+            showToast(mode === "create" ? "Lead created" : "Lead saved", "Lead updated.");
           } catch (error) {
             showBanner(error.message || "Unable to save the lead.", "error");
           }
@@ -6411,7 +7399,43 @@
             invoiceForm.dataset.autoDueDate = "false";
           }
 
-          if (["itemName", "itemQuantity", "itemUnitPrice", "discount", "tax", "issueDate", "dueDate"].includes(event.target.name)) {
+          if (event.target.name === "title") {
+            invoiceForm.dataset.autoTitle = "false";
+          }
+
+          if (event.target.name === "notes") {
+            invoiceForm.dataset.autoNote = "false";
+          }
+
+          if ([
+            "itemName",
+            "itemDescription",
+            "itemType",
+            "itemQuantity",
+            "itemUnitPrice",
+            "itemDiscount",
+            "overallDiscountType",
+            "overallDiscountValue",
+            "tax",
+            "paidAmount",
+            "invoiceType",
+            "modelPackage",
+            "issueDate",
+            "dueDate"
+          ].includes(event.target.name)) {
+            syncInvoiceComposerForm();
+          }
+        });
+
+        invoiceForm.addEventListener("change", (event) => {
+          if ([
+            "invoiceType",
+            "modelPackage",
+            "overallDiscountType",
+            "paymentMethod",
+            "status",
+            "itemType"
+          ].includes(event.target.name)) {
             syncInvoiceComposerForm();
           }
         });
@@ -6419,7 +7443,7 @@
         invoiceForm.addEventListener("click", (event) => {
           const addButton = event.target.closest("[data-add-invoice-item]");
           if (addButton) {
-            document.getElementById("invoiceItemsList").insertAdjacentHTML("beforeend", invoiceItemEditorMarkup({ name: "", quantity: 1, unitPrice: 0, total: 0 }));
+            document.getElementById("invoiceItemsList").insertAdjacentHTML("beforeend", invoiceItemEditorMarkup({ name: "", type: "Service", quantity: 1, unitPrice: 0, itemDiscount: 0, total: 0 }));
             syncInvoiceComposerForm();
             return;
           }
@@ -6429,45 +7453,37 @@
             const rows = invoiceForm.querySelectorAll("[data-invoice-item-row]");
             if (rows.length === 1) {
               rows[0].remove();
-              document.getElementById("invoiceItemsList").insertAdjacentHTML("beforeend", invoiceItemEditorMarkup({ name: "", quantity: 1, unitPrice: 0, total: 0 }));
+              document.getElementById("invoiceItemsList").insertAdjacentHTML("beforeend", invoiceItemEditorMarkup({ name: "", type: "Service", quantity: 1, unitPrice: 0, itemDiscount: 0, total: 0 }));
             } else {
               removeButton.closest("[data-invoice-item-row]").remove();
             }
             syncInvoiceComposerForm();
           }
+
+          const previewButton = event.target.closest("[data-preview-invoice-form]");
+          if (previewButton) {
+            try {
+              openInvoiceFormPreview(invoiceForm);
+            } catch (error) {
+              showBanner(error.message || "Unable to preview this invoice.", "error");
+            }
+          }
         });
 
         invoiceForm.addEventListener("submit", async (event) => {
           event.preventDefault();
-          const formData = new FormData(invoiceForm);
           const submitter = event.submitter;
           const mode = invoiceForm.dataset.mode || "create";
+          const formData = new FormData(invoiceForm);
           const invoiceId = formData.get("invoiceId");
-          const payload = {
-            clientId: formData.get("clientId"),
-            title: formData.get("title"),
-            description: formData.get("description"),
-            invoiceType: formData.get("invoiceType"),
-            projectId: formData.get("projectId") || null,
-            maintenancePlanId: formData.get("maintenancePlanId") || null,
-            leadId: formData.get("leadId") || null,
-            salesExecutiveId: formData.get("salesExecutiveId") || null,
-            items: collectInvoiceItems(invoiceForm),
-            discount: formData.get("discount"),
-            tax: formData.get("tax"),
-            issueDate: formData.get("issueDate"),
-            dueDate: formData.get("dueDate") || null,
-            status: submitter && submitter.dataset.submitInvoiceStatus
-              ? submitter.dataset.submitInvoiceStatus
-              : formData.get("status"),
-            paymentMethod: formData.get("paymentMethod"),
-            paymentNotes: formData.get("paymentNotes"),
-            notes: formData.get("notes"),
-            clientNotes: formData.get("notes"),
-            adminNotes: formData.get("adminNotes")
-          };
 
           try {
+            const payload = buildInvoicePayloadFromForm(
+              invoiceForm,
+              submitter && submitter.dataset.submitInvoiceStatus
+                ? submitter.dataset.submitInvoiceStatus
+                : formData.get("status")
+            );
             await apiFetch(mode === "create" ? "/api/admin/invoices" : `/api/admin/invoices/${invoiceId}`, {
               method: mode === "create" ? "POST" : "PATCH",
               body: JSON.stringify(payload)
@@ -6478,8 +7494,8 @@
             showToast(
               mode === "create" ? "Invoice created" : "Invoice saved",
               mode === "create"
-                ? "The invoice has been saved and added to the billing workspace."
-                : "Invoice totals, line items, and notes were updated successfully."
+                ? "Invoice saved."
+                : "Invoice updated."
             );
           } catch (error) {
             showBanner(error.message || "Unable to save the invoice.", "error");
@@ -6563,8 +7579,8 @@
             showToast(
               approvalMode ? "Client approved" : "Client saved",
               approvalMode
-                ? "The client is now active with the selected package, billing setup, and feature access."
-                : "Client package, billing, and business profile details were updated."
+                ? "Client activated."
+                : "Client details updated."
             );
           } catch (error) {
             showBanner(error.message || "Unable to save the client.", "error");
@@ -6873,6 +7889,11 @@
       });
 
       document.addEventListener("click", (event) => {
+        if (event.target.closest("[data-drawer-close]")) {
+          closeDrawer();
+          return;
+        }
+
         const sectionTarget = event.target.closest("[data-section-target]");
         if (sectionTarget) {
           setSection(sectionTarget.dataset.sectionTarget);
@@ -6886,10 +7907,32 @@
           return;
         }
 
+        const expenseButton = event.target.closest("[data-expense-id]");
+        if (expenseButton) {
+          const action = expenseButton.dataset.expenseAction || "edit";
+          if (action === "delete") {
+            deleteExpenseRecord(expenseButton.dataset.expenseId)
+              .catch((error) => showBanner(error.message || "Unable to delete the expense.", "error"));
+          } else {
+            try {
+              openExpenseDrawer(expenseButton.dataset.expenseId);
+            } catch (error) {
+              showBanner(error.message || "Unable to open the expense.", "error");
+            }
+          }
+          return;
+        }
+
         const invoiceButton = event.target.closest("[data-invoice-id]");
         if (invoiceButton) {
           handleInvoiceAction(invoiceButton.dataset.invoiceId, invoiceButton.dataset.invoiceAction || "view")
             .catch((error) => showBanner(error.message || "Unable to open the invoice record.", "error"));
+          return;
+        }
+
+        const printPreviewButton = event.target.closest("[data-print-invoice-preview]");
+        if (printPreviewButton) {
+          window.print();
           return;
         }
 
@@ -7016,6 +8059,13 @@
 
       document.getElementById("createInvoiceButton").addEventListener("click", openCreateInvoiceDrawer);
       document.getElementById("createProjectButton").addEventListener("click", openCreateProjectDrawer);
+      document.getElementById("createExpenseButton").addEventListener("click", () => {
+        try {
+          openExpenseDrawer();
+        } catch (error) {
+          showBanner(error.message || "Unable to open the expense form.", "error");
+        }
+      });
       document.getElementById("createMaintenanceButton").addEventListener("click", () => {
         openCreateMaintenanceDrawer().catch((error) => showBanner(error.message || "Unable to open maintenance form.", "error"));
       });
@@ -7036,6 +8086,12 @@
       });
       document.getElementById("refreshProjectsButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to update projects.", "error"));
+      });
+      document.getElementById("refreshExpensesButton").addEventListener("click", () => {
+        refreshAllData().catch((error) => showBanner(error.message || "Unable to update expenses.", "error"));
+      });
+      document.getElementById("clearTestExpensesButton").addEventListener("click", () => {
+        clearTestExpenses().catch((error) => showBanner(error.message || "Unable to clear expenses.", "error"));
       });
       document.getElementById("refreshMaintenanceButton").addEventListener("click", () => {
         refreshAllData().catch((error) => showBanner(error.message || "Unable to update maintenance plans.", "error"));
@@ -7151,7 +8207,7 @@
           state.appSettings = response.settings || state.appSettings;
           renderSettingsSection();
           hideBanner();
-          showToast("Settings saved", "AutomateX business settings were updated successfully.");
+          showToast("Settings saved", "Settings updated.");
         } catch (error) {
           showBanner(error.message || "Unable to save admin settings.", "error");
         } finally {
@@ -7186,6 +8242,18 @@
         const field = document.getElementById(id);
         field.addEventListener("input", renderProjectsSection);
         field.addEventListener("change", renderProjectsSection);
+      });
+      ["expenseSearch", "expenseCategoryFilter", "expensePaymentFilter", "expenseMonthFilter"].forEach((id) => {
+        const field = document.getElementById(id);
+        field.addEventListener("input", renderExpensesSection);
+        field.addEventListener("change", renderExpensesSection);
+      });
+      document.querySelector("[data-clear-expense-filters='true']").addEventListener("click", () => {
+        document.getElementById("expenseSearch").value = "";
+        document.getElementById("expenseCategoryFilter").value = "";
+        document.getElementById("expensePaymentFilter").value = "";
+        document.getElementById("expenseMonthFilter").value = "";
+        renderExpensesSection();
       });
       ["maintenanceSearch", "maintenanceStatusFilter", "maintenancePaymentFilter"].forEach((id) => {
         const field = document.getElementById(id);
@@ -7254,6 +8322,13 @@
           if (id === "reportsFromFilter" || id === "reportsToFilter") {
             document.getElementById("reportsMonthFilter").value = "";
           }
+        });
+      });
+
+      document.querySelectorAll("[data-financial-period]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.reportChartPeriod = button.dataset.financialPeriod || "daily";
+          renderReportsSection();
         });
       });
     }

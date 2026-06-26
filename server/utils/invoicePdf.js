@@ -1,5 +1,6 @@
 const {
   normalizeInvoiceCurrency,
+  normalizeInvoiceType,
   roundMoney
 } = require("./invoice");
 
@@ -98,15 +99,28 @@ function generateInvoicePdfBuffer({ invoice, settings = {} }) {
   const commands = [];
   const currency = invoice.currency || settings.defaultCurrency || "LKR";
   const projectReference = invoice.projectTitle || invoice.maintenancePlanName || invoice.leadBusinessName || "";
+  const invoiceType = normalizeInvoiceType(invoice.invoiceType);
+  const paidLabel = invoiceType === "Advance / Partial Payment Invoice" ? "Advance Paid" : "Paid Amount";
+  const totalLabel = invoiceType === "Advance / Partial Payment Invoice"
+    ? "Total Project Amount"
+    : invoiceType === "Extra Features / Add-on Invoice"
+      ? "Add-on Total"
+      : "Total Amount";
+  const modelPackage = invoice.modelPackage === "Custom"
+    ? invoice.customModelPackage || "Custom"
+    : invoice.modelPackage || "Custom";
   let y = 785;
 
-  commands.push("0.08 0.12 0.2 RG");
-  commands.push("0.08 0.12 0.2 rg");
+  commands.push("0.95 0.97 1 rg");
   commands.push("40 742 515 86 re f");
-  addText(commands, "AutomateX", 58, 795, { size: 22, font: "F2" });
-  addText(commands, "Professional Invoice", 58, 773, { size: 11 });
-  addText(commands, invoice.invoiceNumber || "Invoice", 390, 795, { size: 18, font: "F2" });
-  addText(commands, `Status: ${invoice.paymentStatus || invoice.status || "Unpaid"}`, 390, 773, { size: 11 });
+  commands.push("0.05 0.15 0.28 RG");
+  commands.push("0.05 0.15 0.28 rg");
+  addText(commands, "AutomateX", 58, 797, { size: 23, font: "F2" });
+  addText(commands, "STREAMLINE YOUR SUCCESS", 58, 778, { size: 9, font: "F2" });
+  addText(commands, "automatex.lk | Websites, POS Systems, Business Software & Automation", 58, 762, { size: 9 });
+  addText(commands, invoice.invoiceNumber || "Invoice", 388, 797, { size: 17, font: "F2" });
+  addText(commands, `Status: ${invoice.paymentStatus || invoice.status || "Unpaid"}`, 388, 778, { size: 10 });
+  addText(commands, `Type: ${invoiceType}`, 388, 762, { size: 9 });
 
   commands.push("0 0 0 RG");
   commands.push("0 0 0 rg");
@@ -119,29 +133,35 @@ function generateInvoicePdfBuffer({ invoice, settings = {} }) {
   addText(commands, "Invoice Details", 335, y, { size: 13, font: "F2" });
   addText(commands, `Issue date: ${formatDate(invoice.issueDate)}`, 335, y - 18);
   addText(commands, `Due date: ${formatDate(invoice.dueDate)}`, 335, y - 34);
-  addText(commands, `Type: ${invoice.invoiceType || "Custom"}`, 335, y - 50);
+  addText(commands, `Model / Package: ${modelPackage}`, 335, y - 50);
+  addText(commands, `Payment: ${invoice.paymentMethod || "Other"}`, 335, y - 66);
   if (projectReference) {
-    addText(commands, `Reference: ${projectReference}`, 335, y - 66);
+    addText(commands, `Project: ${projectReference}`, 335, y - 82);
   }
 
-  y = 632;
+  y = 615;
+  addText(commands, invoiceType, 48, y + 40, { size: 16, font: "F2" });
   addLine(commands, 40, y + 18, 555, y + 18);
   addText(commands, "Description", 48, y, { font: "F2" });
+  addText(commands, "Type", 255, y, { font: "F2" });
   addText(commands, "Qty", 340, y, { font: "F2" });
-  addText(commands, "Unit", 390, y, { font: "F2" });
-  addText(commands, "Amount", 480, y, { font: "F2" });
+  addText(commands, "Unit", 382, y, { font: "F2" });
+  addText(commands, "Discount", 445, y, { font: "F2" });
+  addText(commands, "Amount", 505, y, { font: "F2" });
   addLine(commands, 40, y - 8, 555, y - 8);
   y -= 28;
 
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   items.slice(0, 12).forEach((item) => {
-    const description = item.description || item.name || "Invoice item";
-    const lines = wrapText(description, 48);
+    const description = item.name || item.description || "Invoice item";
+    const lines = wrapText(description, 32);
     addText(commands, lines[0], 48, y);
     lines.slice(1, 3).forEach((line, index) => addText(commands, line, 48, y - ((index + 1) * 13), { size: 9 }));
+    addText(commands, item.type || "Service", 255, y, { size: 9 });
     addText(commands, String(item.quantity || 0), 340, y);
-    addText(commands, formatMoney(item.unitPrice || 0, currency), 390, y);
-    addText(commands, formatMoney(item.amount || item.total || 0, currency), 480, y);
+    addText(commands, formatMoney(item.unitPrice || 0, currency), 382, y, { size: 9 });
+    addText(commands, formatMoney(item.itemDiscount || item.lineDiscount || 0, currency), 445, y, { size: 9 });
+    addText(commands, formatMoney(item.lineTotal || item.amount || item.total || 0, currency), 505, y, { size: 9 });
     y -= Math.max(24, lines.slice(0, 3).length * 14);
   });
 
@@ -150,23 +170,29 @@ function generateInvoicePdfBuffer({ invoice, settings = {} }) {
   addLine(commands, 320, y + 20, 555, y + 20);
   [
     ["Subtotal", invoice.subtotal],
-    ["Discount", invoice.discount],
-    ["Tax", invoice.tax],
-    ["Total", invoice.totalAmount],
-    ["Paid", invoice.paidAmount],
-    ["Balance", invoice.balanceAmount ?? invoice.balance]
+    ["Item Discounts", invoice.itemDiscountTotal],
+    ["Overall Discount", invoice.overallDiscount ?? invoice.discount],
+    ["Tax", invoice.taxAmount ?? invoice.tax],
+    [totalLabel, invoice.totalAmount],
+    [paidLabel, invoice.paidAmount],
+    ["Balance Due", invoice.balanceAmount ?? invoice.balance]
   ].forEach(([label, value], index) => {
     const rowY = y - (index * 18);
-    addText(commands, label, 350, rowY, { font: index >= 3 ? "F2" : "F1" });
-    addText(commands, formatMoney(value || 0, currency), 470, rowY, { font: index >= 3 ? "F2" : "F1" });
+    addText(commands, label, 338, rowY, { font: index >= 4 ? "F2" : "F1" });
+    addText(commands, formatMoney(value || 0, currency), 468, rowY, { font: index >= 4 ? "F2" : "F1" });
   });
 
   const paymentInstructions = settings.paymentInstructions || "Please use your agreed AutomateX payment method and share the payment reference after transfer.";
-  addText(commands, "Payment Instructions", 48, 150, { size: 12, font: "F2" });
-  wrapText(paymentInstructions, 88).slice(0, 4).forEach((line, index) => {
-    addText(commands, line, 48, 132 - (index * 14), { size: 9 });
+  addText(commands, "Notes", 48, 158, { size: 12, font: "F2" });
+  wrapText(invoice.clientNotes || invoice.notes || "This invoice is issued for the services listed above.", 58).slice(0, 3).forEach((line, index) => {
+    addText(commands, line, 48, 140 - (index * 13), { size: 9 });
   });
-  addText(commands, "Thank you for choosing AutomateX.", 48, 58, { size: 11, font: "F2" });
+  addText(commands, "Payment Details", 48, 96, { size: 12, font: "F2" });
+  wrapText(`${paymentInstructions} Reference: ${invoice.invoiceNumber || "Invoice"}`, 88).slice(0, 4).forEach((line, index) => {
+    addText(commands, line, 48, 78 - (index * 13), { size: 9 });
+  });
+  addText(commands, "Authorized By: AutomateX", 385, 78, { size: 10, font: "F2" });
+  addText(commands, "Thank you for choosing AutomateX.", 48, 24, { size: 11, font: "F2" });
 
   const content = commands.join("\n");
   const objects = [

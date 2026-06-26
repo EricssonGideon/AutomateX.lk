@@ -23,7 +23,6 @@
           <div class="brand-copy">
             <small class="kicker">AutomateX</small>
             <h2>Admin Panel</h2>
-            <p>Platform operations, billing oversight, and client activation.</p>
           </div>
         </div>
         <button id="sidebarClose" class="mobile-close" type="button">Close</button>
@@ -34,49 +33,48 @@
         <button class="nav-button is-active" data-section="dashboard" type="button">
           <span>
             <strong>Dashboard</strong>
-            <small>Overview</small>
           </span>
           <span class="nav-counter">Live</span>
         </button>
         <button class="nav-button" data-section="inquiries" type="button">
           <span>
             <strong>Inquiries</strong>
-            <small>Current inquiries</small>
           </span>
           <span class="nav-counter" id="navCountInquiries">0</span>
         </button>
         <button class="nav-button" data-section="clients" type="button">
           <span>
             <strong>Clients</strong>
-            <small>Manage accounts</small>
           </span>
           <span class="nav-counter" id="navCountClients">0</span>
         </button>
         <button class="nav-button" data-section="sales" type="button">
           <span>
             <strong>Employees</strong>
-            <small>Employees</small>
           </span>
           <span class="nav-counter" id="navCountSales">0</span>
         </button>
         <button class="nav-button" data-section="projects" type="button">
           <span>
             <strong>Projects</strong>
-            <small>Client delivery</small>
           </span>
           <span class="nav-counter" id="navCountProjects">0</span>
+        </button>
+        <button class="nav-button" data-section="expenses" type="button">
+          <span>
+            <strong>Expenses</strong>
+          </span>
+          <span class="nav-counter" id="navCountExpenses">0</span>
         </button>
         <button class="nav-button" data-section="invoices" type="button">
           <span>
             <strong>Payments &amp; Invoices</strong>
-            <small>Billing</small>
           </span>
           <span class="nav-counter" id="navCountInvoices">0</span>
         </button>
         <button class="nav-button system-admin-only" data-section="settings" type="button">
           <span>
             <strong>Settings</strong>
-            <small>Admin settings</small>
           </span>
           <span class="nav-counter">Admin</span>
         </button>
@@ -126,21 +124,18 @@
         <button class="nav-button system-admin-only" data-section="reports" type="button">
           <span>
             <strong>Reports</strong>
-            <small>Reports</small>
           </span>
           <span class="nav-counter" id="navCountReports">Live</span>
         </button>
         <button class="nav-button system-admin-only" data-section="users" type="button">
           <span>
             <strong>Users & Roles</strong>
-            <small>Access control</small>
           </span>
           <span class="nav-counter" id="navCountUsers">0</span>
         </button>
         <button class="nav-button system-admin-only" data-section="audit-logs" type="button">
           <span>
             <strong>Audit Logs</strong>
-            <small>Security history</small>
           </span>
           <span class="nav-counter" id="navCountAuditLogs">0</span>
         </button>
@@ -156,7 +151,7 @@
         <div class="topbar-copy">
           <small class="kicker">AutomateX Admin</small>
           <h1 id="pageTitle">Dashboard</h1>
-          <p id="pageSubtitle">Review approvals, income, and platform activity from the Admin Panel.</p>
+          <p id="pageSubtitle" hidden></p>
         </div>
 
         <div class="topbar-actions">
@@ -178,7 +173,7 @@
               <div>
                 <small class="kicker">Income Summary</small>
                 <h2>Billing summary</h2>
-                <p>Use current plan and payment details to see expected income, unpaid balances, and invoices that need follow-up.</p>
+                <p>Income, payments, and balances.</p>
               </div>
             </div>
             <div class="metric-list" id="revenueOverviewList"></div>
@@ -189,29 +184,21 @@
               <div>
                 <small class="kicker">Quick Actions</small>
                 <h2>Jump to the next task</h2>
-                <p>Move directly into the sections that need attention.</p>
+                <p>Quick shortcuts.</p>
               </div>
             </div>
             <div class="quick-action-grid">
               <button class="quick-action" type="button" data-section-target="pending-approvals">
                 <strong>View Pending Clients</strong>
-                <span>Open the approval queue and activate waiting accounts.</span>
+                <span>Approval queue.</span>
               </button>
               <button class="quick-action" type="button" data-section-target="clients">
                 <strong>Add / Manage Client</strong>
-                <span>Review live client records, packages, and feature access.</span>
+                <span>Client records and packages.</span>
               </button>
               <button class="quick-action" type="button" data-section-target="invoices">
                 <strong>Create Invoice</strong>
-                <span>Open invoice drafts, sent invoices, and collections.</span>
-              </button>
-              <button class="quick-action" type="button" data-section-target="payments">
-                <strong>View Payments</strong>
-                <span>Review outstanding balances, payment status, and billing follow-up.</span>
-              </button>
-              <button class="quick-action" type="button" data-section-target="support">
-                <strong>View Support Requests</strong>
-                <span>Review support, upgrade, bug, payment, and feature requests from active clients.</span>
+                <span>Invoices and payments.</span>
               </button>
             </div>
           </article>
@@ -223,7 +210,7 @@
               <div>
                 <small class="kicker">Pending Approvals Preview</small>
                 <h2>Latest signup requests</h2>
-                <p>Review the newest client accounts waiting for package assignment and admin activation.</p>
+                <p>New clients awaiting approval.</p>
               </div>
               <div class="panel-actions">
                 <button class="button button-secondary" type="button" data-section-target="pending-approvals">Open Queue</button>
@@ -237,7 +224,7 @@
               <div>
                 <small class="kicker">Recent Clients</small>
                 <h2>Newest client accounts</h2>
-                <p>Keep track of who recently joined the platform and which accounts may need early operational attention.</p>
+                <p>Latest client accounts.</p>
               </div>
               <div class="panel-actions">
                 <button class="button button-secondary" type="button" data-section-target="clients">Manage Clients</button>
@@ -251,19 +238,6 @@
           <article class="panel">
             <div class="panel-header">
               <div>
-                <small class="kicker">Recent Bookings</small>
-                <h3>Latest scheduling activity</h3>
-              </div>
-              <div class="panel-actions">
-                <button class="button button-secondary" type="button" data-section-target="bookings">View All</button>
-              </div>
-            </div>
-            <div id="dashboardRecentBookings"></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <div>
                 <small class="kicker">Recent Inquiries</small>
                 <h3>Latest leads and messages</h3>
               </div>
@@ -272,19 +246,6 @@
               </div>
             </div>
             <div id="dashboardRecentInquiries"></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <small class="kicker">Recent Reviews</small>
-                <h3>Newest moderation items</h3>
-              </div>
-              <div class="panel-actions">
-                <button class="button button-secondary" type="button" data-section-target="reviews">View All</button>
-              </div>
-            </div>
-            <div id="dashboardRecentReviews"></div>
           </article>
         </div>
       </section>
@@ -296,8 +257,8 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Client Management</small>
-              <h2>Accounts, package assignment, and activation control</h2>
-              <p>Search live clients, open the management drawer, adjust package and billing state, and monitor platform activity account by account.</p>
+              <h2>Client accounts</h2>
+              <p>Manage client accounts, packages, and billing.</p>
             </div>
             <div class="panel-actions">
               <button id="refreshClientsButton" class="button button-secondary" type="button">Update Clients</button>
@@ -488,7 +449,7 @@
             <div>
               <small class="kicker">Package Clients</small>
               <h2>Clients by assigned package</h2>
-              <p>Review package allocation across real accounts without editing pricing or package rules in this step.</p>
+              <p>Package allocation by account.</p>
             </div>
           </div>
 
@@ -522,8 +483,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Invoice Overview</small>
-                <h2>Manual billing visibility</h2>
-                <p>Track invoice value, collected amounts, and outstanding balances without introducing online payment gateway changes in this step.</p>
+                <h2>Billing overview</h2>
+                <p>Track invoice value, payments, and balances.</p>
               </div>
             </div>
             <div class="metric-list" id="invoiceCollectionsSummaryList"></div>
@@ -545,8 +506,8 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Invoice Management</small>
-              <h2>Create, update, and track client invoices</h2>
-              <p>Manage invoice drafts, sent invoices, partial collections, and cancelled records inside the Admin Panel.</p>
+              <h2>Client invoices</h2>
+              <p>Create, edit, preview, and track invoices.</p>
             </div>
             <div class="panel-actions">
               <button id="createInvoiceButton" class="button button-primary" type="button" data-required-permission="invoices:manage">Create Invoice</button>
@@ -567,10 +528,12 @@
             </select>
             <select id="invoiceTypeFilter" class="select">
               <option value="">All invoice types</option>
-              <option value="Project">Project</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Upgrade">Upgrade</option>
-              <option value="Custom">Custom</option>
+              <option value="Full Payment Invoice">Full Payment Invoice</option>
+              <option value="Advance / Partial Payment Invoice">Advance / Partial Payment Invoice</option>
+              <option value="Final Payment Invoice">Final Payment Invoice</option>
+              <option value="Maintenance Invoice">Maintenance Invoice</option>
+              <option value="Extra Features / Add-on Invoice">Extra Features / Add-on Invoice</option>
+              <option value="Custom Invoice">Custom Invoice</option>
             </select>
             <input id="invoiceMonthFilter" class="input" type="month">
             <input id="invoiceDueFromFilter" class="input" type="date" aria-label="Invoice due from">
@@ -623,7 +586,7 @@
               <div>
                 <small class="kicker">Payment Alerts</small>
                 <h2>What needs follow-up now</h2>
-                <p>Use current payment status and next-payment dates to prioritize collection work without introducing new billing backend logic.</p>
+                <p>Payment follow-up.</p>
               </div>
             </div>
             <div class="metric-list" id="paymentAlertsList"></div>
@@ -635,7 +598,7 @@
             <div>
               <small class="kicker">Payments Table</small>
               <h2>Billing-related client accounts</h2>
-              <p>Manage billing values from the existing client drawer and monitor which accounts need immediate attention.</p>
+              <p>Manage billing values and follow-up.</p>
             </div>
             <div class="panel-actions">
               <button id="refreshPaymentsButton" class="button button-secondary" type="button">Update Payments</button>
@@ -672,7 +635,7 @@
             <div>
               <small class="kicker">Project Management</small>
               <h2>Current projects</h2>
-              <p>Create, track, and update AutomateX client projects from the Admin Panel.</p>
+              <p>Manage client projects.</p>
             </div>
             <div class="panel-actions">
               <button id="createProjectButton" class="button button-primary" type="button" data-required-permission="projects:manage">Create Project</button>
@@ -740,6 +703,71 @@
         </article>
       </section>
 
+      <section class="section" id="section-expenses">
+        <div class="kpi-grid" id="expensesKpiGrid"></div>
+
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Expenses</small>
+              <h2>Company spending</h2>
+            </div>
+            <div class="panel-actions">
+              <button id="createExpenseButton" class="button button-primary" type="button" data-required-permission="expenses:manage">Add Expense</button>
+              <button id="clearTestExpensesButton" class="button button-danger system-admin-only" type="button" data-required-permission="expenses:manage">Clear Test Expenses</button>
+              <button id="refreshExpensesButton" class="button button-secondary" type="button">Update Expenses</button>
+            </div>
+          </div>
+
+          <div class="filters">
+            <input id="expenseSearch" class="input" type="text" placeholder="Search title, category, notes">
+            <select id="expenseCategoryFilter" class="select">
+              <option value="">All categories</option>
+              <option>Software</option>
+              <option>Hosting</option>
+              <option>Domain</option>
+              <option>Ads / Marketing</option>
+              <option>Travel</option>
+              <option>Food / Meeting</option>
+              <option>Office</option>
+              <option>Salary / Commission</option>
+              <option>Client Work</option>
+              <option>Other</option>
+            </select>
+            <select id="expensePaymentFilter" class="select">
+              <option value="">All payment methods</option>
+              <option>Cash</option>
+              <option>Bank Transfer</option>
+              <option>Card</option>
+              <option>Online</option>
+              <option>Other</option>
+            </select>
+            <input id="expenseMonthFilter" class="input" type="month" aria-label="Expense month">
+            <button class="button button-secondary" type="button" data-clear-expense-filters="true">Clear Filters</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-wrap">
+              <table class="admin-table admin-table-expenses">
+                <thead>
+                  <tr>
+                    <th class="col-date">Date</th>
+                    <th class="col-title">Title</th>
+                    <th class="col-package">Category</th>
+                    <th class="col-money">Amount</th>
+                    <th class="col-status">Method</th>
+                    <th class="col-notes">Notes</th>
+                    <th class="col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="expensesTableBody"></tbody>
+              </table>
+            </div>
+            <div class="empty-state" id="expensesEmptyState">Loading expenses…</div>
+          </div>
+        </article>
+      </section>
+
       <section class="section" id="section-sales">
         <div class="kpi-grid" id="salesKpiGrid"></div>
 
@@ -748,7 +776,7 @@
             <div>
               <small class="kicker">Employees</small>
               <h2>Employee management</h2>
-              <p>Create employee login accounts, manage target rules, disable access, and review monthly performance in one place.</p>
+              <p>Manage employee access and performance.</p>
             </div>
             <div class="panel-actions">
               <button id="createSalesExecutiveButton" class="button button-primary" type="button" data-required-permission="sales:manage">Add Employee</button>
@@ -879,7 +907,7 @@
             <div>
               <small class="kicker">Commissions</small>
               <h2>Commission tracking</h2>
-              <p>Create, approve, pay, and cancel sales commissions connected to leads, clients, projects, or invoices.</p>
+              <p>Manage employee commissions.</p>
             </div>
             <div class="panel-actions">
               <button id="createCommissionButton" class="button button-primary" type="button" data-required-permission="commissions:manage">Create Commission</button>
@@ -1160,7 +1188,7 @@
             <div>
               <small class="kicker">Report Filters</small>
               <h2>Report period</h2>
-              <p>Use the current month or choose a date range for income, projects, employee leads, maintenance, and support reports.</p>
+              <p>Choose a report period.</p>
             </div>
             <div class="panel-actions">
               <button id="reportsCurrentMonthButton" class="button button-secondary" type="button">Current Month</button>
@@ -1174,6 +1202,38 @@
           </div>
         </article>
 
+        <article class="panel">
+          <div class="panel-header">
+            <div>
+              <small class="kicker">Profit Report</small>
+              <h2>Income, expenses, profit</h2>
+            </div>
+          </div>
+          <div class="segmented-control" id="financialReportTabs" role="tablist" aria-label="Financial report view">
+            <button class="segment-button is-active" type="button" data-financial-period="daily">Daily</button>
+            <button class="segment-button" type="button" data-financial-period="monthly">Monthly</button>
+            <button class="segment-button" type="button" data-financial-period="yearly">Yearly</button>
+          </div>
+          <div class="kpi-grid admin-mt-16" id="financialReportKpiGrid"></div>
+          <div class="dual-grid admin-mt-16">
+            <div class="chart-card">
+              <div class="chart-title">Income vs Expenses vs Profit</div>
+              <div class="bar-chart" id="financialBarChart"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Income split</div>
+              <div class="donut-chart-shell">
+                <div class="donut-chart" id="financialDonutChart"></div>
+                <div class="donut-legend" id="financialDonutLegend"></div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-card admin-mt-16">
+            <div class="chart-title" id="financialBreakdownTitle">Breakdown</div>
+            <div class="mini-bar-list" id="financialBreakdownChart"></div>
+          </div>
+        </article>
+
         <div class="kpi-grid" id="reportsKpiGrid"></div>
 
         <div class="dual-grid">
@@ -1182,7 +1242,7 @@
               <div>
                 <small class="kicker">Income Report</small>
                 <h2>Invoice and payment summary</h2>
-                <p>Review invoice totals, collected income, unpaid balances, and overdue invoices.</p>
+                <p>Invoice totals and balances.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsRevenueList"></div>
@@ -1194,7 +1254,7 @@
               <div>
                 <small class="kicker">Client Report</small>
                 <h2>Account status overview</h2>
-                <p>Track live client distribution across active, pending, suspended, and rejected states, plus month-to-date signup movement.</p>
+                <p>Clients by package and status.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsClientList"></div>
@@ -1207,7 +1267,7 @@
               <div>
                 <small class="kicker">Package Report</small>
                 <h2>Service tier distribution</h2>
-                <p>See how each AutomateX package is distributed and which active package groups are driving expected monthly income.</p>
+                <p>Package income overview.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsPackageList"></div>
@@ -1218,7 +1278,7 @@
               <div>
                 <small class="kicker">Request Report</small>
                 <h2>Support and upgrade workload</h2>
-                <p>Measure support requests across open, in-progress, completed, upgrade, bug, and urgent items.</p>
+                <p>Support workload.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsRequestList"></div>
@@ -1231,7 +1291,7 @@
               <div>
                 <small class="kicker">Project Report</small>
                 <h2>Status, type, and deadline risk</h2>
-                <p>Review delivery status distribution and projects that may need admin attention before deadline risk grows.</p>
+                <p>Project status and deadlines.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsProjectBars"></div>
@@ -1242,7 +1302,7 @@
               <div>
                 <small class="kicker">Employee Leads Report</small>
                 <h2>New clients from inquiries and commissions</h2>
-                <p>Track lead status, new clients from inquiries, and pending or paid commissions.</p>
+                <p>Leads and commissions.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsSalesList"></div>
@@ -1255,7 +1315,7 @@
               <div>
                 <small class="kicker">Maintenance Report</small>
                 <h2>Renewal and payment pressure</h2>
-                <p>Review active plans, expiring renewals, expired plans, and maintenance payment-state distribution.</p>
+                <p>Maintenance renewals.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsMaintenanceList"></div>
@@ -1266,7 +1326,7 @@
               <div>
                 <small class="kicker">Invoice Report</small>
                 <h2>Payment state distribution</h2>
-                <p>Understand unpaid, partial, paid, and overdue invoice pressure without exposing private notes.</p>
+                <p>Invoice payment states.</p>
               </div>
             </div>
             <div class="metric-list" id="reportsInvoiceBars"></div>
@@ -1278,8 +1338,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Overdue Invoices</small>
-                <h2>Collection follow-up queue</h2>
-                <p>Invoices with overdue status or past due dates and open balances.</p>
+                <h2>Follow-up queue</h2>
+                <p>Past-due invoices.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1304,8 +1364,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Projects At Risk</small>
-                <h2>Deadline and priority watchlist</h2>
-                <p>Open projects near deadline or marked high/urgent priority.</p>
+                <h2>Deadline watchlist</h2>
+                <p>Urgent or late projects.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1332,8 +1392,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Expiring Maintenance</small>
-                <h2>Renewal follow-up queue</h2>
-                <p>Active or expiring plans with renewal dates inside the next 30 days.</p>
+                <h2>Renewals</h2>
+                <p>Plans needing attention.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1358,8 +1418,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Pending Commissions</small>
-                <h2>Sales payout queue</h2>
-                <p>Commissions still pending or approved but not yet paid.</p>
+                <h2>Commission queue</h2>
+                <p>Unpaid commissions.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1386,8 +1446,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Leads & Follow-ups</small>
-                <h2>Employee lead queue</h2>
-                <p>New, follow-up, interested, or proposal-sent leads needing employee action.</p>
+                <h2>Lead queue</h2>
+                <p>Leads needing action.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1412,8 +1472,8 @@
             <div class="panel-header">
               <div>
                 <small class="kicker">Open Support</small>
-                <h2>Support workload queue</h2>
-                <p>Open or in-progress support, bug, feature, payment, and upgrade requests.</p>
+                <h2>Support queue</h2>
+                <p>Open support requests.</p>
               </div>
             </div>
             <div class="table-card">
@@ -1439,8 +1499,8 @@
           <div class="panel-header">
             <div>
               <small class="kicker">Recent Activity</small>
-              <h2>Latest platform activity across operations</h2>
-              <p>Review the most recent client signups, invoices, support tickets, bookings, inquiries, and reviews in one operational feed.</p>
+              <h2>Latest activity</h2>
+              <p>Latest system activity.</p>
             </div>
             <div class="panel-actions">
               <button id="refreshReportsButton" class="button button-secondary" type="button">Update Reports</button>
@@ -1470,7 +1530,7 @@
             <div>
               <small class="kicker">CSV Downloads</small>
               <h2>Download report data</h2>
-              <p>Download current client, invoice, and support request records as CSV files for offline review.</p>
+              <p>Export report data.</p>
             </div>
             <div class="panel-actions">
               <button id="exportClientsReportButton" class="button button-secondary" type="button" data-required-permission="reports:export">Download Clients</button>
@@ -1492,7 +1552,7 @@
             <div>
               <small class="kicker">Access Control</small>
               <h2>Admin users and roles</h2>
-              <p>Review staff access, role assignments, and account state without exposing password data.</p>
+              <p>Manage roles and access.</p>
             </div>
             <button id="refreshUsersButton" class="button button-secondary" type="button">Update Users</button>
           </div>
@@ -1542,7 +1602,7 @@
             <div>
               <small class="kicker">Security History</small>
               <h2>Admin audit logs</h2>
-              <p>Track sensitive admin activity across users, billing, projects, files, sales, and support operations.</p>
+              <p>Review admin activity.</p>
             </div>
             <button id="refreshAuditLogsButton" class="button button-secondary" type="button">Update Logs</button>
           </div>
@@ -1610,7 +1670,7 @@
               <div>
                 <small class="kicker">Admin Session</small>
                 <h2>Current platform access details</h2>
-                <p>Review which administrator is authenticated and confirm that this page remains isolated from client-facing access.</p>
+                <p>Current admin access.</p>
               </div>
             </div>
             <div class="settings-grid" id="settingsAdminInfo"></div>
@@ -1621,7 +1681,7 @@
               <div>
                 <small class="kicker">Appearance</small>
                 <h2>Console display preferences</h2>
-                <p>Theme preference is stored locally on this device so the Admin Panel stays readable in light or dark mode.</p>
+                <p>Saved on this device.</p>
               </div>
             </div>
             <label class="field-inline">
@@ -1642,7 +1702,7 @@
                 <div>
                   <small class="kicker">Company Profile</small>
                   <h2>Core AutomateX business details</h2>
-                  <p>Manage the business identity and contact details that should appear across the Admin Panel and future billing defaults.</p>
+                  <p>Business details for invoices and messages.</p>
                 </div>
               </div>
               <div class="drawer-grid">
@@ -1678,7 +1738,7 @@
                 <div>
                   <small class="kicker">Invoice Settings</small>
                   <h2>Default billing configuration</h2>
-                  <p>Control the prefix, currency, tax rate, and payment terms used when new manual invoices are created from the admin dashboard.</p>
+                  <p>Default invoice settings.</p>
                 </div>
               </div>
               <div class="drawer-grid">
@@ -1700,7 +1760,7 @@
                 </div>
               </div>
               <div class="inline-note admin-mt-18">
-                These defaults apply to newly created invoices. Existing invoice totals, numbers, and payment states stay unchanged.
+                Applies to new invoices only.
               </div>
             </article>
           </div>
@@ -1711,7 +1771,7 @@
                 <div>
                   <small class="kicker">Support Settings</small>
                   <h2>Client support contact defaults</h2>
-                  <p>Set the support email, WhatsApp support line, and the standard message admins want ready for support communication.</p>
+                  <p>Default support contact details.</p>
                 </div>
               </div>
               <div class="drawer-grid">
@@ -1735,7 +1795,7 @@
                 <div>
                   <small class="kicker">Payment Instructions</small>
                   <h2>Manual payment and bank details</h2>
-                  <p>Store the banking and transfer instructions the admin team wants available when reviewing invoices and coordinating manual payments.</p>
+                  <p>Bank details for invoices.</p>
                 </div>
               </div>
               <div class="drawer-grid">
@@ -1768,8 +1828,8 @@
               <div class="panel-header">
                 <div>
                   <small class="kicker">System Health</small>
-                  <h2>Runtime connectivity snapshot</h2>
-                  <p>Current backend-reported service health indicators for the API and database powering the admin console.</p>
+                  <h2>System status</h2>
+                  <p>Current system status.</p>
                 </div>
               </div>
               <div class="metric-list" id="settingsHealthList"></div>
@@ -1780,7 +1840,7 @@
                 <div>
                   <small class="kicker">Configuration Summary</small>
                   <h2>Current business defaults overview</h2>
-                  <p>Review the active billing and support defaults, then save or update the settings without leaving the Admin Panel.</p>
+                  <p>Current saved defaults.</p>
                 </div>
                 <div class="panel-actions">
                   <button id="refreshSettingsButton" class="button button-secondary" type="button">Update Settings</button>
@@ -1810,6 +1870,19 @@
       </div>
       <div id="drawerBody"></div>
     </aside>
+  </div>
+
+  <div class="confirm-shell" id="confirmShell" aria-hidden="true">
+    <div class="confirm-backdrop" id="confirmBackdrop"></div>
+    <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <small class="kicker" id="confirmEyebrow">Confirm</small>
+      <h3 id="confirmTitle">Confirm action</h3>
+      <p id="confirmMessage"></p>
+      <div class="drawer-actions">
+        <button class="button button-ghost" id="confirmCancelButton" type="button">Cancel</button>
+        <button class="button button-danger" id="confirmActionButton" type="button">Confirm</button>
+      </div>
+    </section>
   </div>
 
   <div class="toast-stack" id="toastStack"></div>

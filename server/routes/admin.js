@@ -12,6 +12,11 @@ const {
   deactivateAdminUser,
   getAdminSettings,
   updateAdminSettings,
+  getExpenses,
+  createExpense,
+  updateExpense,
+  deleteExpense,
+  clearTestExpenses,
   getReportsOverview,
   getReportsRevenue,
   getReportsProjects,
@@ -102,7 +107,7 @@ const {
   getSalesExecutiveCommissionSummary,
   getAdminSalesSummary
 } = require("../controllers/salesController");
-const { verifyToken, requireAdmin, requirePermission } = require("../middleware/auth");
+const { verifyToken, requireAdmin, requirePermission, requireSystemAdmin } = require("../middleware/auth");
 
 const router = express.Router();
 const can = requirePermission;
@@ -120,6 +125,11 @@ router.patch("/users/:id/activate", can("users:manage"), activateAdminUser);
 router.patch("/users/:id/deactivate", can("users:manage"), deactivateAdminUser);
 router.get("/settings", can("settings:manage"), getAdminSettings);
 router.patch("/settings", can("settings:manage"), updateAdminSettings);
+router.get("/expenses", can("expenses:view"), getExpenses);
+router.post("/expenses", can("expenses:manage"), createExpense);
+router.delete("/expenses/test-records", can("expenses:manage"), requireSystemAdmin, clearTestExpenses);
+router.patch("/expenses/:id", can("expenses:manage"), updateExpense);
+router.delete("/expenses/:id", can("expenses:manage"), deleteExpense);
 router.get("/reports/overview", can("reports:view"), getReportsOverview);
 router.get("/reports/revenue", can("reports:view"), getReportsRevenue);
 router.get("/reports/projects", can("reports:view"), getReportsProjects);

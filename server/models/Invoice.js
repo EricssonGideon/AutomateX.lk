@@ -21,6 +21,11 @@ const itemSchema = new mongoose.Schema(
       default: "",
       trim: true
     },
+    type: {
+      type: String,
+      enum: ["Main Package", "Extra Feature", "Service", "Maintenance", "Support", "Discount Adjustment", "Custom"],
+      default: "Service"
+    },
     quantity: {
       type: Number,
       default: 1,
@@ -37,6 +42,26 @@ const itemSchema = new mongoose.Schema(
       min: 0
     },
     amount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    itemDiscount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    lineSubtotal: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    lineDiscount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    lineTotal: {
       type: Number,
       default: 0,
       min: 0
@@ -108,9 +133,43 @@ const invoiceSchema = new mongoose.Schema(
     },
     invoiceType: {
       type: String,
-      enum: ["Project", "Maintenance", "Upgrade", "Custom"],
+      enum: [
+        "Project",
+        "Maintenance",
+        "Upgrade",
+        "Custom",
+        "Full Payment Invoice",
+        "Advance / Partial Payment Invoice",
+        "Final Payment Invoice",
+        "Maintenance Invoice",
+        "Extra Features / Add-on Invoice",
+        "Custom Invoice"
+      ],
+      default: "Custom Invoice",
+      index: true
+    },
+    modelPackage: {
+      type: String,
+      enum: [
+        "Website Starter",
+        "Website Standard",
+        "Website Premium",
+        "POS Starter",
+        "POS Standard",
+        "POS Premium",
+        "Business System",
+        "Custom Software",
+        "Maintenance Plan",
+        "Extra Feature / Add-on",
+        "Custom"
+      ],
       default: "Custom",
       index: true
+    },
+    customModelPackage: {
+      type: String,
+      default: "",
+      trim: true
     },
     description: {
       type: String,
@@ -131,7 +190,27 @@ const invoiceSchema = new mongoose.Schema(
       default: 0,
       min: 0
     },
+    overallDiscountType: {
+      type: String,
+      enum: ["none", "fixed", "percentage"],
+      default: "none"
+    },
+    overallDiscountValue: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    itemDiscountTotal: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
     tax: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    taxAmount: {
       type: Number,
       default: 0,
       min: 0
@@ -232,12 +311,18 @@ invoiceSchema.pre("validate", function syncInvoiceAliases(next) {
   this.items = (this.items || []).map((item) => {
     const description = item.description || item.name || "";
     const name = item.name || description;
-    const total = Number.isFinite(Number(item.total))
-      ? Number(item.total)
-      : Number(item.amount || 0);
-    const amount = Number.isFinite(Number(item.amount))
-      ? Number(item.amount)
-      : total;
+    const quantity = Number.isFinite(Number(item.quantity)) ? Math.max(0, Number(item.quantity)) : 0;
+    const unitPrice = Number.isFinite(Number(item.unitPrice)) ? Math.max(0, Number(item.unitPrice)) : 0;
+    const lineSubtotal = Number.isFinite(Number(item.lineSubtotal))
+      ? Math.max(0, Number(item.lineSubtotal))
+      : Math.max(0, quantity * unitPrice);
+    const lineDiscount = Number.isFinite(Number(item.lineDiscount || item.itemDiscount))
+      ? Math.min(lineSubtotal, Math.max(0, Number(item.lineDiscount || item.itemDiscount)))
+      : 0;
+    const total = Number.isFinite(Number(item.total || item.lineTotal))
+      ? Math.max(0, Number(item.total || item.lineTotal))
+      : Math.max(0, lineSubtotal - lineDiscount);
+    const amount = Number.isFinite(Number(item.amount)) ? Math.max(0, Number(item.amount)) : total;
 
     const plainItem = item && typeof item.toObject === "function" ? item.toObject() : item;
 
@@ -245,10 +330,19 @@ invoiceSchema.pre("validate", function syncInvoiceAliases(next) {
       ...plainItem,
       name,
       description,
+      type: plainItem.type || "Service",
+      quantity,
+      unitPrice,
+      itemDiscount: lineDiscount,
+      lineSubtotal,
+      lineDiscount,
+      lineTotal: total,
       total,
       amount
     };
   });
+  this.taxAmount = this.tax;
+  this.itemDiscountTotal = (this.items || []).reduce((sum, item) => sum + (Number(item.lineDiscount) || 0), 0);
   this.balanceAmount = this.balance;
   this.paymentStatus = STATUS_TO_PAYMENT_STATUS[this.status] || this.paymentStatus || "Unpaid";
   if (!this.clientNotes && this.notes) {

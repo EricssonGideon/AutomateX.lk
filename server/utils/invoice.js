@@ -1,7 +1,43 @@
 const INVOICE_STATUS_OPTIONS = ["draft", "sent", "paid", "partial", "overdue", "cancelled"];
-const INVOICE_TYPE_OPTIONS = ["Project", "Maintenance", "Upgrade", "Custom"];
+const INVOICE_TYPE_OPTIONS = [
+  "Full Payment Invoice",
+  "Advance / Partial Payment Invoice",
+  "Final Payment Invoice",
+  "Maintenance Invoice",
+  "Extra Features / Add-on Invoice",
+  "Custom Invoice"
+];
+const LEGACY_INVOICE_TYPE_MAP = {
+  Project: "Full Payment Invoice",
+  Maintenance: "Maintenance Invoice",
+  Upgrade: "Extra Features / Add-on Invoice",
+  Custom: "Custom Invoice"
+};
 const INVOICE_EMAIL_STATUS_OPTIONS = ["Not Sent", "Sent", "Failed"];
 const INVOICE_PAYMENT_METHOD_OPTIONS = ["Cash", "Bank Transfer", "Online", "Card", "Other"];
+const INVOICE_MODEL_PACKAGE_OPTIONS = [
+  "Website Starter",
+  "Website Standard",
+  "Website Premium",
+  "POS Starter",
+  "POS Standard",
+  "POS Premium",
+  "Business System",
+  "Custom Software",
+  "Maintenance Plan",
+  "Extra Feature / Add-on",
+  "Custom"
+];
+const INVOICE_ITEM_TYPE_OPTIONS = [
+  "Main Package",
+  "Extra Feature",
+  "Service",
+  "Maintenance",
+  "Support",
+  "Discount Adjustment",
+  "Custom"
+];
+const INVOICE_OVERALL_DISCOUNT_TYPES = ["none", "fixed", "percentage"];
 const DEFAULT_INVOICE_CURRENCY = "LKR";
 
 function roundMoney(value) {
@@ -46,7 +82,8 @@ function normalizeInvoiceStatus(value) {
 
 function normalizeInvoiceType(value) {
   const normalized = normalizeInvoiceText(value, 40);
-  return INVOICE_TYPE_OPTIONS.includes(normalized) ? normalized : "Custom";
+  const mapped = LEGACY_INVOICE_TYPE_MAP[normalized] || normalized;
+  return INVOICE_TYPE_OPTIONS.includes(mapped) ? mapped : "Custom Invoice";
 }
 
 function normalizeInvoiceEmailStatus(value) {
@@ -57,6 +94,21 @@ function normalizeInvoiceEmailStatus(value) {
 function normalizeInvoicePaymentMethod(value) {
   const normalized = normalizeInvoiceText(value, 40);
   return INVOICE_PAYMENT_METHOD_OPTIONS.includes(normalized) ? normalized : "Other";
+}
+
+function normalizeInvoiceModelPackage(value) {
+  const normalized = normalizeInvoiceText(value, 80);
+  return INVOICE_MODEL_PACKAGE_OPTIONS.includes(normalized) ? normalized : "Custom";
+}
+
+function normalizeInvoiceItemType(value) {
+  const normalized = normalizeInvoiceText(value, 40);
+  return INVOICE_ITEM_TYPE_OPTIONS.includes(normalized) ? normalized : "Custom";
+}
+
+function normalizeOverallDiscountType(value) {
+  const normalized = normalizeInvoiceText(value, 20).toLowerCase();
+  return INVOICE_OVERALL_DISCOUNT_TYPES.includes(normalized) ? normalized : "none";
 }
 
 function statusToPaymentStatus(status) {
@@ -124,10 +176,14 @@ function normalizeInvoiceItems(items) {
     .map((item) => {
       const name = normalizeInvoiceText(item && (item.name || item.description), 200);
       const description = normalizeInvoiceText(item && (item.description || item.name), 500);
+      const type = normalizeInvoiceItemType(item && item.type);
       const quantity = normalizeMoney(item && item.quantity);
       const unitPrice = normalizeMoney(item && item.unitPrice);
-      const total = roundMoney(quantity * unitPrice);
-      const amount = total;
+      const lineSubtotal = roundMoney(quantity * unitPrice);
+      const lineDiscount = Math.min(lineSubtotal, normalizeMoney(item && (item.itemDiscount ?? item.lineDiscount ?? item.discount)));
+      const lineTotal = roundMoney(Math.max(0, lineSubtotal - lineDiscount));
+      const total = lineTotal;
+      const amount = lineTotal;
 
       if (!name || quantity <= 0) {
         return null;
@@ -136,8 +192,13 @@ function normalizeInvoiceItems(items) {
       return {
         name,
         description,
+        type,
         quantity,
         unitPrice,
+        itemDiscount: lineDiscount,
+        lineSubtotal,
+        lineDiscount,
+        lineTotal,
         total,
         amount
       };
@@ -145,10 +206,18 @@ function normalizeInvoiceItems(items) {
     .filter(Boolean);
 }
 
-function calculateInvoiceTotals({ items, discount, tax, paidAmount, taxRate }) {
+function calculateInvoiceTotals({ items, discount, tax, paidAmount, taxRate, overallDiscountType, overallDiscountValue }) {
   const normalizedItems = normalizeInvoiceItems(items);
-  const subtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + roundMoney(item.total), 0));
-  const normalizedDiscount = Math.min(subtotal, normalizeMoney(discount));
+  const subtotalBeforeItemDiscounts = roundMoney(normalizedItems.reduce((sum, item) => sum + roundMoney(item.lineSubtotal), 0));
+  const itemDiscountTotal = roundMoney(normalizedItems.reduce((sum, item) => sum + roundMoney(item.lineDiscount), 0));
+  const subtotal = roundMoney(normalizedItems.reduce((sum, item) => sum + roundMoney(item.lineTotal), 0));
+  const discountType = normalizeOverallDiscountType(overallDiscountType || (normalizeMoney(discount) > 0 ? "fixed" : "none"));
+  const discountValue = normalizeMoney(typeof overallDiscountValue === "undefined" ? discount : overallDiscountValue);
+  const normalizedDiscount = discountType === "percentage"
+    ? Math.min(subtotal, roundMoney(subtotal * (Math.min(discountValue, 100) / 100)))
+    : discountType === "fixed"
+      ? Math.min(subtotal, discountValue)
+      : 0;
   const normalizedTaxRate = Number.isFinite(Number(taxRate))
     ? Math.max(0, Number(taxRate))
     : 0;
@@ -161,9 +230,15 @@ function calculateInvoiceTotals({ items, discount, tax, paidAmount, taxRate }) {
 
   return {
     items: normalizedItems,
+    subtotalBeforeItemDiscounts,
+    itemDiscountTotal,
     subtotal,
     discount: normalizedDiscount,
+    overallDiscountType: discountType,
+    overallDiscountValue: discountValue,
+    overallDiscount: normalizedDiscount,
     tax: normalizedTax,
+    taxAmount: normalizedTax,
     totalAmount,
     paidAmount: normalizedPaidAmount,
     balance
@@ -220,7 +295,9 @@ function serializeInvoice(invoice) {
     items: source.items,
     discount: source.discount,
     tax: source.tax,
-    paidAmount: source.paidAmount
+    paidAmount: source.paidAmount,
+    overallDiscountType: source.overallDiscountType,
+    overallDiscountValue: source.overallDiscountValue
   });
   const status = resolveInvoiceStatus({
     requestedStatus: source.status,
@@ -247,12 +324,21 @@ function serializeInvoice(invoice) {
     clientEmail: source.clientEmail || "",
     businessName: source.businessName || "",
     invoiceType: normalizeInvoiceType(source.invoiceType),
+    modelPackage: normalizeInvoiceModelPackage(source.modelPackage),
+    customModelPackage: normalizeInvoiceText(source.customModelPackage, 120),
     title: source.title || "",
     description: source.description || "",
     items: totals.items,
+    lineItems: totals.items,
+    subtotalBeforeItemDiscounts: totals.subtotalBeforeItemDiscounts,
+    itemDiscountTotal: totals.itemDiscountTotal,
     subtotal: totals.subtotal,
     discount: totals.discount,
+    overallDiscountType: totals.overallDiscountType,
+    overallDiscountValue: totals.overallDiscountValue,
+    overallDiscount: totals.overallDiscount,
     tax: totals.tax,
+    taxAmount: totals.taxAmount,
     totalAmount: totals.totalAmount,
     paidAmount: totals.paidAmount,
     balance: totals.balance,
@@ -280,6 +366,9 @@ module.exports = {
   INVOICE_TYPE_OPTIONS,
   INVOICE_EMAIL_STATUS_OPTIONS,
   INVOICE_PAYMENT_METHOD_OPTIONS,
+  INVOICE_MODEL_PACKAGE_OPTIONS,
+  INVOICE_ITEM_TYPE_OPTIONS,
+  INVOICE_OVERALL_DISCOUNT_TYPES,
   DEFAULT_INVOICE_CURRENCY,
   roundMoney,
   normalizeMoney,
@@ -289,6 +378,9 @@ module.exports = {
   normalizeInvoiceType,
   normalizeInvoiceEmailStatus,
   normalizeInvoicePaymentMethod,
+  normalizeInvoiceModelPackage,
+  normalizeInvoiceItemType,
+  normalizeOverallDiscountType,
   normalizeInvoiceCurrency,
   normalizeInvoiceItems,
   calculateInvoiceTotals,
