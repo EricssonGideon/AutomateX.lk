@@ -18,6 +18,7 @@
         <span>
           <span class="brand-kicker">AutomateX</span>
           <strong>Employee Portal</strong>
+          <span id="mobileEmployeeName" class="mobile-employee-name">Employee workspace</span>
         </span>
       </a>
 
@@ -180,6 +181,29 @@
       </div>
     </main>
   </div>
+
+  <nav class="mobile-bottom-nav" aria-label="Employee mobile navigation">
+    <button class="mobile-nav-item nav-tab is-active" type="button" data-tab="overview">
+      <span class="mobile-nav-icon" aria-hidden="true">D</span>
+      <span>Dashboard</span>
+    </button>
+    <button class="mobile-nav-item nav-tab" type="button" data-tab="leads">
+      <span class="mobile-nav-icon" aria-hidden="true">L</span>
+      <span>Leads</span>
+    </button>
+    <button class="mobile-nav-item mobile-nav-primary" type="button" data-open-lead-form disabled>
+      <span class="mobile-nav-icon" aria-hidden="true">+</span>
+      <span>Add</span>
+    </button>
+    <button class="mobile-nav-item" type="button" data-refresh-dashboard disabled>
+      <span class="mobile-nav-icon" aria-hidden="true">R</span>
+      <span>Refresh</span>
+    </button>
+    <button class="mobile-nav-item" type="button" data-logout>
+      <span class="mobile-nav-icon" aria-hidden="true">X</span>
+      <span>Logout</span>
+    </button>
+  </nav>
 
   <div id="leadModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" data-close-modal></div>

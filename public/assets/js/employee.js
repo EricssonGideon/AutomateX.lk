@@ -168,7 +168,7 @@
   }
 
   function setAppControlsDisabled(isDisabled) {
-    document.querySelectorAll("[data-open-lead-form], #refreshButton, #leadStatusFilter").forEach((control) => {
+    document.querySelectorAll("[data-open-lead-form], [data-refresh-dashboard], #refreshButton, #leadStatusFilter").forEach((control) => {
       control.disabled = isDisabled;
     });
   }
@@ -209,8 +209,10 @@
     const performance = dashboard.targetPerformance || {};
     const approved = performance.approvedPaidClients || 0;
     const target = performance.monthlyTarget || 3;
+    const employeeName = employee.fullName || state.user?.name || "Employee";
 
-    document.getElementById("welcomeTitle").textContent = `Welcome, ${employee.fullName || state.user?.name || "Employee"}`;
+    document.getElementById("welcomeTitle").textContent = `Welcome, ${employeeName}`;
+    document.getElementById("mobileEmployeeName").textContent = employeeName;
     document.getElementById("welcomeSubtitle").textContent = "Track your leads, follow-ups, approved clients, and AutomateX sales target progress.";
     document.getElementById("targetCount").textContent = `${approved}/${target}`;
     document.getElementById("targetRemaining").textContent = performance.remainingClients
@@ -434,9 +436,33 @@
     }
   }
 
+  function refreshDashboard() {
+    loadData().catch((error) => {
+      if (!error.isRedirecting) {
+        showErrorState(error.message || "Unable to refresh employee dashboard.");
+      }
+    });
+  }
+
+  async function logoutEmployee() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (_error) {
+      // Local session cleanup still completes below.
+    }
+    clearAuthStorage();
+    localStorage.setItem(LOGOUT_MARKER_KEY, String(Date.now()));
+    window.location.replace("/login.html");
+  }
+
   function attachEvents() {
     document.querySelectorAll(".nav-tab").forEach((button) => {
-      button.addEventListener("click", () => setTab(button.dataset.tab));
+      button.addEventListener("click", () => {
+        setTab(button.dataset.tab);
+        if (window.matchMedia("(max-width: 640px)").matches) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
     });
     document.addEventListener("click", (event) => {
       const addLeadButton = event.target.closest("[data-open-lead-form]");
@@ -453,12 +479,9 @@
     document.getElementById("submitApprovalButton").addEventListener("click", () => {
       submitApproval().catch((error) => showFeedback(error.message || "Unable to submit approval."));
     });
-    document.getElementById("refreshButton").addEventListener("click", () => {
-      loadData().catch((error) => {
-        if (!error.isRedirecting) {
-          showErrorState(error.message || "Unable to refresh employee dashboard.");
-        }
-      });
+    document.getElementById("refreshButton").addEventListener("click", refreshDashboard);
+    document.querySelectorAll("[data-refresh-dashboard]").forEach((button) => {
+      button.addEventListener("click", refreshDashboard);
     });
     document.getElementById("retryLoadButton").addEventListener("click", () => {
       loadEmployeeApp().catch((error) => {
@@ -489,15 +512,13 @@
         }
       }
     });
-    document.getElementById("logoutButton").addEventListener("click", async () => {
-      try {
-        await fetch("/api/auth/logout", { method: "POST" });
-      } catch (_error) {
-        // Local session cleanup still completes below.
-      }
-      clearAuthStorage();
-      localStorage.setItem(LOGOUT_MARKER_KEY, String(Date.now()));
-      window.location.replace("/login.html");
+    document.querySelectorAll("#logoutButton, [data-logout]").forEach((button) => {
+      button.addEventListener("click", () => {
+        logoutEmployee().catch(() => {
+          clearAuthStorage();
+          window.location.replace("/login.html");
+        });
+      });
     });
   }
 
