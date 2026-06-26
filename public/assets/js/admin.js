@@ -5107,10 +5107,18 @@
       return `${includeBlank ? `<option value="">No invoice link</option>` : ""}${options || `<option value="">No invoices available</option>`}`;
     }
 
+    function valueOrDefault(value, fallback = "") {
+      return value === null || typeof value === "undefined" ? fallback : value;
+    }
+
     function salesExecutiveDetailSection(executive = {}) {
       const isCreate = !executive.id;
       const rules = executive.commissionRules || {};
       const bank = executive.bankDetails || {};
+      const joinedDateValue = toDateInputValue(valueOrDefault(executive.joinedDate, isCreate ? new Date() : null));
+      const loginHelperText = isCreate
+        ? "Employee login is enabled when an email and password are saved. Setting status to Inactive or Suspended disables login."
+        : "Leave blank to keep current login password. Enter a new password only if you want to reset it.";
 
       return `
         <form id="salesExecutiveDrawerForm" data-mode="${isCreate ? "create" : "edit"}">
@@ -5131,6 +5139,7 @@
             <label>
               <span>${isCreate ? "Login password" : "New login password"}</span>
               <input class="input" name="password" type="password" autocomplete="new-password" placeholder="${isCreate ? "Minimum 8 characters" : "Leave blank to keep current password"}">
+              <small class="field-helper login-helper-note">${escapeHtml(loginHelperText)}</small>
             </label>
             <label>
               <span>NIC number</span>
@@ -5146,7 +5155,7 @@
             </label>
             <label>
               <span>Joined date</span>
-              <input class="input" name="joinedDate" type="date" value="${escapeHtml(toDateInputValue(executive.joinedDate || new Date()))}">
+              <input class="input" name="joinedDate" type="date" value="${escapeHtml(joinedDateValue)}">
             </label>
             <label>
               <span>Payment method</span>
@@ -5157,21 +5166,18 @@
             <span>Address</span>
             <textarea class="textarea" name="address">${escapeHtml(executive.address || "")}</textarea>
           </label>
-          <div class="inline-note">
-            Employee login is enabled when an email and password are saved. Setting status to Inactive or Suspended disables login.
-          </div>
           <div class="form-grid">
             <label>
               <span>Base target clients/month</span>
-              <input class="input" name="baseTargetClientsPerMonth" type="number" min="0" step="1" value="${escapeHtml(rules.baseTargetClientsPerMonth || 3)}">
+              <input class="input" name="baseTargetClientsPerMonth" type="number" min="0" step="1" value="${escapeHtml(valueOrDefault(rules.baseTargetClientsPerMonth, 3))}">
             </label>
             <label>
               <span>Base commission</span>
-              <input class="input" name="baseCommissionAmount" type="number" min="0" step="0.01" value="${escapeHtml(rules.baseCommissionAmount || 15000)}">
+              <input class="input" name="baseCommissionAmount" type="number" min="0" step="0.01" value="${escapeHtml(valueOrDefault(rules.baseCommissionAmount, 15000))}">
             </label>
             <label>
               <span>Extra client commission</span>
-              <input class="input" name="extraClientCommission" type="number" min="0" step="0.01" value="${escapeHtml(rules.extraClientCommission || 6000)}">
+              <input class="input" name="extraClientCommission" type="number" min="0" step="0.01" value="${escapeHtml(valueOrDefault(rules.extraClientCommission, 6000))}">
             </label>
             <label>
               <span>Commission type</span>
@@ -5179,7 +5185,7 @@
             </label>
             <label>
               <span>Percentage rate</span>
-              <input class="input" name="percentageRate" type="number" min="0" max="100" step="0.01" value="${escapeHtml(rules.percentageRate || 0)}">
+              <input class="input" name="percentageRate" type="number" min="0" max="100" step="0.01" value="${escapeHtml(valueOrDefault(rules.percentageRate, 0))}">
             </label>
           </div>
           <div class="form-grid">
@@ -5800,6 +5806,59 @@
       showToast("Commission updated", "Commission status was updated successfully.");
     }
 
+    function attachSalesExecutiveEnterNavigation(form) {
+      const fields = [
+        "fullName",
+        "phone",
+        "email",
+        "password",
+        "nicNumber",
+        "status",
+        "workType",
+        "joinedDate",
+        "paymentMethod",
+        "address",
+        "baseTargetClientsPerMonth",
+        "baseCommissionAmount",
+        "extraClientCommission",
+        "commissionRuleType",
+        "percentageRate",
+        "bankName",
+        "accountHolderName",
+        "accountNumber",
+        "branch",
+        "notes"
+      ];
+
+      form.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.isComposing || event.metaKey || event.ctrlKey || event.altKey) {
+          return;
+        }
+
+        const field = event.target;
+        if (!field || !field.name || !fields.includes(field.name)) {
+          return;
+        }
+
+        if (field.tagName === "TEXTAREA" && event.shiftKey) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (field.name === "notes") {
+          form.requestSubmit();
+          return;
+        }
+
+        const nextFieldName = fields[fields.indexOf(field.name) + 1];
+        const nextField = nextFieldName ? form.elements[nextFieldName] : null;
+        if (nextField && typeof nextField.focus === "function") {
+          nextField.focus();
+        }
+      });
+    }
+
     function attachDrawerHandlers() {
       const userRoleForm = document.getElementById("userRoleForm");
       if (userRoleForm) {
@@ -5989,6 +6048,8 @@
 
       const salesExecutiveForm = document.getElementById("salesExecutiveDrawerForm");
       if (salesExecutiveForm) {
+        attachSalesExecutiveEnterNavigation(salesExecutiveForm);
+
         salesExecutiveForm.addEventListener("submit", async (event) => {
           event.preventDefault();
           const formData = new FormData(salesExecutiveForm);
@@ -6031,10 +6092,11 @@
             await refreshAllData();
             closeDrawer();
             const savedExecutive = result.salesExecutive || {};
-            const loginMessage = savedExecutive.loginEnabled
-              ? "Employee profile was saved and login is active."
-              : "Employee profile was saved. Login stays disabled until an email, password, and Active status are saved.";
-            showToast(mode === "create" ? "Sales executive created" : "Sales executive saved", loginMessage);
+            const loginMessage = savedExecutive.loginEnabled ? "Login enabled." : "Login disabled.";
+            const successTitle = mode === "create"
+              ? `Employee created successfully. ${loginMessage}`
+              : `Employee saved successfully. ${loginMessage}`;
+            showToast(successTitle, "The employee list has been refreshed.");
           } catch (error) {
             showBanner(error.message || "Unable to save the sales executive.", "error");
           }

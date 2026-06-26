@@ -1339,6 +1339,19 @@
       line-height: 1.55;
     }
 
+    .field-helper {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 500;
+      line-height: 1.45;
+    }
+
+    .login-helper-note {
+      max-width: 34rem;
+    }
+
     .admin-mt-14 {
       margin-top: 14px;
     }
