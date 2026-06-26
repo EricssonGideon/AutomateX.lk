@@ -3,13 +3,12 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 
 const User = require("../models/User");
-const { normalizeEmailAddress, resolveTrustedRole } = require("../utils/authRole");
+const { normalizeEmailAddress } = require("../utils/authRole");
 const { connectToDatabase } = require("../utils/db");
 
 dotenv.config();
 
 const SALT_ROUNDS = 12;
-const DEFAULT_ADMIN_NAME = "AutomateX Admin";
 
 function getRequiredEnv(name) {
   const value = String(process.env[name] || "").trim();
@@ -41,35 +40,30 @@ async function resetAdminPassword() {
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
   const existingUser = await User.findOne({ email });
 
-  if (existingUser) {
-    const trustedRole = resolveTrustedRole(existingUser);
-
-    if (trustedRole !== "admin") {
-      throw new Error(`Refusing to modify non-admin account for ${email}.`);
-    }
-
-    existingUser.passwordHash = passwordHash;
-    existingUser.role = "admin";
-    existingUser.status = "active";
-    existingUser.isActive = true;
-
-    await existingUser.save();
-    console.log(`Admin password reset completed for ${email}.`);
-    return;
+  if (!existingUser) {
+    throw new Error(`No existing user was found for ADMIN_EMAIL ${email}. Run seed:admin only if you intend to create the admin account.`);
   }
 
-  await User.create({
-    name: process.env.ADMIN_NAME ? String(process.env.ADMIN_NAME).trim() : DEFAULT_ADMIN_NAME,
-    email,
-    passwordHash,
-    role: "admin",
-    status: "active",
-    isActive: true,
-    accountStatus: "active",
-    onboardingStatus: "active"
-  });
+  existingUser.passwordHash = passwordHash;
+  existingUser.role = "admin";
+  existingUser.status = "active";
+  existingUser.isActive = true;
+  existingUser.accountStatus = "active";
+  existingUser.onboardingStatus = "active";
 
-  console.log(`Admin user created successfully for ${email}.`);
+  await existingUser.save();
+
+  const savedUser = await User.findOne({ email }).select("+passwordHash");
+  const passwordVerified = savedUser
+    ? await bcrypt.compare(password, savedUser.passwordHash)
+    : false;
+
+  if (!passwordVerified) {
+    throw new Error(`Admin password reset verification failed for ${email}.`);
+  }
+
+  console.log(`Admin password reset completed for ${email}.`);
+  console.log("Password hash verification: passed.");
 }
 
 async function main() {

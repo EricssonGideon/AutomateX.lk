@@ -9,6 +9,7 @@ const {
   hasPermission,
   requireAdmin,
   requireAnyPermission,
+  requireEmployee,
   requirePermission,
   requireRole,
   verifyToken
@@ -55,6 +56,18 @@ test("client users are blocked before reaching admin report permissions", async 
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 403);
   assert.equal(res.body.message, "Admin access is required.");
+});
+
+test("employee users are blocked from admin routes and allowed through employee middleware", async () => {
+  const employee = { role: "employee", email: "sales@example.com" };
+  const adminDenied = await runMiddleware(requireAdmin, employee);
+  const employeeAllowed = await runMiddleware(requireEmployee, employee);
+
+  assert.equal(getRolePermissions("employee").length, 0);
+  assert.equal(hasPermission(employee, "sales:view"), false);
+  assert.equal(adminDenied.nextCalled, false);
+  assert.equal(adminDenied.res.statusCode, 403);
+  assert.equal(employeeAllowed.nextCalled, true);
 });
 
 test("admin has wildcard permission for system-only management", () => {

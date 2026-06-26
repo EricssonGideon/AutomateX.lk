@@ -81,8 +81,8 @@
         </button>
         <button class="nav-button" data-section="sales" type="button">
           <span>
-            <strong>Sales</strong>
-            <small>Leads & commissions</small>
+            <strong>Employees</strong>
+            <small>Staff leads & commissions</small>
           </span>
           <span class="nav-counter" id="navCountSales">0</span>
         </button>
@@ -744,12 +744,12 @@
         <article class="panel">
           <div class="panel-header">
             <div>
-              <small class="kicker">Sales Executives</small>
-              <h2>Part-time sales team</h2>
-              <p>Manage AutomateX sales executives, target rules, payment preferences, and active status in one place.</p>
+              <small class="kicker">Employees / Staff</small>
+              <h2>Sales employee management</h2>
+              <p>Create employee login accounts, manage target rules, disable access, and review monthly performance in one place.</p>
             </div>
             <div class="panel-actions">
-              <button id="createSalesExecutiveButton" class="button button-primary" type="button" data-required-permission="sales:manage">Add Executive</button>
+              <button id="createSalesExecutiveButton" class="button button-primary" type="button" data-required-permission="sales:manage">Add Employee</button>
               <button id="refreshSalesButton" class="button button-secondary" type="button">Refresh Sales</button>
             </div>
           </div>
@@ -810,26 +810,35 @@
             </select>
             <select id="leadStatusFilter" class="select">
               <option value="">All statuses</option>
+              <option value="New Lead">New Lead</option>
               <option value="New">New</option>
               <option value="Contacted">Contacted</option>
               <option value="Follow Up">Follow Up</option>
               <option value="Interested">Interested</option>
               <option value="Proposal Sent">Proposal Sent</option>
+              <option value="Quotation Sent">Quotation Sent</option>
+              <option value="Payment Pending">Payment Pending</option>
+              <option value="Paid / Closed">Paid / Closed</option>
               <option value="Converted">Converted</option>
               <option value="Rejected">Rejected</option>
+              <option value="Not Interested">Not Interested</option>
+              <option value="Cancelled">Cancelled</option>
               <option value="Not Responding">Not Responding</option>
             </select>
             <select id="leadServiceFilter" class="select">
               <option value="">All services</option>
               <option value="Website">Website</option>
               <option value="POS System">POS System</option>
+              <option value="Business System">Business System</option>
               <option value="School System">School System</option>
               <option value="Clinic System">Clinic System</option>
               <option value="Pharmacy System">Pharmacy System</option>
               <option value="Tuition System">Tuition System</option>
               <option value="Hotel System">Hotel System</option>
               <option value="AI Chatbot">AI Chatbot</option>
+              <option value="Automation">Automation</option>
               <option value="WhatsApp Automation">WhatsApp Automation</option>
+              <option value="E-commerce">E-commerce</option>
               <option value="Custom Software">Custom Software</option>
               <option value="Other">Other</option>
             </select>

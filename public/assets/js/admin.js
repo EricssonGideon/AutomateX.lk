@@ -63,7 +63,7 @@
     const REQUEST_STATUS_OPTIONS = ["open", "in_progress", "resolved", "rejected", "closed"];
     const REQUEST_PRIORITY_OPTIONS = ["low", "normal", "high", "urgent"];
     const REQUEST_PACKAGE_OPTIONS = ["starter", "standard", "pro", "custom"];
-    const PROJECT_TYPE_OPTIONS = ["Website", "POS System", "School System", "Clinic System", "Pharmacy System", "Tuition System", "Hotel System", "AI Chatbot", "WhatsApp Automation", "Custom Software", "Other"];
+    const PROJECT_TYPE_OPTIONS = ["Website", "POS System", "Business System", "School System", "Clinic System", "Pharmacy System", "Tuition System", "Hotel System", "AI Chatbot", "Automation", "WhatsApp Automation", "E-commerce", "Custom Software", "Other"];
     const PROJECT_STATUS_OPTIONS = ["Inquiry", "Planning", "In Progress", "Waiting for Client", "Testing", "Completed", "On Hold", "Cancelled"];
     const PROJECT_PRIORITY_OPTIONS = ["Low", "Medium", "High", "Urgent"];
     const MILESTONE_STATUS_OPTIONS = ["Pending", "In Progress", "Completed"];
@@ -79,7 +79,7 @@
     const SALES_COMMISSION_RULE_TYPE_OPTIONS = ["Fixed Target", "Percentage", "Custom"];
     const LEAD_INTERESTED_SERVICE_OPTIONS = PROJECT_TYPE_OPTIONS;
     const LEAD_SOURCE_OPTIONS = ["Sales Executive", "Website", "WhatsApp", "Facebook", "Instagram", "Referral", "Other"];
-    const LEAD_STATUS_OPTIONS = ["New", "Contacted", "Follow Up", "Interested", "Proposal Sent", "Converted", "Rejected", "Not Responding"];
+    const LEAD_STATUS_OPTIONS = ["New Lead", "New", "Contacted", "Follow Up", "Interested", "Proposal Sent", "Quotation Sent", "Payment Pending", "Paid / Closed", "Converted", "Rejected", "Not Interested", "Cancelled", "Not Responding"];
     const LEAD_PRIORITY_OPTIONS = ["Low", "Medium", "High"];
     const COMMISSION_TYPE_OPTIONS = ["Base Target", "Extra Client", "Percentage", "Manual Bonus", "Adjustment"];
     const COMMISSION_STATUS_OPTIONS = ["Pending", "Approved", "Paid", "Cancelled"];
@@ -137,8 +137,8 @@
         subtitle: "Manage AutomateX client projects, milestones, deliverables, deadlines, and payment progress."
       },
       sales: {
-        title: "Sales",
-        subtitle: "Manage sales executives, lead conversion, and commission tracking."
+        title: "Employees / Staff",
+        subtitle: "Manage sales employees, employee login access, lead approval, targets, and commission tracking."
       },
       bookings: {
         title: "Bookings",
@@ -300,6 +300,10 @@
     function redirectNonAdminUser(role) {
       if (role === "client") {
         window.location.replace("/dashboard.html");
+        return;
+      }
+      if (role === "employee") {
+        window.location.replace("/employee.html");
         return;
       }
 
@@ -2322,9 +2326,14 @@
 
       document.getElementById("salesKpiGrid").innerHTML = [
         {
-          label: "Active Executives",
+          label: "Active Employees",
           value: String(salesSummary.activeSalesExecutives || 0),
-          copy: "Sales executives currently active and available for lead assignment."
+          copy: "Sales employees currently active and able to log in."
+        },
+        {
+          label: "Leads This Month",
+          value: String(salesSummary.totalLeadsThisMonth || 0),
+          copy: "Employee-created and admin-created sales leads this month."
         },
         {
           label: "New Leads",
@@ -2337,9 +2346,14 @@
           copy: "Leads currently scheduled for follow-up."
         },
         {
-          label: "Converted Leads",
-          value: String(salesSummary.convertedLeads || 0),
-          copy: "Leads converted during the current commission month."
+          label: "Confirmed Paid Clients",
+          value: String(salesSummary.confirmedPaidClients || salesSummary.convertedLeads || 0),
+          copy: "Only admin-approved paid clients count toward target and commission."
+        },
+        {
+          label: "Pending Approval",
+          value: String(salesSummary.pendingApprovalClients || 0),
+          copy: "Paid clients submitted by employees and waiting for admin confirmation."
         },
         {
           label: "Pending Commission",
@@ -2369,7 +2383,10 @@
           <td><span class="${projectBadgeClass(executive.status)}">${escapeHtml(executive.status || "Active")}</span></td>
           <td>${renderTextValue(executive.workType || "Part Time", "text-ellipsis")}</td>
           <td>${renderTextValue(formatShortDate(executive.joinedDate), "text-ellipsis text-date text-mono", { titleValue: formatDate(executive.joinedDate) })}</td>
-          <td>${renderTextValue(`${executive.commissionRules && executive.commissionRules.baseTargetClientsPerMonth || 3} clients • ${formatInvoiceCurrency(executive.commissionRules && executive.commissionRules.baseCommissionAmount || 0)}`, "text-ellipsis")}</td>
+          <td>
+            <div class="cell-title">${renderTextValue(`${executive.monthlyPerformance && executive.monthlyPerformance.approvedPaidClients || 0}/${executive.monthlyPerformance && executive.monthlyPerformance.monthlyTarget || executive.commissionRules && executive.commissionRules.baseTargetClientsPerMonth || 3} approved`, "text-ellipsis")}</div>
+            <div class="cell-subtitle">${renderTextValue(`${formatInvoiceCurrency(executive.commissionRules && executive.commissionRules.baseCommissionAmount || 0)} target • ${formatInvoiceCurrency(executive.commissionRules && executive.commissionRules.extraClientCommission || 0)} extra`, "text-ellipsis")}</div>
+          </td>
           <td>
             <div class="table-actions">
               ${canManageSales ? `<button class="mini-button" type="button" data-sales-executive-id="${escapeHtml(executive.id)}">Edit</button>` : ""}
@@ -2401,6 +2418,8 @@
                 ? `
                     <button class="mini-button" type="button" data-lead-id="${escapeHtml(lead.id)}">Edit</button>
                     <button class="mini-button" type="button" data-lead-id="${escapeHtml(lead.id)}" data-lead-action="convert">Convert</button>
+                    ${lead.approvalStatus === "pending" ? `<button class="mini-button" type="button" data-lead-id="${escapeHtml(lead.id)}" data-lead-action="approve-payment">Approve</button>` : ""}
+                    ${lead.approvalStatus === "pending" ? `<button class="mini-button is-danger" type="button" data-lead-id="${escapeHtml(lead.id)}" data-lead-action="reject-payment">Reject</button>` : ""}
                   `
                 : ""}
             </div>
@@ -5097,6 +5116,10 @@
               <input class="input" name="email" type="email" value="${escapeHtml(executive.email || "")}" placeholder="name@example.com">
             </label>
             <label>
+              <span>${isCreate ? "Login password" : "New login password"}</span>
+              <input class="input" name="password" type="password" autocomplete="new-password" placeholder="${isCreate ? "Minimum 8 characters" : "Leave blank to keep current password"}">
+            </label>
+            <label>
               <span>NIC number</span>
               <input class="input" name="nicNumber" value="${escapeHtml(executive.nicNumber || "")}">
             </label>
@@ -5121,6 +5144,9 @@
             <span>Address</span>
             <textarea class="textarea" name="address">${escapeHtml(executive.address || "")}</textarea>
           </label>
+          <div class="inline-note">
+            Employee login is enabled when an email and password are saved. Setting status to Inactive or Suspended disables login.
+          </div>
           <div class="form-grid">
             <label>
               <span>Base target clients/month</span>
@@ -5229,6 +5255,24 @@
               <input class="input" name="estimatedBudget" type="number" min="0" step="0.01" value="${escapeHtml(lead.estimatedBudget || 0)}">
             </label>
             <label>
+              <span>Approval status</span>
+              <select class="select" name="approvalStatus">
+                ${selectOptionsMarkup(["not_submitted", "pending", "approved", "rejected"], lead.approvalStatus || "not_submitted")}
+              </select>
+            </label>
+            <label>
+              <span>Amount received</span>
+              <input class="input" name="amountReceived" type="number" min="0" step="0.01" value="${escapeHtml(lead.amountReceived || 0)}">
+            </label>
+            <label>
+              <span>Package/service sold</span>
+              <input class="input" name="packageSold" value="${escapeHtml(lead.packageSold || "")}">
+            </label>
+            <label>
+              <span>Payment date</span>
+              <input class="input" name="paymentDate" type="date" value="${escapeHtml(toDateInputValue(lead.paymentDate))}">
+            </label>
+            <label>
               <span>Follow-up date</span>
               <input class="input" name="followUpDate" type="date" value="${escapeHtml(toDateInputValue(lead.followUpDate))}">
             </label>
@@ -5249,9 +5293,15 @@
             <span>Rejection reason</span>
             <textarea class="textarea" name="rejectionReason">${escapeHtml(lead.rejectionReason || "")}</textarea>
           </label>
+          <label>
+            <span>Admin approval note</span>
+            <textarea class="textarea" name="adminNote">${escapeHtml(lead.adminNote || "")}</textarea>
+          </label>
           <div class="form-actions">
             <button class="button button-primary" type="submit">${isCreate ? "Create Lead" : "Save Lead"}</button>
             ${isCreate ? "" : `<button class="button button-secondary" id="convertLeadButton" type="button">Convert Lead</button>`}
+            ${isCreate ? "" : `<button class="button button-secondary" id="approveLeadPaymentButton" type="button">Approve Payment</button>`}
+            ${isCreate ? "" : `<button class="button button-danger" id="rejectLeadPaymentButton" type="button">Reject Payment</button>`}
           </div>
         </form>
       `;
@@ -5956,6 +6006,9 @@
               percentageRate: formData.get("percentageRate")
             }
           };
+          if (String(formData.get("password") || "").trim()) {
+            payload.password = formData.get("password");
+          }
 
           try {
             await apiFetch(mode === "create" ? "/api/admin/sales-executives" : `/api/admin/sales-executives/${executiveId}`, {
@@ -6002,9 +6055,14 @@
             status: formData.get("status"),
             priority: formData.get("priority"),
             estimatedBudget: formData.get("estimatedBudget"),
+            approvalStatus: formData.get("approvalStatus"),
+            amountReceived: formData.get("amountReceived"),
+            packageSold: formData.get("packageSold"),
+            paymentDate: formData.get("paymentDate") || null,
             followUpDate: formData.get("followUpDate") || null,
             notes: formData.get("notes"),
-            rejectionReason: formData.get("rejectionReason")
+            rejectionReason: formData.get("rejectionReason"),
+            adminNote: formData.get("adminNote")
           };
 
           try {
@@ -6031,6 +6089,56 @@
               });
             } catch (error) {
               showBanner(error.message || "Unable to convert the lead.", "error");
+            }
+          });
+        }
+
+        const approvePaymentButton = document.getElementById("approveLeadPaymentButton");
+        if (approvePaymentButton) {
+          approvePaymentButton.addEventListener("click", async () => {
+            const formData = new FormData(leadForm);
+            try {
+              await apiFetch(`/api/admin/leads/${formData.get("leadId")}/payment-approval`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  approvalStatus: "approved",
+                  paymentReceived: true,
+                  amountReceived: formData.get("amountReceived"),
+                  packageSold: formData.get("packageSold"),
+                  paymentDate: formData.get("paymentDate") || new Date().toISOString(),
+                  adminNote: formData.get("adminNote")
+                })
+              });
+              await refreshAllData();
+              closeDrawer();
+              showToast("Payment approved", "This paid client now counts toward the employee target.");
+            } catch (error) {
+              showBanner(error.message || "Unable to approve payment.", "error");
+            }
+          });
+        }
+
+        const rejectPaymentButton = document.getElementById("rejectLeadPaymentButton");
+        if (rejectPaymentButton) {
+          rejectPaymentButton.addEventListener("click", async () => {
+            const formData = new FormData(leadForm);
+            try {
+              await apiFetch(`/api/admin/leads/${formData.get("leadId")}/payment-approval`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                  approvalStatus: "rejected",
+                  paymentReceived: false,
+                  amountReceived: formData.get("amountReceived"),
+                  packageSold: formData.get("packageSold"),
+                  paymentDate: formData.get("paymentDate") || null,
+                  adminNote: formData.get("adminNote") || formData.get("rejectionReason")
+                })
+              });
+              await refreshAllData();
+              closeDrawer();
+              showToast("Payment rejected", "The lead was rejected for target and commission counting.");
+            } catch (error) {
+              showBanner(error.message || "Unable to reject payment.", "error");
             }
           });
         }
@@ -6704,6 +6812,19 @@
           if (leadButton.dataset.leadAction === "convert") {
             convertLead(leadButton.dataset.leadId)
               .catch((error) => showBanner(error.message || "Unable to convert the lead.", "error"));
+          } else if (leadButton.dataset.leadAction === "approve-payment" || leadButton.dataset.leadAction === "reject-payment") {
+            const isApproval = leadButton.dataset.leadAction === "approve-payment";
+            apiFetch(`/api/admin/leads/${leadButton.dataset.leadId}/payment-approval`, {
+              method: "PATCH",
+              body: JSON.stringify({
+                approvalStatus: isApproval ? "approved" : "rejected",
+                paymentReceived: isApproval,
+                paymentDate: new Date().toISOString()
+              })
+            })
+              .then(refreshAllData)
+              .then(() => showToast(isApproval ? "Payment approved" : "Payment rejected", isApproval ? "The paid client now counts toward target." : "The paid client was rejected."))
+              .catch((error) => showBanner(error.message || "Unable to update payment approval.", "error"));
           } else {
             openLeadDrawer(leadButton.dataset.leadId)
               .catch((error) => showBanner(error.message || "Unable to open the lead record.", "error"));

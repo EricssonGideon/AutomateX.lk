@@ -91,6 +91,7 @@ const {
   updateAdminLead,
   updateAdminLeadStatus,
   convertAdminLead,
+  updateAdminLeadPaymentApproval,
   getAdminCommissions,
   createAdminCommission,
   getAdminCommissionById,
@@ -189,6 +190,7 @@ router.get("/leads/:id", can("leads:view"), getAdminLeadById);
 router.patch("/leads/:id", can("leads:manage"), updateAdminLead);
 router.patch("/leads/:id/status", can("leads:manage"), updateAdminLeadStatus);
 router.patch("/leads/:id/convert", can("leads:manage"), convertAdminLead);
+router.patch("/leads/:id/payment-approval", can("leads:manage"), updateAdminLeadPaymentApproval);
 router.get("/commissions", can("commissions:view"), getAdminCommissions);
 router.post("/commissions", can("commissions:manage"), createAdminCommission);
 router.get("/commissions/:id", can("commissions:view"), getAdminCommissionById);

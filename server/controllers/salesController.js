@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const Commission = require("../models/Commission");
 const Invoice = require("../models/Invoice");
@@ -6,7 +7,7 @@ const Lead = require("../models/Lead");
 const Project = require("../models/Project");
 const SalesExecutive = require("../models/SalesExecutive");
 const User = require("../models/User");
-const { resolveTrustedRole } = require("../utils/authRole");
+const { normalizeEmailAddress, resolveTrustedRole, isOfficialAdminEmail } = require("../utils/authRole");
 const { logAdminAction } = require("../utils/auditLog");
 const { sendSuccess, sendError } = require("../utils/response");
 
@@ -20,6 +21,8 @@ const LEAD_STATUS_OPTIONS = Lead.LEAD_STATUS_OPTIONS;
 const LEAD_PRIORITY_OPTIONS = Lead.LEAD_PRIORITY_OPTIONS;
 const COMMISSION_TYPE_OPTIONS = Commission.COMMISSION_TYPE_OPTIONS;
 const COMMISSION_STATUS_OPTIONS = Commission.COMMISSION_STATUS_OPTIONS;
+const LEAD_APPROVAL_STATUS_OPTIONS = Lead.LEAD_APPROVAL_STATUS_OPTIONS;
+const SALT_ROUNDS = 12;
 
 function cleanText(value, maxLength = 2000) {
   return String(value || "").trim().slice(0, maxLength);
@@ -41,6 +44,27 @@ function normalizeMoney(value) {
   }
 
   return Number(numericValue.toFixed(2));
+}
+
+function hasBodyField(body, key) {
+  return Object.prototype.hasOwnProperty.call(body || {}, key);
+}
+
+function normalizeBoolean(value, fallback = false) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return fallback;
 }
 
 function normalizeInteger(value, fallback = 0, min = 0, max = Number.MAX_SAFE_INTEGER) {
@@ -94,12 +118,46 @@ function getCurrentMonthYear() {
   };
 }
 
+function getMonthWindow(month, year) {
+  return {
+    monthStart: new Date(year, month - 1, 1),
+    monthEnd: new Date(year, month, 1)
+  };
+}
+
+function calculateTargetCommission(approvedPaidClients, commissionRules = {}) {
+  const targetRule = Number(commissionRules.baseTargetClientsPerMonth);
+  const targetAmountRule = Number(commissionRules.baseCommissionAmount);
+  const extraAmountRule = Number(commissionRules.extraClientCommission);
+  const monthlyTarget = Number.isFinite(targetRule) && targetRule >= 0 ? targetRule : 3;
+  const targetAmount = Number.isFinite(targetAmountRule) && targetAmountRule >= 0 ? targetAmountRule : 15000;
+  const extraAmount = Number.isFinite(extraAmountRule) && extraAmountRule >= 0 ? extraAmountRule : 0;
+  const approvedCount = Number(approvedPaidClients) || 0;
+  const targetAchieved = monthlyTarget === 0 || approvedCount >= monthlyTarget;
+  const extraClients = targetAchieved ? Math.max(0, approvedCount - monthlyTarget) : 0;
+  const estimatedCommission = targetAchieved ? targetAmount + (extraClients * extraAmount) : 0;
+
+  return {
+    monthlyTarget,
+    targetAmount,
+    extraClientCommission: extraAmount,
+    approvedPaidClients: approvedCount,
+    targetAchieved,
+    extraClients,
+    estimatedCommission,
+    remainingClients: Math.max(0, monthlyTarget - approvedCount),
+    progressPercent: monthlyTarget ? Math.min(100, Math.round((approvedCount / monthlyTarget) * 100)) : 100
+  };
+}
+
 function serializeSalesExecutive(executive, options = {}) {
   const base = {
     id: String(executive._id || executive.id),
     fullName: executive.fullName || "",
     phone: executive.phone || "",
     email: executive.email || "",
+    userId: executive.userId ? String(executive.userId._id || executive.userId) : "",
+    loginEnabled: Boolean(executive.userId && executive.status === "Active"),
     address: executive.address || "",
     nicNumber: executive.nicNumber || "",
     status: executive.status || "Active",
@@ -149,6 +207,15 @@ function serializeLead(lead) {
     rejectionReason: lead.rejectionReason || "",
     convertedProjectId: String(project._id || lead.convertedProjectId || ""),
     convertedProjectTitle: project.projectTitle || lead.convertedProjectTitle || "",
+    paymentReceived: Boolean(lead.paymentReceived),
+    amountReceived: lead.amountReceived || 0,
+    packageSold: lead.packageSold || "",
+    paymentDate: lead.paymentDate || null,
+    approvalStatus: lead.approvalStatus || "not_submitted",
+    submittedForApprovalAt: lead.submittedForApprovalAt || null,
+    approvedAt: lead.approvedAt || null,
+    rejectedAt: lead.rejectedAt || null,
+    adminNote: lead.adminNote || "",
     isArchived: Boolean(lead.isArchived),
     archivedAt: lead.archivedAt || null,
     createdAt: lead.createdAt,
@@ -294,7 +361,9 @@ function buildLeadPayload(body, currentLead = null) {
   const phone = cleanText(hasOwn("phone") ? body.phone : currentLead && currentLead.phone, 40);
   const email = cleanText(hasOwn("email") ? body.email : currentLead && currentLead.email, 180).toLowerCase();
   const estimatedBudget = normalizeMoney(hasOwn("estimatedBudget") ? body.estimatedBudget : currentLead && currentLead.estimatedBudget);
+  const amountReceived = normalizeMoney(hasOwn("amountReceived") ? body.amountReceived : currentLead && currentLead.amountReceived);
   const followUpDate = normalizeDate(hasOwn("followUpDate") ? body.followUpDate : currentLead && currentLead.followUpDate);
+  const paymentDate = normalizeDate(hasOwn("paymentDate") ? body.paymentDate : currentLead && currentLead.paymentDate);
 
   if (!businessName && !contactPerson) {
     errors.push("Lead business name or contact person is required.");
@@ -312,8 +381,16 @@ function buildLeadPayload(body, currentLead = null) {
     errors.push("Estimated budget must be zero or greater.");
   }
 
+  if (amountReceived === null) {
+    errors.push("Amount received must be zero or greater.");
+  }
+
   if (followUpDate === undefined) {
     errors.push("Follow-up date must be valid.");
+  }
+
+  if (paymentDate === undefined) {
+    errors.push("Payment date must be valid.");
   }
 
   payload.businessName = businessName;
@@ -344,6 +421,19 @@ function buildLeadPayload(body, currentLead = null) {
   );
   payload.estimatedBudget = estimatedBudget === null ? 0 : estimatedBudget;
   payload.followUpDate = followUpDate === undefined ? null : followUpDate;
+  payload.paymentReceived = normalizeBoolean(
+    hasOwn("paymentReceived") ? body.paymentReceived : undefined,
+    Boolean(currentLead && currentLead.paymentReceived)
+  );
+  payload.amountReceived = amountReceived === null ? 0 : amountReceived;
+  payload.packageSold = cleanText(hasOwn("packageSold") ? body.packageSold : currentLead && currentLead.packageSold, 180);
+  payload.paymentDate = paymentDate === undefined ? null : paymentDate;
+  payload.approvalStatus = normalizeEnum(
+    hasOwn("approvalStatus") ? body.approvalStatus : currentLead && currentLead.approvalStatus,
+    LEAD_APPROVAL_STATUS_OPTIONS,
+    currentLead ? currentLead.approvalStatus : "not_submitted"
+  );
+  payload.adminNote = cleanText(hasOwn("adminNote") ? body.adminNote : currentLead && currentLead.adminNote, 5000);
   payload.notes = cleanText(hasOwn("notes") ? body.notes : currentLead && currentLead.notes, 5000);
   payload.rejectionReason = cleanText(hasOwn("rejectionReason") ? body.rejectionReason : currentLead && currentLead.rejectionReason, 2000);
 
@@ -499,6 +589,79 @@ async function ensureUniqueSalesExecutive(payload, currentId = null) {
   return errors;
 }
 
+function normalizeEmployeePassword(value) {
+  const password = String(value || "");
+  return password.length >= 8 && password.length <= 128 ? password : "";
+}
+
+async function validateEmployeeAccountRequest(payload, body = {}, currentUserId = null) {
+  const errors = [];
+  const email = normalizeEmailAddress(payload && payload.email);
+  const providedPassword = String((body && (body.password || body.initialPassword)) || "");
+
+  if (providedPassword && !normalizeEmployeePassword(providedPassword)) {
+    errors.push("Employee login password must be between 8 and 128 characters.");
+  }
+
+  if (!email) {
+    return errors;
+  }
+
+  if (isOfficialAdminEmail(email)) {
+    errors.push("The official AutomateX owner email cannot be used for an employee account.");
+    return errors;
+  }
+
+  const emailOwner = await User.findOne({ email }).lean();
+  if (emailOwner && (!currentUserId || String(emailOwner._id) !== String(currentUserId))) {
+    errors.push("A user account with this employee email already exists.");
+  }
+
+  return errors;
+}
+
+async function syncEmployeeUserAccount(executive, body = {}) {
+  const requestedPassword = normalizeEmployeePassword(body.password || body.initialPassword);
+  const email = normalizeEmailAddress(executive.email);
+
+  if (!email) {
+    return { userId: null, errors: [] };
+  }
+
+  let user = executive.userId ? await User.findById(executive.userId) : null;
+
+  if (!user && !requestedPassword) {
+    return { userId: null, errors: [] };
+  }
+
+  if (!user) {
+    user = new User({
+      name: executive.fullName,
+      email,
+      passwordHash: await bcrypt.hash(requestedPassword, SALT_ROUNDS),
+      role: "employee",
+      status: executive.status === "Active" ? "active" : "inactive",
+      isActive: executive.status === "Active",
+      plan: "not_assigned",
+      accountStatus: "active",
+      paymentStatus: "pending"
+    });
+  } else {
+    user.name = executive.fullName;
+    user.email = email;
+    user.role = "employee";
+    if (requestedPassword) {
+      user.passwordHash = await bcrypt.hash(requestedPassword, SALT_ROUNDS);
+    }
+  }
+
+  user.status = executive.status === "Active" ? "active" : "inactive";
+  user.isActive = executive.status === "Active";
+  await user.save();
+
+  return { userId: user._id, errors: [] };
+}
+
 async function getAdminSalesExecutives(req, res) {
   try {
     const match = { isArchived: req.query.includeArchived === "true" ? { $in: [true, false] } : false };
@@ -522,9 +685,42 @@ async function getAdminSalesExecutives(req, res) {
     }
 
     const executives = await SalesExecutive.find(match).sort({ createdAt: -1 }).lean();
+    const currentMonthYear = getCurrentMonthYear();
+    const month = normalizeInteger(req.query.month, currentMonthYear.month, 1, 12) || currentMonthYear.month;
+    const year = normalizeInteger(req.query.year, currentMonthYear.year, 2000, 2100) || currentMonthYear.year;
+    const { monthStart, monthEnd } = getMonthWindow(month, year);
+    const performanceByExecutive = await Lead.aggregate([
+      {
+        $match: {
+          salesExecutiveId: { $in: executives.map((executive) => executive._id) },
+          isArchived: false,
+          approvalStatus: "approved",
+          paymentReceived: true,
+          paymentDate: { $gte: monthStart, $lt: monthEnd }
+        }
+      },
+      {
+        $group: {
+          _id: "$salesExecutiveId",
+          approvedPaidClients: { $sum: 1 },
+          approvedRevenue: { $sum: "$amountReceived" }
+        }
+      }
+    ]);
+    const performanceMap = new Map(performanceByExecutive.map((row) => [String(row._id), row]));
 
     return sendSuccess(res, 200, {
-      salesExecutives: executives.map((executive) => serializeSalesExecutive(executive, { includeSensitiveFields: true }))
+      salesExecutives: executives.map((executive) => {
+        const serialized = serializeSalesExecutive(executive, { includeSensitiveFields: true });
+        const performance = performanceMap.get(String(executive._id)) || {};
+        serialized.monthlyPerformance = {
+          month,
+          year,
+          approvedRevenue: performance.approvedRevenue || 0,
+          ...calculateTargetCommission(performance.approvedPaidClients || 0, executive.commissionRules || {})
+        };
+        return serialized;
+      })
     });
   } catch {
     return sendError(res, 500, "Unable to load sales executives right now.");
@@ -535,9 +731,12 @@ async function createAdminSalesExecutive(req, res) {
   try {
     const { payload, errors } = buildSalesExecutivePayload(req.body);
     const uniquenessErrors = errors.length ? [] : await ensureUniqueSalesExecutive(payload);
+    const accountErrors = errors.length || uniquenessErrors.length
+      ? []
+      : await validateEmployeeAccountRequest(payload, req.body);
 
-    if (errors.length || uniquenessErrors.length) {
-      return sendError(res, 400, "Please fix the sales executive form and try again.", [...errors, ...uniquenessErrors]);
+    if (errors.length || uniquenessErrors.length || accountErrors.length) {
+      return sendError(res, 400, "Please fix the sales executive form and try again.", [...errors, ...uniquenessErrors, ...accountErrors]);
     }
 
     const executive = await SalesExecutive.create({
@@ -545,6 +744,14 @@ async function createAdminSalesExecutive(req, res) {
       createdBy: req.user.id,
       updatedBy: req.user.id
     });
+    const accountSync = await syncEmployeeUserAccount(executive, req.body);
+    if (accountSync.errors.length) {
+      return sendError(res, 400, "Sales profile was created, but employee login could not be enabled.", accountSync.errors);
+    }
+    if (accountSync.userId) {
+      executive.userId = accountSync.userId;
+      await executive.save();
+    }
     await logAdminAction(req, {
       module: "Sales",
       action: "sales_executives.created",
@@ -596,12 +803,22 @@ async function updateAdminSalesExecutive(req, res) {
 
     const { payload, errors } = buildSalesExecutivePayload(req.body, executive.toObject());
     const uniquenessErrors = errors.length ? [] : await ensureUniqueSalesExecutive(payload, executive._id);
+    const accountErrors = errors.length || uniquenessErrors.length
+      ? []
+      : await validateEmployeeAccountRequest(payload, req.body, executive.userId);
 
-    if (errors.length || uniquenessErrors.length) {
-      return sendError(res, 400, "Please fix the sales executive form and try again.", [...errors, ...uniquenessErrors]);
+    if (errors.length || uniquenessErrors.length || accountErrors.length) {
+      return sendError(res, 400, "Please fix the sales executive form and try again.", [...errors, ...uniquenessErrors, ...accountErrors]);
     }
 
     Object.assign(executive, payload, { updatedBy: req.user.id });
+    const accountSync = await syncEmployeeUserAccount(executive, req.body);
+    if (accountSync.errors.length) {
+      return sendError(res, 400, "Employee login could not be updated.", accountSync.errors);
+    }
+    if (accountSync.userId) {
+      executive.userId = accountSync.userId;
+    }
     await executive.save();
     await logAdminAction(req, {
       module: "Sales",
@@ -650,6 +867,12 @@ async function archiveAdminSalesExecutive(req, res) {
 
     if (!executive) {
       return sendError(res, 404, "Sales executive not found.");
+    }
+    if (executive.userId) {
+      await User.findByIdAndUpdate(executive.userId, {
+        status: "inactive",
+        isActive: false
+      });
     }
     await logAdminAction(req, {
       module: "Sales",
@@ -912,6 +1135,94 @@ async function convertAdminLead(req, res) {
     });
   } catch {
     return sendError(res, 500, "Unable to convert the lead right now.");
+  }
+}
+
+async function updateAdminLeadPaymentApproval(req, res) {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return sendError(res, 400, "Invalid lead ID.");
+    }
+
+    const lead = await Lead.findOne({ _id: req.params.id, isArchived: false });
+    if (!lead) {
+      return sendError(res, 404, "Lead not found.");
+    }
+
+    const oldValue = lead.toObject();
+    const approvalStatus = normalizeEnum(req.body.approvalStatus, LEAD_APPROVAL_STATUS_OPTIONS, "");
+    const amountReceived = hasBodyField(req.body, "amountReceived")
+      ? normalizeMoney(req.body.amountReceived)
+      : normalizeMoney(lead.amountReceived);
+    const paymentDate = hasBodyField(req.body, "paymentDate")
+      ? normalizeDate(req.body.paymentDate)
+      : normalizeDate(lead.paymentDate);
+
+    if (!["pending", "approved", "rejected"].includes(approvalStatus)) {
+      return sendError(res, 400, "Approval status must be pending, approved, or rejected.");
+    }
+    if (amountReceived === null) {
+      return sendError(res, 400, "Amount received must be zero or greater.");
+    }
+    if (paymentDate === undefined) {
+      return sendError(res, 400, "Payment date must be valid.");
+    }
+    if (approvalStatus === "approved" && (!amountReceived || amountReceived <= 0)) {
+      return sendError(res, 400, "Amount received must be greater than zero before approving a paid client.");
+    }
+
+    lead.paymentReceived = normalizeBoolean(req.body.paymentReceived, Boolean(lead.paymentReceived));
+    lead.amountReceived = amountReceived || 0;
+    lead.packageSold = cleanText(hasBodyField(req.body, "packageSold") ? req.body.packageSold : lead.packageSold, 180);
+    lead.paymentDate = paymentDate || lead.paymentDate || null;
+    lead.adminNote = cleanText(req.body.adminNote || "", 5000);
+    lead.approvalStatus = approvalStatus;
+    lead.updatedBy = req.user.id;
+
+    if (approvalStatus === "approved") {
+      lead.paymentReceived = true;
+      lead.status = "Paid / Closed";
+      lead.approvedAt = new Date();
+      lead.approvedBy = req.user.id;
+      lead.rejectedAt = null;
+      lead.rejectedBy = null;
+      if (!lead.paymentDate) {
+        lead.paymentDate = new Date();
+      }
+    } else if (approvalStatus === "rejected") {
+      lead.rejectedAt = new Date();
+      lead.rejectedBy = req.user.id;
+      lead.approvedAt = null;
+      lead.approvedBy = null;
+    } else if (!lead.submittedForApprovalAt) {
+      lead.submittedForApprovalAt = new Date();
+    }
+
+    await lead.save();
+
+    const populatedLead = await Lead.findById(lead._id)
+      .populate("salesExecutiveId", "fullName phone")
+      .populate("clientId", "name email businessName")
+      .populate("convertedProjectId", "projectTitle")
+      .lean();
+
+    await logAdminAction(req, {
+      module: "Leads",
+      action: "leads.payment_approval_updated",
+      targetType: "Lead",
+      targetId: String(lead._id),
+      targetLabel: lead.businessName || lead.contactPerson,
+      oldValue,
+      newValue: serializeLead(populatedLead),
+      severity: "High"
+    });
+
+    return sendSuccess(res, 200, {
+      message: "Lead payment approval updated successfully.",
+      lead: serializeLead(populatedLead)
+    });
+  } catch {
+    return sendError(res, 500, "Unable to update payment approval right now.");
   }
 }
 
@@ -1239,8 +1550,7 @@ async function getSalesExecutiveCommissionSummary(req, res) {
       return sendError(res, 400, "Summary month and year must be valid.");
     }
 
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 1);
+    const { monthStart, monthEnd } = getMonthWindow(month, year);
     const leadMatch = {
       salesExecutiveId: executive._id,
       isArchived: false,
@@ -1251,13 +1561,25 @@ async function getSalesExecutiveCommissionSummary(req, res) {
       commissionMonth: month,
       commissionYear: year
     };
-    const [totalLeads, convertedLeads, commissions, convertedLeadProjects] = await Promise.all([
+    const [totalLeads, convertedLeads, approvedPaidClients, pendingApprovalClients, commissions, convertedLeadProjects] = await Promise.all([
       Lead.countDocuments(leadMatch),
-      Lead.countDocuments({ ...leadMatch, status: "Converted" }),
+      Lead.countDocuments({ ...leadMatch, status: { $in: ["Converted", "Paid / Closed"] } }),
+      Lead.countDocuments({
+        salesExecutiveId: executive._id,
+        isArchived: false,
+        approvalStatus: "approved",
+        paymentReceived: true,
+        paymentDate: { $gte: monthStart, $lt: monthEnd }
+      }),
+      Lead.countDocuments({
+        salesExecutiveId: executive._id,
+        isArchived: false,
+        approvalStatus: "pending"
+      }),
       Commission.find(commissionMatch).lean(),
       Lead.find({
         salesExecutiveId: executive._id,
-        status: "Converted",
+        status: { $in: ["Converted", "Paid / Closed"] },
         convertedProjectId: { $ne: null }
       }).select("convertedProjectId").lean()
     ]);
@@ -1271,7 +1593,7 @@ async function getSalesExecutiveCommissionSummary(req, res) {
     const totalCommissionPaid = commissions
       .filter((commission) => commission.status === "Paid")
       .reduce((sum, commission) => sum + Number(commission.amount || 0), 0);
-    const monthlyTarget = Number(executive.commissionRules && executive.commissionRules.baseTargetClientsPerMonth) || 3;
+    const targetPerformance = calculateTargetCommission(approvedPaidClients, executive.commissionRules || {});
 
     return sendSuccess(res, 200, {
       summary: {
@@ -1280,11 +1602,13 @@ async function getSalesExecutiveCommissionSummary(req, res) {
         year,
         totalLeads,
         convertedLeads,
+        pendingApprovalClients,
         activeProjects,
         totalCommissionPending,
         totalCommissionPaid,
-        monthlyTarget,
-        monthlyTargetProgress: monthlyTarget ? Math.min(100, Math.round((convertedLeads / monthlyTarget) * 100)) : 100
+        monthlyTarget: targetPerformance.monthlyTarget,
+        monthlyTargetProgress: targetPerformance.progressPercent,
+        targetPerformance
       }
     });
   } catch {
@@ -1302,15 +1626,40 @@ async function getAdminSalesSummary(req, res) {
       return sendError(res, 400, "Summary month and year must be valid.");
     }
 
-    const monthStart = new Date(year, month - 1, 1);
-    const monthEnd = new Date(year, month, 1);
-    const [activeSalesExecutives, newLeads, followUpLeads, convertedLeads, commissions] = await Promise.all([
+    const { monthStart, monthEnd } = getMonthWindow(month, year);
+    const [activeSalesExecutives, totalLeadsThisMonth, newLeads, followUpLeads, confirmedPaidClients, pendingApprovalClients, commissions, executives] = await Promise.all([
       SalesExecutive.countDocuments({ status: "Active", isArchived: false }),
-      Lead.countDocuments({ status: "New", isArchived: false }),
-      Lead.countDocuments({ status: "Follow Up", isArchived: false }),
-      Lead.countDocuments({ status: "Converted", isArchived: false, updatedAt: { $gte: monthStart, $lt: monthEnd } }),
-      Commission.find({ commissionMonth: month, commissionYear: year }).lean()
+      Lead.countDocuments({ isArchived: false, createdAt: { $gte: monthStart, $lt: monthEnd } }),
+      Lead.countDocuments({ status: { $in: ["New", "New Lead"] }, isArchived: false }),
+      Lead.countDocuments({ status: { $in: ["Follow Up", "Contacted", "Interested", "Quotation Sent", "Proposal Sent"] }, isArchived: false }),
+      Lead.countDocuments({
+        approvalStatus: "approved",
+        paymentReceived: true,
+        isArchived: false,
+        paymentDate: { $gte: monthStart, $lt: monthEnd }
+      }),
+      Lead.countDocuments({ approvalStatus: "pending", isArchived: false }),
+      Commission.find({ commissionMonth: month, commissionYear: year }).lean(),
+      SalesExecutive.find({ isArchived: false }).sort({ fullName: 1 }).lean()
     ]);
+    const approvedByExecutive = await Lead.aggregate([
+      {
+        $match: {
+          isArchived: false,
+          approvalStatus: "approved",
+          paymentReceived: true,
+          paymentDate: { $gte: monthStart, $lt: monthEnd }
+        }
+      },
+      {
+        $group: {
+          _id: "$salesExecutiveId",
+          approvedPaidClients: { $sum: 1 },
+          approvedRevenue: { $sum: "$amountReceived" }
+        }
+      }
+    ]);
+    const approvedMap = new Map(approvedByExecutive.map((row) => [String(row._id), row]));
     const pendingCommission = commissions
       .filter((commission) => ["Pending", "Approved"].includes(commission.status))
       .reduce((sum, commission) => sum + Number(commission.amount || 0), 0);
@@ -1323,11 +1672,22 @@ async function getAdminSalesSummary(req, res) {
         month,
         year,
         activeSalesExecutives,
+        totalLeadsThisMonth,
         newLeads,
         followUpLeads,
-        convertedLeads,
+        convertedLeads: confirmedPaidClients,
+        confirmedPaidClients,
+        pendingApprovalClients,
         pendingCommission,
-        paidCommissionThisMonth
+        paidCommissionThisMonth,
+        employeePerformance: executives.map((executive) => {
+          const performance = approvedMap.get(String(executive._id)) || {};
+          return {
+            salesExecutive: serializeSalesExecutive(executive),
+            approvedRevenue: performance.approvedRevenue || 0,
+            ...calculateTargetCommission(performance.approvedPaidClients || 0, executive.commissionRules || {})
+          };
+        })
       }
     });
   } catch {
@@ -1346,6 +1706,7 @@ module.exports = {
   LEAD_PRIORITY_OPTIONS,
   COMMISSION_TYPE_OPTIONS,
   COMMISSION_STATUS_OPTIONS,
+  calculateTargetCommission,
   getAdminSalesExecutives,
   createAdminSalesExecutive,
   getAdminSalesExecutiveById,
@@ -1358,6 +1719,7 @@ module.exports = {
   updateAdminLead,
   updateAdminLeadStatus,
   convertAdminLead,
+  updateAdminLeadPaymentApproval,
   getAdminCommissions,
   createAdminCommission,
   getAdminCommissionById,

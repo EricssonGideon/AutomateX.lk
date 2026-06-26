@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutomateX Employee Dashboard</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/css/employee.css">
+</head>
+<body>
+  <div class="employee-shell">
+    <aside class="employee-sidebar">
+      <a class="brand-lockup" href="/index.html" aria-label="AutomateX home">
+        <span class="brand-mark"><img src="/Images/AutomateX-logo-mark.png" alt=""></span>
+        <span>
+          <span class="brand-kicker">AutomateX</span>
+          <strong>Employee Portal</strong>
+        </span>
+      </a>
+
+      <nav class="employee-nav" aria-label="Employee navigation">
+        <button class="nav-tab is-active" type="button" data-tab="overview">Dashboard</button>
+        <button class="nav-tab" type="button" data-tab="leads">My Leads</button>
+      </nav>
+
+      <button id="logoutButton" class="secondary-button" type="button">Logout</button>
+    </aside>
+
+    <main class="employee-main">
+      <header class="employee-topbar">
+        <div>
+          <p class="eyebrow">Sales Staff</p>
+          <h1 id="welcomeTitle">Employee Dashboard</h1>
+          <p id="welcomeSubtitle">Track your own leads, follow-ups, approved clients, and monthly target progress.</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshButton" class="secondary-button" type="button" disabled>Refresh</button>
+          <button class="primary-button" type="button" data-open-lead-form disabled>Add New Lead</button>
+        </div>
+      </header>
+
+      <div id="feedback" class="feedback hidden"></div>
+
+      <section id="loadingState" class="loading-state" aria-live="polite" aria-busy="true">
+        <article class="panel state-panel">
+          <div class="state-icon loading-spinner" aria-hidden="true"></div>
+          <div>
+            <p class="eyebrow">Loading</p>
+            <h2>Preparing employee dashboard</h2>
+            <p>Loading your target progress, lead pipeline, follow-ups, and commission status.</p>
+          </div>
+        </article>
+        <div class="metric-grid skeleton-grid" aria-hidden="true">
+          <article class="metric-card skeleton-card">
+            <span class="skeleton-line is-short"></span>
+            <strong class="skeleton-line is-heading"></strong>
+            <p class="skeleton-line"></p>
+          </article>
+          <article class="metric-card skeleton-card">
+            <span class="skeleton-line is-short"></span>
+            <strong class="skeleton-line is-heading"></strong>
+            <p class="skeleton-line"></p>
+          </article>
+          <article class="metric-card skeleton-card">
+            <span class="skeleton-line is-short"></span>
+            <strong class="skeleton-line is-heading"></strong>
+            <p class="skeleton-line"></p>
+          </article>
+          <article class="metric-card skeleton-card">
+            <span class="skeleton-line is-short"></span>
+            <strong class="skeleton-line is-heading"></strong>
+            <p class="skeleton-line"></p>
+          </article>
+        </div>
+      </section>
+
+      <section id="errorState" class="hidden">
+        <article class="panel state-panel error-panel">
+          <div class="state-icon" aria-hidden="true">!</div>
+          <div>
+            <p class="eyebrow">Unable to load</p>
+            <h2>Employee dashboard is unavailable</h2>
+            <p id="errorStateMessage">Please check your connection and try again.</p>
+            <button id="retryLoadButton" class="primary-button" type="button">Retry</button>
+          </div>
+        </article>
+      </section>
+
+      <div id="dashboardContent" class="hidden">
+        <section id="tab-overview" class="tab-panel">
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Current Target</span>
+              <strong id="targetCount"></strong>
+              <p id="targetRemaining"></p>
+            </article>
+            <article class="metric-card">
+              <span>Estimated Commission</span>
+              <strong id="estimatedCommission"></strong>
+              <p>Based on approved paid clients only.</p>
+            </article>
+            <article class="metric-card">
+              <span>Approved Commission</span>
+              <strong id="approvedCommission"></strong>
+              <p>Commission records approved or paid by admin.</p>
+            </article>
+            <article class="metric-card">
+              <span>Pending Approval</span>
+              <strong id="pendingApprovals"></strong>
+              <p>Paid clients waiting for admin confirmation.</p>
+            </article>
+          </div>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Monthly Target</p>
+                <h2 id="targetHeading"></h2>
+              </div>
+              <span id="targetBadge" class="status-pill"></span>
+            </div>
+            <div class="progress-track">
+              <div id="targetProgressBar" class="progress-bar"></div>
+            </div>
+            <p class="notice">Commission is confirmed only after admin approval and client payment verification.</p>
+          </article>
+
+          <div class="content-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Follow-ups</p>
+                  <h2>Today</h2>
+                </div>
+              </div>
+              <div id="todayFollowUps" class="stack-list"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">Pipeline</p>
+                  <h2>Lead summary</h2>
+                </div>
+              </div>
+              <div id="pipelineSummary" class="pipeline-grid"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="tab-leads" class="tab-panel hidden">
+          <article class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">My Leads</p>
+                <h2>Owned lead pipeline</h2>
+              </div>
+              <div class="panel-actions">
+                <select id="leadStatusFilter">
+                  <option value="">All statuses</option>
+                  <option>New Lead</option>
+                  <option>Contacted</option>
+                  <option>Interested</option>
+                  <option>Quotation Sent</option>
+                  <option>Payment Pending</option>
+                  <option>Paid / Closed</option>
+                  <option>Not Interested</option>
+                  <option>Cancelled</option>
+                </select>
+                <button class="primary-button" type="button" data-open-lead-form disabled>Add Lead</button>
+              </div>
+            </div>
+
+            <div id="leadList" class="lead-list"></div>
+          </article>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="leadModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="leadModalTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Lead</p>
+          <h2 id="leadModalTitle">Add Lead</h2>
+        </div>
+        <button class="icon-button" type="button" data-close-modal>Close</button>
+      </div>
+
+      <form id="leadForm">
+        <input type="hidden" id="leadId" name="leadId">
+        <div class="form-grid">
+          <label>
+            <span>Client name</span>
+            <input id="clientName" name="clientName" type="text">
+          </label>
+          <label>
+            <span>Business name</span>
+            <input id="businessName" name="businessName" type="text">
+          </label>
+          <label>
+            <span>Phone / WhatsApp</span>
+            <input id="phone" name="phone" type="text" required>
+          </label>
+          <label>
+            <span>Email</span>
+            <input id="email" name="email" type="email">
+          </label>
+          <label>
+            <span>Business type</span>
+            <input id="businessType" name="businessType" type="text">
+          </label>
+          <label>
+            <span>Interested service</span>
+            <select id="interestedService" name="interestedService">
+              <option>Website</option>
+              <option>POS System</option>
+              <option>Business System</option>
+              <option>AI Chatbot</option>
+              <option>Automation</option>
+              <option>E-commerce</option>
+              <option>Other</option>
+            </select>
+          </label>
+          <label>
+            <span>Estimated package/value</span>
+            <input id="estimatedPackageValue" name="estimatedPackageValue" type="number" min="0" step="0.01">
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="status" name="status">
+              <option>New Lead</option>
+              <option>Contacted</option>
+              <option>Interested</option>
+              <option>Quotation Sent</option>
+              <option>Payment Pending</option>
+              <option>Paid / Closed</option>
+              <option>Not Interested</option>
+              <option>Cancelled</option>
+            </select>
+          </label>
+          <label>
+            <span>Follow-up date</span>
+            <input id="followUpDate" name="followUpDate" type="date">
+          </label>
+        </div>
+
+        <label>
+          <span>Notes</span>
+          <textarea id="notes" name="notes"></textarea>
+        </label>
+
+        <div class="approval-fields">
+          <p class="eyebrow">Submit paid client for admin approval</p>
+          <div class="form-grid">
+            <label>
+              <span>Amount received</span>
+              <input id="amountReceived" name="amountReceived" type="number" min="0" step="0.01">
+            </label>
+            <label>
+              <span>Package/service sold</span>
+              <input id="packageSold" name="packageSold" type="text">
+            </label>
+            <label>
+              <span>Payment date</span>
+              <input id="paymentDate" name="paymentDate" type="date">
+            </label>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="primary-button" type="submit">Save Lead</button>
+          <button id="submitApprovalButton" class="secondary-button" type="button">Submit for Approval</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <script defer src="/assets/js/employee.js"></script>
+</body>
+</html>

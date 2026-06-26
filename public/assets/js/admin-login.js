@@ -5,6 +5,7 @@
     const FALLBACK_TOKEN_KEY = "automatex_token";
     const ADMIN_USER_KEY = "automatex_admin_user";
     const CLIENT_USER_KEY = "automatex_client_user";
+    const EMPLOYEE_USER_KEY = "automatex_employee_user";
     const CSRF_TOKEN_KEY = "automatex_csrf_token";
     const AUTH_STORAGE_KEYS = [
       ADMIN_TOKEN_KEY,
@@ -12,6 +13,7 @@
       FALLBACK_TOKEN_KEY,
       ADMIN_USER_KEY,
       CLIENT_USER_KEY,
+      EMPLOYEE_USER_KEY,
       CSRF_TOKEN_KEY
     ];
     const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
@@ -82,6 +84,15 @@
       }
     }
 
+    function saveEmployeeSession(token, user, csrfToken = "") {
+      clearSessions();
+      localStorage.setItem(FALLBACK_TOKEN_KEY, token);
+      localStorage.setItem(EMPLOYEE_USER_KEY, JSON.stringify(user));
+      if (csrfToken) {
+        localStorage.setItem(CSRF_TOKEN_KEY, csrfToken);
+      }
+    }
+
     function getExistingToken() {
       return getStoredValue(FALLBACK_TOKEN_KEY) ||
         getStoredValue(ADMIN_TOKEN_KEY) ||
@@ -91,6 +102,10 @@
 
     function isAdminUser(user) {
       return Boolean(user && ["admin", "manager", "staff"].includes(String(user.role || "").toLowerCase()));
+    }
+
+    function isEmployeeUser(user) {
+      return Boolean(user && String(user.role || "").toLowerCase() === "employee");
     }
 
     async function verifyExistingAdminSession() {
@@ -123,6 +138,12 @@
         if (isAdminUser(payload.user)) {
           saveAdminSession(token, payload.user, payload.csrfToken);
           window.location.href = "/admin.html";
+          return;
+        }
+
+        if (isEmployeeUser(payload.user)) {
+          saveEmployeeSession(token, payload.user, payload.csrfToken);
+          window.location.href = "/employee.html";
           return;
         }
 
@@ -163,6 +184,12 @@
         if (isAdminUser(payload.user)) {
           saveAdminSession(payload.token, payload.user, payload.csrfToken);
           window.location.href = "/admin.html";
+          return;
+        }
+
+        if (isEmployeeUser(payload.user)) {
+          saveEmployeeSession(payload.token, payload.user, payload.csrfToken);
+          window.location.href = "/employee.html";
           return;
         }
 

@@ -4,6 +4,7 @@ const User = require("../models/User");
 const {
   ADMIN_ROLE_OPTIONS,
   isAdminRole,
+  isEmployeeRole,
   isOfficialAdminEmail,
   resolveTrustedRole
 } = require("../utils/authRole");
@@ -77,6 +78,7 @@ const ROLE_PERMISSIONS = Object.freeze({
   admin: Object.freeze(["*"]),
   manager: Object.freeze(MANAGER_PERMISSIONS),
   staff: Object.freeze(STAFF_PERMISSIONS),
+  employee: Object.freeze([]),
   client: Object.freeze([])
 });
 
@@ -251,6 +253,17 @@ function requireSystemAdmin(req, res, next) {
   return next();
 }
 
+function requireEmployee(req, res, next) {
+  if (!req.user || !isEmployeeRole(req.user.role) || isOfficialAdminEmail(req.user.email)) {
+    return res.status(403).json({
+      error: "Employee access required",
+      message: "Only active AutomateX employee accounts can access this route."
+    });
+  }
+
+  return next();
+}
+
 function requireAdminRole(allowedRoles = ADMIN_ROLE_OPTIONS) {
   return requireRole(allowedRoles);
 }
@@ -333,6 +346,7 @@ module.exports = {
   hasPermission,
   requireAdmin,
   requireSystemAdmin,
+  requireEmployee,
   requireAdminRole,
   requireRole,
   requirePermission,

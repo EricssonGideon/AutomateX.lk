@@ -12,7 +12,8 @@
     "test:api": "node --test test/api/*.test.js",
     "check:storage": "node scripts/checkStorageConfig.js",
     "seed:admin": "node server/scripts/createAdmin.js",
-    "reset:admin-password": "node server/scripts/resetAdminPassword.js"
+    "reset:admin-password": "node server/scripts/resetAdminPassword.js",
+    "reset:admin": "node server/scripts/resetAdminPassword.js"
   },
   "keywords": [
     "automatex",

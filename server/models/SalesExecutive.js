@@ -69,6 +69,12 @@ const commissionRulesSchema = new mongoose.Schema(
 
 const salesExecutiveSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true
+    },
     fullName: {
       type: String,
       required: true,

@@ -10,6 +10,7 @@
     const FALLBACK_TOKEN_KEY = "automatex_token";
     const ADMIN_USER_KEY = "automatex_admin_user";
     const CLIENT_USER_KEY = "automatex_client_user";
+    const EMPLOYEE_USER_KEY = "automatex_employee_user";
     const CSRF_TOKEN_KEY = "automatex_csrf_token";
     const AUTH_STORAGE_KEYS = [
       ADMIN_TOKEN_KEY,
@@ -17,6 +18,7 @@
       FALLBACK_TOKEN_KEY,
       ADMIN_USER_KEY,
       CLIENT_USER_KEY,
+      EMPLOYEE_USER_KEY,
       CSRF_TOKEN_KEY
     ];
     const LOGOUT_MARKER_KEY = "automatex_auth_logged_out_at";
@@ -93,6 +95,15 @@
       }
     }
 
+    function saveEmployeeSession(token, user, csrfToken = "") {
+      clearClientSession();
+      localStorage.setItem(FALLBACK_TOKEN_KEY, token);
+      localStorage.setItem(EMPLOYEE_USER_KEY, JSON.stringify(user));
+      if (csrfToken) {
+        localStorage.setItem(CSRF_TOKEN_KEY, csrfToken);
+      }
+    }
+
     function isOfficialAdmin(user) {
       return Boolean(
         user &&
@@ -131,6 +142,12 @@
         if (isOfficialAdmin(payload.user)) {
           saveAdminSession(token, payload.user, payload.csrfToken);
           window.location.href = "/admin.html";
+          return;
+        }
+
+        if (payload.user.role === "employee") {
+          saveEmployeeSession(token, payload.user, payload.csrfToken);
+          window.location.href = "/employee.html";
           return;
         }
 
@@ -176,6 +193,13 @@
           saveAdminSession(payload.token, payload.user, payload.csrfToken);
           showMessage("Login successful. Redirecting to admin dashboard...", "success");
           window.location.href = "/admin.html";
+          return;
+        }
+
+        if (payload.user.role === "employee") {
+          saveEmployeeSession(payload.token, payload.user, payload.csrfToken);
+          showMessage("Login successful. Redirecting to employee dashboard...", "success");
+          window.location.href = "/employee.html";
           return;
         }
 

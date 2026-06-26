@@ -1379,8 +1379,13 @@
         return false;
       }
 
-      if (payload.user.role === "admin") {
+      if (["admin", "manager", "staff"].includes(String(payload.user.role || "").toLowerCase())) {
         window.location.replace("/admin.html");
+        return false;
+      }
+
+      if (payload.user.role === "employee") {
+        window.location.replace("/employee.html");
         return false;
       }
 

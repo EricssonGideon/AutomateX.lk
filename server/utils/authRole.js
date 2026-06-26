@@ -1,6 +1,7 @@
 const OFFICIAL_ADMIN_EMAIL = "automatex100@gmail.com";
 const ADMIN_ROLE_OPTIONS = ["admin", "manager", "staff"];
-const ROLE_OPTIONS = [...ADMIN_ROLE_OPTIONS, "client"];
+const EMPLOYEE_ROLE_OPTIONS = ["employee"];
+const ROLE_OPTIONS = [...ADMIN_ROLE_OPTIONS, ...EMPLOYEE_ROLE_OPTIONS, "client"];
 
 function normalizeEmailAddress(email) {
   return String(email || "").trim().toLowerCase();
@@ -34,11 +35,17 @@ function isAdminRole(role) {
   return ADMIN_ROLE_OPTIONS.includes(String(role || "").trim().toLowerCase());
 }
 
+function isEmployeeRole(role) {
+  return EMPLOYEE_ROLE_OPTIONS.includes(String(role || "").trim().toLowerCase());
+}
+
 module.exports = {
   ADMIN_ROLE_OPTIONS,
+  EMPLOYEE_ROLE_OPTIONS,
   OFFICIAL_ADMIN_EMAIL,
   ROLE_OPTIONS,
   isAdminRole,
+  isEmployeeRole,
   normalizeEmailAddress,
   normalizeRole,
   isOfficialAdminEmail,
