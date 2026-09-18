@@ -1,27 +1,56 @@
 const mongoose = require("mongoose");
 
 const {
-  failedStagingReadinessOutput,
-  runStagingReadinessCheck
-} = require("../../scripts/checkPosLicensingStagingReadiness");
+  isStagingPreviewReadinessRuntime
+} = require("../config/stagingPreviewReadinessRuntime");
+const { connectToDatabase } = require("../utils/db");
 
 const STAGING_READINESS_PATH = "/internal/pos-licensing-staging-readiness";
 
 // TEMPORARY: expose only on the dedicated staging Vercel Preview branch.
 function shouldMountStagingReadinessEndpoint(env = process.env) {
-  return String(env.POS_LICENSING_MODE || "").trim().toLowerCase() === "staging" &&
-    String(env.VERCEL_ENV || "").trim().toLowerCase() === "preview" &&
-    String(env.VERCEL_GIT_COMMIT_REF || "").trim() === "pos-licensing-staging";
+  return isStagingPreviewReadinessRuntime(env);
+}
+
+function failedStagingReadinessOutput() {
+  return Object.freeze({
+    environment: "staging",
+    ready: false,
+    technicalReadinessPassed: false,
+    enablementRequested: false,
+    eligibleForRouteMount: false,
+    active: false,
+    decisionCode: "staging_readiness_failed",
+    checks: Object.freeze([Object.freeze({
+      name: "staging_readiness",
+      passed: false,
+      code: "staging_readiness_failed"
+    })])
+  });
+}
+
+function defaultReadinessCheck(options) {
+  const {
+    runStagingReadinessCheck
+  } = require("../../scripts/checkPosLicensingStagingReadiness");
+  return runStagingReadinessCheck(options);
 }
 
 function createStagingReadinessHandler(options = {}) {
   const env = options.env || process.env;
-  const connection = options.connection || mongoose.connection;
-  const runReadinessCheck = options.runReadinessCheck || runStagingReadinessCheck;
+  const suppliedConnection = options.connection || null;
+  const connectionProvider = options.connectionProvider || connectToDatabase;
+  const runReadinessCheck = options.runReadinessCheck || defaultReadinessCheck;
   return async function stagingReadinessHandler(_req, res) {
     let output;
     try {
-      output = await runReadinessCheck({ env, connection });
+      if (!suppliedConnection) {
+        await connectionProvider();
+      }
+      output = await runReadinessCheck({
+        env,
+        connection: suppliedConnection || mongoose.connection
+      });
     } catch {
       output = failedStagingReadinessOutput();
     }
@@ -37,6 +66,7 @@ function mountStagingReadinessEndpoint(router, options = {}) {
   router.get(STAGING_READINESS_PATH, createStagingReadinessHandler({
     env,
     connection: options.connection,
+    connectionProvider: options.connectionProvider,
     runReadinessCheck: options.runReadinessCheck
   }));
   return true;
@@ -45,6 +75,7 @@ function mountStagingReadinessEndpoint(router, options = {}) {
 module.exports = {
   STAGING_READINESS_PATH,
   createStagingReadinessHandler,
+  failedStagingReadinessOutput,
   mountStagingReadinessEndpoint,
   shouldMountStagingReadinessEndpoint
 };

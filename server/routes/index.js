@@ -17,14 +17,10 @@ const {
   authenticatedApiLimiter,
   chatLimiter
 } = require("../middleware/rateLimit");
-const {
-  mountStagingReadinessEndpoint
-} = require("./internalStagingReadiness");
 
 const router = express.Router();
 
 router.get("/health", getHealth);
-mountStagingReadinessEndpoint(router);
 router.use("/auth", authRoutes);
 router.use("/admin", authenticatedApiLimiter, adminRoutes);
 router.use("/billing", billingRoutes);

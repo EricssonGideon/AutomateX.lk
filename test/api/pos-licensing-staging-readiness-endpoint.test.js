@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
+const path = require("node:path");
 const test = require("node:test");
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || "pos-staging-readiness-endpoint-test-only";
@@ -13,6 +15,10 @@ const {
   mountStagingReadinessEndpoint,
   shouldMountStagingReadinessEndpoint
 } = require("../../server/routes/internalStagingReadiness");
+const {
+  resolveStagingPreviewProxyTrust,
+  resolveStagingPreviewStartup
+} = require("../../server/config/stagingPreviewReadinessRuntime");
 
 function previewEnvironment(overrides = {}) {
   return {
@@ -61,6 +67,52 @@ test("temporary endpoint guard requires staging mode, Vercel Preview, and the st
   ]) {
     assert.equal(shouldMountStagingReadinessEndpoint(previewEnvironment(overrides)), false, JSON.stringify(overrides));
   }
+});
+
+test("only the guarded Preview converts startup validation errors to an inactive runtime", () => {
+  const failure = new Error("raw staging configuration failure");
+  const throwFailure = () => { throw failure; };
+  const startup = resolveStagingPreviewStartup(previewEnvironment(), throwFailure);
+  const proxy = resolveStagingPreviewProxyTrust(previewEnvironment(), throwFailure);
+  assert.equal(startup.active, false);
+  assert.equal(startup.configured, false);
+  assert.equal(startup.mode, "staging");
+  assert.equal(startup.runtimeEnvironment.secureRuntime, true);
+  assert.equal(proxy.expressTrust, false);
+  assert.equal(proxy.configured, false);
+
+  assert.throws(
+    () => resolveStagingPreviewStartup(previewEnvironment({ VERCEL_ENV: "production" }), throwFailure),
+    (error) => error === failure
+  );
+  assert.throws(
+    () => resolveStagingPreviewStartup(previewEnvironment({ POS_LICENSING_MODE: "production" }), throwFailure),
+    (error) => error === failure
+  );
+});
+
+test("Vercel app module initializes when staging configuration is incomplete", () => {
+  const childEnvironment = {
+    ...process.env,
+    AUTOMATEX_ENV: "staging",
+    NODE_ENV: "production",
+    POS_LICENSING_MODE: "staging",
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: "pos-licensing-staging",
+    JWT_SECRET: "staging-runtime-module-test-only"
+  };
+  delete childEnvironment.POS_LICENSING_PRODUCTION_HOSTNAME;
+  const result = spawnSync(process.execPath, [
+    "-e",
+    "require('./api/index.js'); process.stdout.write('loaded')"
+  ], {
+    cwd: path.join(__dirname, "..", ".."),
+    env: childEnvironment,
+    encoding: "utf8"
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "loaded");
+  assert.equal(result.stderr, "");
 });
 
 test("endpoint is registered only when the complete staging-preview guard passes", () => {
@@ -136,4 +188,14 @@ test("not-ready and thrown checks return sanitized 503 responses", async () => {
   assert.equal(serialized.includes(secret), false);
   assert.equal(serialized.includes("stack"), false);
   assert.deepEqual(failureResponse.body, failedStagingReadinessOutput());
+
+  const connectionFailureResponse = responseRecorder();
+  await createStagingReadinessHandler({
+    env: previewEnvironment(),
+    connectionProvider: async () => { throw new Error(`connection failed with ${secret}`); },
+    runReadinessCheck: async () => { throw new Error("must not run"); }
+  })({}, connectionFailureResponse);
+  assert.equal(connectionFailureResponse.statusCode, 503);
+  assert.equal(JSON.stringify(connectionFailureResponse.body).includes(secret), false);
+  assert.deepEqual(connectionFailureResponse.body, failedStagingReadinessOutput());
 });

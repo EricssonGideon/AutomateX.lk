@@ -16,17 +16,30 @@ const {
 const {
   resolvePosProxyTrustConfiguration
 } = require("./config/posLicensingTransport");
+const {
+  resolveStagingPreviewProxyTrust,
+  resolveStagingPreviewStartup
+} = require("./config/stagingPreviewReadinessRuntime");
+const {
+  mountStagingReadinessEndpoint
+} = require("./routes/internalStagingReadiness");
 
 // POS licensing remains disabled unless explicitly selected. If production mode is
 // selected, validate the complete server-only contract before the app is created.
-const posLicensingStartup = assertPosLicensingStartupConfig(process.env);
+const posLicensingStartup = resolveStagingPreviewStartup(
+  process.env,
+  assertPosLicensingStartupConfig
+);
 
 const apiRoutes = require("./routes");
 const { handleCorsError } = require("./middleware/rateLimit");
 const { connectToDatabase } = require("./utils/db");
 
 const app = express();
-const proxyTrust = resolvePosProxyTrustConfiguration(process.env);
+const proxyTrust = resolveStagingPreviewProxyTrust(
+  process.env,
+  resolvePosProxyTrustConfiguration
+);
 app.set("trust proxy", proxyTrust.expressTrust);
 app.locals.posLicensingStartup = posLicensingStartup;
 app.locals.runtimeEnvironment = posLicensingStartup.runtimeEnvironment;
@@ -131,6 +144,10 @@ app.get("/api/health", async (_req, res) => {
     });
   }
 });
+
+const stagingReadinessRouter = express.Router();
+mountStagingReadinessEndpoint(stagingReadinessRouter);
+app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
   try {
