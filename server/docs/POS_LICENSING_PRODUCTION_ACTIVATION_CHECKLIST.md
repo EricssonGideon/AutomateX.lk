@@ -1,6 +1,6 @@
 # POS Licensing Production Activation Checklist
 
-This is the authoritative operator checklist after Parts 77–78F. Completing it does not itself authorize deployment or route mounting. Keep `POS_LICENSING_MODE=disabled` and `POS_LICENSING_ENABLED=false` until the final reviewed activation change.
+This is the authoritative operator checklist after Parts 77–78G. Completing it does not itself authorize deployment or route mounting. Keep `POS_LICENSING_MODE=disabled` and `POS_LICENSING_ENABLED=false` until the final reviewed activation change.
 
 ## Hosting and transport
 
@@ -34,8 +34,9 @@ This is the authoritative operator checklist after Parts 77–78F. Completing it
 ## Distributed limiter and audit operations
 
 - [ ] Select and approve a distributed limiter provider.
-- [ ] Implement/review the provider adapter against the Part 78D contract.
-- [ ] Inject the production-only backend URI and identity.
+- [x] Implement the `upstash-rest` provider adapter against the Part 78D contract.
+- [ ] Complete security/operations review of the adapter and production provider choice.
+- [ ] Inject the production-only Upstash REST URL/token (or separately reviewed provider credentials) and identity.
 - [ ] Verify activation, bootstrap, and renewal namespaces are distinct.
 - [ ] Verify adapter health from every production instance with no memory fallback.
 - [ ] Approve audit ownership, monitoring, alerting, access, retention, and incident-response procedures.
@@ -55,7 +56,7 @@ This is the authoritative operator checklist after Parts 77–78F. Completing it
 
 - Production keys have not been generated.
 - MongoDB has not been provisioned.
-- No distributed limiter provider is connected.
+- The Upstash REST adapter exists, but it has not been deployed or live-health-verified and no production limiter is connected.
 - Real hostnames and proxy CIDRs are not configured.
 - The enablement flag remains false.
 - POS licensing routes remain unmounted and inactive.

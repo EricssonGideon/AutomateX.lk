@@ -10,6 +10,10 @@ const {
   validateDistributedRateLimitConfiguration
 } = require("../licensing/posLicensingRateLimit");
 const {
+  UPSTASH_REST_BACKEND,
+  loadUpstashRestCredentials
+} = require("../licensing/upstashRateLimitStore");
+const {
   validatePosLicensingTransportConfiguration
 } = require("./posLicensingTransport");
 
@@ -39,7 +43,8 @@ const REQUIRED_PRODUCTION_ENVIRONMENT_VARIABLES = Object.freeze([
   "POS_LICENSING_RATE_LIMIT_BACKEND",
   "POS_LICENSING_RATE_LIMIT_STORE_IDENTITY",
   "POS_LICENSING_RATE_LIMIT_NAMESPACE",
-  "POS_LICENSING_RATE_LIMIT_STORE_URI",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
   "POS_LICENSING_ACTIVATION_RATE_LIMIT",
   "POS_LICENSING_BOOTSTRAP_RATE_LIMIT",
   "POS_LICENSING_RENEWAL_RATE_LIMIT",
@@ -223,6 +228,20 @@ function assertSecureRateLimitStoreUri(storeUri, backend, environmentName) {
   return true;
 }
 
+function rateLimitSecretNames(backend) {
+  return backend === UPSTASH_REST_BACKEND
+    ? ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"]
+    : ["POS_LICENSING_RATE_LIMIT_STORE_URI"];
+}
+
+function validateRateLimitSecretConfiguration(env, secrets, backend, environmentName) {
+  if (backend === UPSTASH_REST_BACKEND) {
+    loadUpstashRestCredentials(env);
+    return true;
+  }
+  return assertSecureRateLimitStoreUri(secrets.getRateLimitStoreUri(), backend, environmentName);
+}
+
 function validateProductionLicensingConfig(env = process.env) {
   const runtimeEnvironment = classifyRuntimeEnvironment(env);
   if (runtimeEnvironment.mode !== "production") {
@@ -258,10 +277,9 @@ function validateProductionLicensingConfig(env = process.env) {
   }
   secrets = loadPosLicensingServerSecrets(env, {
     expectedEnvironment: "production",
-    requiredNames: ["MONGO_URI", "POS_LICENSING_RATE_LIMIT_STORE_URI"]
+    requiredNames: ["MONGO_URI", ...rateLimitSecretNames(rateLimitBackend)]
   });
-  const rateLimitStoreUri = secrets.getRateLimitStoreUri();
-  assertSecureRateLimitStoreUri(rateLimitStoreUri, rateLimitBackend, "Production");
+  validateRateLimitSecretConfiguration(env, secrets, rateLimitBackend, "Production");
 
   const auditRetention = required(env, "POS_LICENSING_AUDIT_RETENTION").toLowerCase();
   if (auditRetention !== "indefinite") {
@@ -278,7 +296,7 @@ function validateProductionLicensingConfig(env = process.env) {
       "MONGO_URI",
       "POS_LICENSING_SIGNING_PRIVATE_JWK_B64",
       "POS_LICENSING_EXPECTED_PUBLIC_JWK",
-      "POS_LICENSING_RATE_LIMIT_STORE_URI"
+      ...rateLimitSecretNames(rateLimitBackend)
     ]
   });
   const keyProvider = createSigningKeyProvider(secrets, keyId, "production");
@@ -332,6 +350,8 @@ function validateStagingLicensingConfig(env = process.env) {
   const hasRateLimitMaterial = Boolean(
     rateLimitBackend ||
     clean(env.POS_LICENSING_RATE_LIMIT_STORE_URI) ||
+    clean(env.UPSTASH_REDIS_REST_URL) ||
+    clean(env.UPSTASH_REDIS_REST_TOKEN) ||
     clean(env.POS_LICENSING_RATE_LIMIT_STORE_IDENTITY) ||
     clean(env.POS_LICENSING_RATE_LIMIT_NAMESPACE)
   );
@@ -341,7 +361,7 @@ function validateStagingLicensingConfig(env = process.env) {
     requiredNames: [
       "MONGO_URI",
       ...(hasSigningMaterial ? ["POS_LICENSING_SIGNING_PRIVATE_JWK_B64", "POS_LICENSING_EXPECTED_PUBLIC_JWK"] : []),
-      ...(hasRateLimitMaterial ? ["POS_LICENSING_RATE_LIMIT_STORE_URI"] : [])
+      ...(hasRateLimitMaterial ? rateLimitSecretNames(rateLimitBackend) : [])
     ]
   });
   const databaseName = mongo.databaseName;
@@ -359,7 +379,7 @@ function validateStagingLicensingConfig(env = process.env) {
     if (!rateLimitBackend || ["memory", "local", "in-process", "none"].includes(rateLimitBackend)) {
       fail("unsafe_rate_limit_backend", "Staging POS rate-limit secret validation requires a distributed backend identity.");
     }
-    assertSecureRateLimitStoreUri(secrets.getRateLimitStoreUri(), rateLimitBackend, "Staging");
+    validateRateLimitSecretConfiguration(env, secrets, rateLimitBackend, "Staging");
   }
 
   const rateLimit = hasRateLimitMaterial ? validateDistributedRateLimitConfiguration({

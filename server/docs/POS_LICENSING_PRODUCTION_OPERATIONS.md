@@ -42,10 +42,12 @@ All values must be supplied by the production runtime or approved server secret 
 | `POS_LICENSING_PRODUCTION_ADMIN_ORIGINS` | Exact HTTPS production Company System origins allowed for future POS Control browser requests. |
 | `POS_LICENSING_STAGING_ADMIN_ORIGINS` | Exact HTTPS staging Company System origins; must be disjoint from production. |
 | `POS_LICENSING_MACHINE_ALLOWED_ORIGINS` | Must currently be `none`; native machine requests do not need browser CORS. |
-| `POS_LICENSING_RATE_LIMIT_BACKEND` | Distributed backend identifier; memory/local/none are rejected. |
+| `POS_LICENSING_RATE_LIMIT_BACKEND` | Distributed backend identifier; `upstash-rest` selects the prepared HTTP adapter. Memory/local/none are rejected. |
 | `POS_LICENSING_RATE_LIMIT_STORE_IDENTITY` | Explicit environment-bound store identity, for example `automatex-pos-production-distributed-v1`. |
 | `POS_LICENSING_RATE_LIMIT_NAMESPACE` | Explicit environment-bound base namespace; endpoint suffixes are generated independently. |
-| `POS_LICENSING_RATE_LIMIT_STORE_URI` | Server-only connection URI for the distributed limiter store. |
+| `UPSTASH_REDIS_REST_URL` | Server-only HTTPS REST endpoint required by `upstash-rest`. |
+| `UPSTASH_REDIS_REST_TOKEN` | Server-only bearer token required by `upstash-rest`. |
+| `POS_LICENSING_RATE_LIMIT_STORE_URI` | Server-only connection URI required only by another future approved adapter. |
 | `POS_LICENSING_RATE_LIMIT_WINDOW_MS` | Positive integer shared window. |
 | `POS_LICENSING_ACTIVATION_RATE_LIMIT` | Positive integer activation limit per window. |
 | `POS_LICENSING_BOOTSTRAP_RATE_LIMIT` | Positive integer bootstrap limit per window. |
@@ -116,9 +118,11 @@ The machine router retains independent activation, bootstrap, and renewal limite
 
 Every adapter must declare itself distributed, reject local-only keys, expose matching backend/environment/store/namespace metadata, implement `increment`, `decrement`, `resetKey`, and `healthCheck`, and return a healthy result during readiness. Store exceptions are replaced by a stable sanitized failure. Production readiness fails when the factory is missing, an adapter is local or mismatched, any namespace is reused, or health verification fails. There is no memory fallback.
 
+`server/licensing/upstashRateLimitStore.js` is the concrete `upstash-rest` implementation. It uses one-shot HTTPS REST requests suitable for serverless execution, applies increment and first-window expiry atomically with a Redis script, hashes the already-opaque request key before storage, and uses `PING` for adapter health. It reads only `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` from server runtime injection. URLs, tokens, response bodies, headers, and raw backend errors never enter adapter errors or readiness output.
+
 Staging identities and namespaces must explicitly contain `staging` and must not contain production, test, development, or local markers. Production has the inverse boundary. This prevents counters and configuration from being silently shared across the two environments.
 
-The repository intentionally does not choose or connect a live rate-limit provider in Part 78D. A concrete approved adapter, its injected URI, availability monitoring, and route wiring remain required before mounting.
+The Upstash REST adapter is now available for staging configuration, but this change does not deploy it or contact a live store. Staging must use a staging-only store identity and namespace. Production provider approval, production-only credentials, live health verification, availability monitoring, and route wiring remain required before mounting.
 
 ## Transport, proxy, host, and origin policy
 
@@ -163,7 +167,7 @@ Before actual production provisioning or route mounting, the operator must appro
 1. The external secret location for the final Ed25519 private key.
 2. Generation/import of the final keypair and the corresponding expected public JWK.
 3. The production MongoDB cluster/database and proof that the readiness transaction passes.
-4. The distributed rate-limit backend, store adapter, credentials, and failure policy.
+4. The production distributed rate-limit provider, credentials, availability monitoring, and failure policy; the `upstash-rest` adapter is implemented but no production store is selected here.
 5. Exact machine API hostname/base path, TLS termination, allowed origins, and network controls.
 6. Audit retention/access/backup operations and alerting.
 7. A staged index rollout and backup/restore plan.

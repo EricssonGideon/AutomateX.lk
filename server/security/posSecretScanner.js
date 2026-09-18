@@ -52,7 +52,10 @@ function scanTextForPosSecrets(file, content) {
   if (hasCredentialUri(text, /\bmongodb(?:\+srv)?:\/\/([^\s/:@"'<>]+):([^\s/@"'<>]+)@/gi)) {
     categories.add(SECRET_CATEGORIES.MONGODB_CREDENTIALS);
   }
-  if (hasCredentialUri(text, /\brediss?:\/\/([^\s/:@"'<>]+):([^\s/@"'<>]+)@/gi) || /POS_LICENSING_RATE_LIMIT_(?:PASSWORD|TOKEN)\s*=\s*[A-Za-z0-9._~+/=-]{24,}/i.test(text)) {
+  if (
+    hasCredentialUri(text, /\brediss?:\/\/([^\s/:@"'<>]+):([^\s/@"'<>]+)@/gi) ||
+    /(?:POS_LICENSING_RATE_LIMIT_(?:PASSWORD|TOKEN)|UPSTASH_REDIS_REST_TOKEN)\s*=\s*[A-Za-z0-9._~+/=-]{24,}/i.test(text)
+  ) {
     categories.add(SECRET_CATEGORIES.RATE_LIMITER_CREDENTIALS);
   }
   if (/\bBearer\s+[A-Za-z0-9._~+/=-]{32,}/i.test(text)) {

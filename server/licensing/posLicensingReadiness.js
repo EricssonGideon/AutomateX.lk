@@ -9,6 +9,7 @@ const {
 const { validateRouteGroupIsolation } = require("./posLicensingRouteGroups");
 const { inspectMongoTransactionCapability } = require("./posLicensingTransactions");
 const { inspectProductionRateLimitReadiness } = require("./posLicensingRateLimit");
+const { resolveConfiguredRateLimitStoreFactory } = require("./upstashRateLimitStore");
 const {
   LICENCE_PERMISSIONS,
   ROLE_PERMISSIONS
@@ -34,10 +35,11 @@ function adminPermissionBoundaryIsValid() {
 }
 
 async function runProductionLicensingReadiness(options = {}) {
+  const env = options.env || process.env;
   const checks = [];
   let config = null;
   try {
-    config = validateProductionLicensingConfig(options.env || process.env);
+    config = validateProductionLicensingConfig(env);
     checks.push(item("environment", true, "production_environment_valid"));
     checks.push(item(
       "environment_isolation",
@@ -86,7 +88,10 @@ async function runProductionLicensingReadiness(options = {}) {
   }
 
   const limiterReadiness = config
-    ? await inspectProductionRateLimitReadiness(config, options.rateLimitStoreFactory)
+    ? await inspectProductionRateLimitReadiness(
+      config,
+      options.rateLimitStoreFactory || resolveConfiguredRateLimitStoreFactory(env, options)
+    )
     : { ready: false, code: "rate_limit_configuration_invalid" };
   checks.push(item("rate_limit_adapter", limiterReadiness.ready, limiterReadiness.code));
 

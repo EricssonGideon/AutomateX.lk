@@ -5,6 +5,8 @@ const RUNTIME_SECRET_NAMES = Object.freeze([
   "POS_LICENSING_SIGNING_PRIVATE_JWK_B64",
   "POS_LICENSING_EXPECTED_PUBLIC_JWK",
   "POS_LICENSING_RATE_LIMIT_STORE_URI",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
   "JWT_SECRET"
 ]);
 const REDACTED = "[REDACTED]";
@@ -32,7 +34,7 @@ function sanitizeSensitiveText(value, options = {}) {
     .replace(/\b(?:mongodb(?:\+srv)?|rediss?):\/\/[^\s"'<>]+/gi, REDACTED)
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, REDACTED)
     .replace(/\bpos(?:rc|ac)_[A-Za-z0-9_-]{8,}/g, REDACTED)
-    .replace(/(POS_LICENSING_(?:SIGNING_PRIVATE_JWK_B64|RATE_LIMIT_STORE_URI)\s*[=:]\s*)[^\s,;]+/gi, `$1${REDACTED}`);
+    .replace(/((?:POS_LICENSING_(?:SIGNING_PRIVATE_JWK_B64|RATE_LIMIT_STORE_URI)|UPSTASH_REDIS_REST_(?:URL|TOKEN))\s*[=:]\s*)[^\s,;]+/gi, `$1${REDACTED}`);
 
   if (/"crv"\s*:\s*"Ed25519"/i.test(text) && /"kty"\s*:\s*"OKP"/i.test(text)) {
     text = text.replace(/("d"\s*:\s*")[^"]+("?)/gi, `$1${REDACTED}$2`);

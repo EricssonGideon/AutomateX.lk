@@ -8,6 +8,7 @@ const {
 const {
   inspectMachineRateLimitReadiness
 } = require("./posLicensingRateLimit");
+const { resolveConfiguredRateLimitStoreFactory } = require("./upstashRateLimitStore");
 const {
   validateRouteGroupIsolation
 } = require("./posLicensingRouteGroups");
@@ -163,7 +164,10 @@ async function runStagingLicensingReadinessGate(options = {}) {
   }
 
   const limiter = config && config.rateLimit
-    ? await inspectMachineRateLimitReadiness(config, options.rateLimitStoreFactory)
+    ? await inspectMachineRateLimitReadiness(
+      config,
+      options.rateLimitStoreFactory || resolveConfiguredRateLimitStoreFactory(env, options)
+    )
     : { ready: false, code: "rate_limit_configuration_missing" };
   checks.push(item("rate_limit_adapter", limiter.ready, limiter.code));
 

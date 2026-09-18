@@ -6,7 +6,9 @@ const POS_LICENSING_SERVER_SECRET_NAMES = Object.freeze([
   "MONGO_URI",
   "POS_LICENSING_SIGNING_PRIVATE_JWK_B64",
   "POS_LICENSING_EXPECTED_PUBLIC_JWK",
-  "POS_LICENSING_RATE_LIMIT_STORE_URI"
+  "POS_LICENSING_RATE_LIMIT_STORE_URI",
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN"
 ]);
 const POS_LICENSING_SERVER_SECRET_FIELD_NAMES = new Set([
   ...POS_LICENSING_SERVER_SECRET_NAMES,
@@ -18,6 +20,8 @@ const POS_LICENSING_SERVER_SECRET_FIELD_NAMES = new Set([
   "signingPrivateJwkB64",
   "expectedPublicJwk",
   "rateLimitStoreUri",
+  "upstashRedisRestUrl",
+  "upstashRedisRestToken",
   "rateLimitPassword",
   "rateLimitToken"
 ]);
@@ -72,6 +76,14 @@ class PosLicensingServerSecrets {
     return this.#values.POS_LICENSING_RATE_LIMIT_STORE_URI || "";
   }
 
+  getUpstashRedisRestUrl() {
+    return this.#values.UPSTASH_REDIS_REST_URL || "";
+  }
+
+  getUpstashRedisRestToken() {
+    return this.#values.UPSTASH_REDIS_REST_TOKEN || "";
+  }
+
   toJSON() {
     return {
       environment: this.environment,
@@ -79,7 +91,10 @@ class PosLicensingServerSecrets {
       configured: Object.freeze({
         mongodb: Boolean(this.#values.MONGO_URI),
         signing: Boolean(this.#values.POS_LICENSING_SIGNING_PRIVATE_JWK_B64 && this.#values.POS_LICENSING_EXPECTED_PUBLIC_JWK),
-        rateLimiter: Boolean(this.#values.POS_LICENSING_RATE_LIMIT_STORE_URI)
+        rateLimiter: Boolean(
+          this.#values.POS_LICENSING_RATE_LIMIT_STORE_URI ||
+          this.#values.UPSTASH_REDIS_REST_URL && this.#values.UPSTASH_REDIS_REST_TOKEN
+        )
       })
     };
   }
