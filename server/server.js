@@ -1,26 +1,43 @@
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const mongoose = require("mongoose");
+const { sanitizeSensitiveText } = require("./utils/sensitiveData");
 
-dotenv.config();
+const { loadRuntimeEnvironment } = require("./config/loadRuntimeEnvironment");
+
+loadRuntimeEnvironment();
+
+const {
+  assertPosLicensingStartupConfig
+} = require("./config/posLicensingProduction");
+const {
+  resolvePosProxyTrustConfiguration
+} = require("./config/posLicensingTransport");
+
+// POS licensing remains disabled unless explicitly selected. If production mode is
+// selected, validate the complete server-only contract before the app is created.
+const posLicensingStartup = assertPosLicensingStartupConfig(process.env);
 
 const apiRoutes = require("./routes");
 const { handleCorsError } = require("./middleware/rateLimit");
 const { connectToDatabase } = require("./utils/db");
 
 const app = express();
-app.set("trust proxy", 1);
+const proxyTrust = resolvePosProxyTrustConfiguration(process.env);
+app.set("trust proxy", proxyTrust.expressTrust);
+app.locals.posLicensingStartup = posLicensingStartup;
+app.locals.runtimeEnvironment = posLicensingStartup.runtimeEnvironment;
+app.locals.proxyTrust = proxyTrust;
 
 const publicDirectory = path.join(__dirname, "..", "public");
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const isProduction = process.env.NODE_ENV === "production";
+const isProduction = posLicensingStartup.runtimeEnvironment.secureRuntime;
 const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
 
 function isSameOriginRequest(req, origin) {
@@ -50,12 +67,13 @@ function isAllowedCorsOrigin(req, origin) {
 }
 
 function logStructuredError(payload) {
-  console.error(JSON.stringify({
+  const isPosLicensingRoute = /^\/api\/(?:pos-(?:machine|licensing)|admin\/pos-licensing)(?:\/|$)/.test(String(payload.route || ""));
+  console.error(sanitizeSensitiveText(JSON.stringify({
     timestamp: new Date().toISOString(),
     route: payload.route,
-    errorMessage: payload.message,
-    stack: payload.stack || ""
-  }));
+    errorMessage: isPosLicensingRoute ? "POS licensing request failed." : payload.message,
+    stack: isPosLicensingRoute || isProduction ? "" : payload.stack || ""
+  })));
 }
 
 function corsOptionsDelegate(req, callback) {
@@ -88,7 +106,8 @@ app.use(helmet({
     }
   }
 }));
-app.use(morgan("combined"));
+morgan.token("safe-url", (req) => sanitizeSensitiveText(String(req.originalUrl || req.url || "").split("?")[0]));
+app.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"'));
 app.use(cors(corsOptionsDelegate));
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
@@ -104,7 +123,7 @@ app.get("/api/health", async (_req, res) => {
       timestamp: new Date().toISOString(),
       database: databaseConnected ? "connected" : "disconnected"
     });
-  } catch (error) {
+  } catch {
     res.status(503).json({
       status: "degraded",
       timestamp: new Date().toISOString(),

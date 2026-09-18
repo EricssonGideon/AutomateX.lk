@@ -77,6 +77,8 @@ const STAFF_PERMISSIONS = [
   "support:manage"
 ];
 
+const LICENCE_PERMISSIONS = ["licences:view", "licences:manage"];
+
 const ROLE_PERMISSIONS = Object.freeze({
   admin: Object.freeze(["*"]),
   manager: Object.freeze(MANAGER_PERMISSIONS),
@@ -256,6 +258,22 @@ function requireSystemAdmin(req, res, next) {
   return next();
 }
 
+function requireTrustedLicenceAdmin(req, res, next) {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "You do not have permission to administer POS licences." });
+  }
+
+  return next();
+}
+
+function requireLicencePermission(permission) {
+  if (!LICENCE_PERMISSIONS.includes(permission)) {
+    throw new Error("Unsupported POS licence permission.");
+  }
+
+  return (req, res, next) => requireTrustedLicenceAdmin(req, res, () => requirePermission(permission)(req, res, next));
+}
+
 function requireEmployee(req, res, next) {
   if (!req.user || !isEmployeeRole(req.user.role) || isOfficialAdminEmail(req.user.email)) {
     return res.status(403).json({
@@ -344,11 +362,14 @@ module.exports = {
   AUTH_COOKIE_NAME,
   CSRF_COOKIE_NAME,
   ROLE_PERMISSIONS,
+  LICENCE_PERMISSIONS,
   parseCookies,
   getRolePermissions,
   hasPermission,
   requireAdmin,
   requireSystemAdmin,
+  requireTrustedLicenceAdmin,
+  requireLicencePermission,
   requireEmployee,
   requireAdminRole,
   requireRole,

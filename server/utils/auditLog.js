@@ -1,14 +1,17 @@
 const AuditLog = require("../models/AuditLog");
+const {
+  SENSITIVE_FIELD_PATTERN,
+  sanitizeSensitiveText
+} = require("./sensitiveData");
 
 const { AUDIT_MODULES, AUDIT_SEVERITIES } = AuditLog;
 
-const SENSITIVE_KEY_PATTERN = /(password|token|secret|hash|authorization|cookie|api[-_]?key|reset)/i;
 const MAX_STRING_LENGTH = 500;
 const MAX_ARRAY_LENGTH = 20;
 const MAX_OBJECT_KEYS = 30;
 
 function truncateString(value) {
-  const text = String(value || "");
+  const text = sanitizeSensitiveText(value);
   return text.length > MAX_STRING_LENGTH ? `${text.slice(0, MAX_STRING_LENGTH)}...` : text;
 }
 
@@ -40,7 +43,7 @@ function safeSummary(value, depth = 0) {
   if (typeof value === "object") {
     const plain = typeof value.toObject === "function" ? value.toObject() : value;
     return Object.keys(plain)
-      .filter((key) => !SENSITIVE_KEY_PATTERN.test(key))
+      .filter((key) => !SENSITIVE_FIELD_PATTERN.test(key))
       .slice(0, MAX_OBJECT_KEYS)
       .reduce((summary, key) => {
         summary[key] = safeSummary(plain[key], depth + 1);
@@ -52,8 +55,7 @@ function safeSummary(value, depth = 0) {
 }
 
 function getRequestIp(req) {
-  const forwardedFor = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
-  return forwardedFor || req.ip || req.socket && req.socket.remoteAddress || "";
+  return req.ip || req.socket && req.socket.remoteAddress || "";
 }
 
 async function logAdminAction(req, payload = {}) {
@@ -78,8 +80,8 @@ async function logAdminAction(req, payload = {}) {
       userAgent: truncateString(req && req.get ? req.get("user-agent") || "" : ""),
       severity
     });
-  } catch (error) {
-    console.warn("Audit logging failed:", error.message || error);
+  } catch {
+    console.warn("Audit logging failed.");
   }
 }
 

@@ -2,9 +2,26 @@
 
 Use this checklist for staging deployment sign-off before production cutover.
 
+## POS Licensing Environment Identity
+
+- [ ] `AUTOMATEX_ENV=staging` and `NODE_ENV=production` are both explicit.
+- [ ] `POS_LICENSING_MODE=disabled` remains set unless an approved staging-only licensing validation is underway.
+- [ ] `POS_LICENSING_ENABLED=false` remains explicit until the staging aggregate gate is reviewed; staging eligibility never implies production eligibility.
+- [ ] Staging uses a staging-marked database, `POS_LICENSING_ENVIRONMENT=staging`, and `POS_LICENSING_CLIENT_SCOPE=staging-only`.
+- [ ] A later staging licensing validation supplies explicit staging-only `MONGO_URI`; it cannot inherit `MONGODB_URI`.
+- [ ] The staging POS URI is authenticated, certificate-validating TLS, and its explicit database matches a dedicated `pos` + `staging` name.
+- [ ] Staging transaction readiness verifies logical sessions, replica-set/mongos topology, and a successful safe probe without fallback.
+- [ ] Staging has separate HTTPS origins/configuration and does not use the production signing key ID.
+- [ ] Staging and production POS hostnames differ, staging does not fall back to the production origin, and neither uses localhost.
+- [ ] Proxy trust uses direct TLS or reviewed bounded CIDRs; forwarded headers from other peers are ignored.
+- [ ] POS Control uses exact staging Company System origins and machine browser CORS remains disabled.
+- [ ] Production clients, licensing data, and secrets have not been copied into staging.
+- [ ] `POS_LICENSING_SECRET_ENVIRONMENT=staging` and an approved `POS_LICENSING_SECRET_SOURCE` are explicit.
+- [ ] Staging secret injection is separate from production and `npm run check:pos-licensing-secrets` reports no repository findings.
+
 ## A. Environment Setup
 
-- [ ] `MONGODB_URI` points to the staging or production-like MongoDB cluster.
+- [ ] `MONGODB_URI` points only to the general Company System staging MongoDB cluster.
 - [ ] `JWT_SECRET` is set to a long random staging secret.
 - [ ] `PUBLIC_APP_URL` points to the staging HTTPS origin.
 - [ ] `CLIENT_DASHBOARD_URL` points to the staging client dashboard URL.

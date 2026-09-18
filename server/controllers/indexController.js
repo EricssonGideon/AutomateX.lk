@@ -20,14 +20,19 @@ const AVAILABLE_TIMES = [
 async function getHealth(_req, res) {
   await connectToDatabase();
 
-  return sendSuccess(res, 200, {
+  return sendSuccess(res, 200, buildHealthPayload(mongoose.connection.readyState === 1));
+}
+
+function buildHealthPayload(databaseConnected) {
+  return {
     ok: true,
     service: "AutomateX API",
-    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    database: databaseConnected ? "connected" : "disconnected",
     timeSlots: AVAILABLE_TIMES
-  });
+  };
 }
 
 module.exports = {
+  buildHealthPayload,
   getHealth
 };

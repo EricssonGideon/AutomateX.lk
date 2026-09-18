@@ -1,4 +1,8 @@
 const mongoose = require("mongoose");
+const {
+  sanitizeSensitiveText,
+  sanitizeSensitiveValue
+} = require("../utils/sensitiveData");
 
 const AUDIT_MODULES = [
   "Auth",
@@ -17,6 +21,7 @@ const AUDIT_MODULES = [
   "Inquiries",
   "Reviews",
   "Settings",
+  "Licences",
   "Other"
 ];
 
@@ -113,6 +118,17 @@ auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ module: 1, createdAt: -1 });
 auditLogSchema.index({ actorEmail: 1, createdAt: -1 });
 auditLogSchema.index({ targetType: 1, targetId: 1 });
+
+auditLogSchema.pre("validate", function sanitizeAuditLogSecrets() {
+  ["actorName", "actorEmail", "actorRole", "action", "targetType", "targetId", "targetLabel", "ipAddress", "userAgent"]
+    .forEach((field) => {
+      if (typeof this[field] === "string") {
+        this[field] = sanitizeSensitiveText(this[field]);
+      }
+    });
+  this.oldValue = sanitizeSensitiveValue(this.oldValue);
+  this.newValue = sanitizeSensitiveValue(this.newValue);
+});
 
 module.exports = mongoose.model("AuditLog", auditLogSchema);
 module.exports.AUDIT_MODULES = AUDIT_MODULES;

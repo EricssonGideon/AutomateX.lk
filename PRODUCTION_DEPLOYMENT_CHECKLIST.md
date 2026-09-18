@@ -2,10 +2,29 @@
 
 Use this checklist before the first production cutover and before any security-sensitive redeploy.
 
+## POS Licensing Environment Identity
+
+Use `server/docs/POS_LICENSING_PRODUCTION_ACTIVATION_CHECKLIST.md` as the authoritative POS licensing activation checklist.
+
+- `AUTOMATEX_ENV=production` and `NODE_ENV=production` are set independently in the production environment.
+- `POS_LICENSING_MODE=disabled` remains set until the Part 77 deployment blockers are approved.
+- `POS_LICENSING_ENABLED=false` remains explicit until the aggregate Part 78F gate and final operator approval pass.
+- A later enabled production licensing runtime must use explicit `MONGO_URI`; it cannot inherit the general `MONGODB_URI` alias.
+- The POS `MONGO_URI` is authenticated, certificate-validating TLS, names exactly one database, and matches a dedicated `pos` + `production` database identity.
+- MongoDB `hello` confirms logical sessions plus replica-set/mongos topology, and the read-only transaction probe passes.
+- Staging database, client-scope, signing, CORS, and machine API values are not copied into production.
+- Production and staging POS machine hostnames are explicit, HTTPS-only, and distinct.
+- `POS_LICENSING_PROXY_TRUST_MODE` is `direct` or uses reviewed bounded proxy CIDRs; never hop-count or universal trust.
+- POS Control origins are an exact subset of Company System origins; machine browser origins remain `none` unless separately reviewed.
+- `POS_LICENSING_SECRET_ENVIRONMENT=production` and an approved `POS_LICENSING_SECRET_SOURCE` are explicit.
+- POS secrets exist only in server-side runtime or secret-manager injection, never dotenv, public assets, MongoDB configuration documents, or admin input.
+- `npm run check:pos-licensing-secrets` reports no repository findings.
+- `npm run check:pos-licensing-production` must pass before any later production licensing route mount.
+
 ## Required Environment
 
 - `NODE_ENV=production`
-- `MONGODB_URI` points to the production MongoDB cluster.
+- `MONGODB_URI` points to the general Company System production MongoDB cluster.
 - `JWT_SECRET` is a long random production-only value stored in the host secret manager.
 - `JWT_EXPIRES_IN=12h` or shorter.
 - `ALLOWED_ORIGINS` includes only production HTTPS origins, for example `https://automatex.com`.

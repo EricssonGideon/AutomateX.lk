@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>POS Licensing - Draft Management</title>
+    <link rel="stylesheet" href="/pos-licence-admin-ui.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">AutomateX Company System</p>
+          <h1>POS Licensing - Draft Management</h1>
+          <p class="notice">Local test environment - production activation is not connected.</p>
+          <p class="lifecycle-note">
+            Published package: immutable definition. Approved licence: eligible for future activation.
+            Neither means the POS has been activated.
+          </p>
+        </div>
+        <section class="session-panel" aria-labelledby="session-title">
+          <h2 id="session-title">Local Harness Session</h2>
+          <div class="session-actions">
+            <label for="fixture-role">Fixture role</label>
+            <select id="fixture-role">
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="staff">Staff</option>
+              <option value="employee">Employee</option>
+              <option value="client">Client</option>
+            </select>
+            <button id="login-button" type="button">Sign in</button>
+            <button id="logout-button" type="button" class="secondary">Sign out</button>
+          </div>
+          <p id="session-status" class="status-text" role="status">Not signed in.</p>
+        </section>
+      </header>
+
+      <main>
+        <section class="workspace-grid" aria-label="POS licensing draft management">
+          <article class="panel" aria-labelledby="packages-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="packages-title">Packages</h2>
+                <p>POS Standard package drafts and local published definitions.</p>
+              </div>
+              <button id="new-package-button" type="button" class="secondary">New Draft</button>
+            </div>
+
+            <div id="package-list-status" class="inline-status" role="status"></div>
+            <div id="package-list" class="record-list" aria-live="polite"></div>
+            <div class="pager" aria-label="Package pagination">
+              <button id="package-prev" type="button" class="secondary">Previous</button>
+              <span id="package-page-summary"></span>
+              <button id="package-next" type="button" class="secondary">Next</button>
+            </div>
+
+            <form id="package-form" class="edit-form" novalidate>
+              <h3 id="package-form-title">Create Draft Package</h3>
+              <input type="hidden" id="package-id">
+              <input type="hidden" id="package-version">
+              <label for="package-code">Package code</label>
+              <input id="package-code" name="packageCode" autocomplete="off" maxlength="80">
+              <p id="package-code-error" class="field-error"></p>
+
+              <label for="package-name">Package name</label>
+              <input id="package-name" name="name" autocomplete="off" maxlength="160">
+              <p id="package-name-error" class="field-error"></p>
+
+              <label for="package-edition">Edition</label>
+              <input id="package-edition" value="standard" disabled>
+
+              <fieldset>
+                <legend>Mandatory modules</legend>
+                <div id="package-mandatory-modules" class="checkbox-grid"></div>
+              </fieldset>
+
+              <fieldset>
+                <legend>Optional modules</legend>
+                <div id="package-optional-modules" class="checkbox-grid"></div>
+              </fieldset>
+              <p id="package-modules-error" class="field-error"></p>
+
+              <fieldset>
+                <legend>Update channels</legend>
+                <div id="package-update-channels" class="checkbox-grid"></div>
+              </fieldset>
+              <p id="package-channels-error" class="field-error"></p>
+
+              <label for="package-notes">Notes</label>
+              <textarea id="package-notes" name="notes" rows="3" maxlength="2000"></textarea>
+
+              <div class="form-actions">
+                <button id="package-save" type="submit">Save Package Draft</button>
+                <button id="package-publish" type="button" class="secondary hidden">Publish Package</button>
+                <button id="package-reload" type="button" class="secondary hidden">Reload</button>
+              </div>
+              <div id="package-form-message" class="form-message" role="status"></div>
+            </form>
+          </article>
+
+          <article class="panel" aria-labelledby="licences-title">
+            <div class="panel-heading">
+              <div>
+                <h2 id="licences-title">Licences</h2>
+                <p>Draft and approved licences linked to test-local clients, projects and packages.</p>
+              </div>
+              <button id="new-licence-button" type="button" class="secondary">New Draft</button>
+            </div>
+
+            <div id="licence-list-status" class="inline-status" role="status"></div>
+            <div id="licence-list" class="record-list" aria-live="polite"></div>
+            <div class="pager" aria-label="Licence pagination">
+              <button id="licence-prev" type="button" class="secondary">Previous</button>
+              <span id="licence-page-summary"></span>
+              <button id="licence-next" type="button" class="secondary">Next</button>
+            </div>
+
+            <form id="licence-form" class="edit-form" novalidate>
+              <h3 id="licence-form-title">Create Draft Licence</h3>
+              <input type="hidden" id="licence-id">
+              <input type="hidden" id="licence-version">
+
+              <label for="licence-client">Client</label>
+              <select id="licence-client" name="clientId"></select>
+              <p id="licence-client-error" class="field-error"></p>
+
+              <label for="licence-project">POS project</label>
+              <select id="licence-project" name="projectId"></select>
+              <p id="licence-project-error" class="field-error"></p>
+
+              <label for="licence-package">Package</label>
+              <select id="licence-package" name="packageId"></select>
+              <p id="licence-package-error" class="field-error"></p>
+
+              <label for="licence-edition">Edition</label>
+              <input id="licence-edition" value="standard" disabled>
+
+              <fieldset>
+                <legend>Mandatory entitled modules</legend>
+                <div id="licence-mandatory-modules" class="checkbox-grid"></div>
+              </fieldset>
+
+              <fieldset>
+                <legend>Optional entitled modules</legend>
+                <div id="licence-optional-modules" class="checkbox-grid"></div>
+              </fieldset>
+              <p id="licence-modules-error" class="field-error"></p>
+
+              <label for="licence-update-channel">Update channel</label>
+              <select id="licence-update-channel" name="updateChannel"></select>
+              <p id="licence-channel-error" class="field-error"></p>
+
+              <label for="licence-expiry">Licence expiry</label>
+              <input id="licence-expiry" name="licenceExpiry" type="date">
+              <p id="licence-expiry-error" class="field-error"></p>
+
+              <label for="support-expiry">Support expiry</label>
+              <input id="support-expiry" name="supportExpiry" type="date">
+
+              <label for="licence-notes">Notes</label>
+              <textarea id="licence-notes" name="notes" rows="3" maxlength="2000"></textarea>
+
+              <div class="form-actions">
+                <button id="licence-save" type="submit">Save Licence Draft</button>
+                <button id="licence-approve" type="button" class="secondary hidden">Approve Licence</button>
+                <button id="licence-reload" type="button" class="secondary hidden">Reload</button>
+              </div>
+              <div id="licence-form-message" class="form-message" role="status"></div>
+            </form>
+          </article>
+        </section>
+
+        <section class="panel readiness-panel" aria-labelledby="readiness-title">
+          <h2 id="readiness-title">Configuration Readiness</h2>
+          <p>Readiness is limited to draft configuration checks. Signing keys, deployment and activation infrastructure are not verified.</p>
+          <div id="readiness-output" class="readiness-output" role="status">Select a record readiness check.</div>
+        </section>
+
+        <section class="panel activation-panel" aria-labelledby="activation-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="activation-title">Activation Codes</h2>
+              <p>Local-only issuance metadata for approved licences. Signing, redemption, renewal and installation management are not connected.</p>
+            </div>
+            <button id="activation-refresh" type="button" class="secondary">Refresh</button>
+          </div>
+
+          <form id="activation-form" class="edit-form" novalidate>
+            <h3>Issue Activation Code</h3>
+            <input type="hidden" id="activation-licence-id">
+            <label for="activation-licence-display">Approved licence</label>
+            <input id="activation-licence-display" disabled value="Select an approved licence">
+
+            <label for="activation-expiry">Code expiry</label>
+            <input id="activation-expiry" name="expiresAt" type="datetime-local">
+            <p id="activation-expiry-error" class="field-error"></p>
+
+            <label for="activation-max-redemptions">Redemption limit</label>
+            <input id="activation-max-redemptions" name="maxRedemptions" type="number" min="1" step="1">
+            <p id="activation-max-redemptions-error" class="field-error"></p>
+
+            <div class="form-actions">
+              <button id="activation-issue" type="submit">Issue Code</button>
+            </div>
+            <div id="activation-form-message" class="form-message" role="status"></div>
+          </form>
+
+          <div id="activation-code-display" class="secret-panel hidden" role="status">
+            <div>
+              <strong>Shown once</strong>
+              <p>This plaintext cannot be recovered from the stored digest.</p>
+            </div>
+            <code id="activation-plaintext"></code>
+            <div class="form-actions">
+              <button id="activation-copy" type="button" class="secondary">Copy</button>
+              <button id="activation-dismiss" type="button" class="secondary">Dismiss</button>
+            </div>
+          </div>
+
+          <div id="activation-list-status" class="inline-status" role="status"></div>
+          <div id="activation-code-list" class="record-list" aria-live="polite"></div>
+          <div class="pager" aria-label="Activation-code pagination">
+            <button id="activation-prev" type="button" class="secondary">Previous</button>
+            <span id="activation-page-summary"></span>
+            <button id="activation-next" type="button" class="secondary">Next</button>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/pos-licence-admin-ui.js"></script>
+  </body>
+</html>

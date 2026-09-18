@@ -1,7 +1,13 @@
 const path = require("path");
 const mongoose = require("mongoose");
+const { sanitizeSensitiveText } = require("./server/utils/sensitiveData");
 
 const appModule = require("./server/server");
+const {
+  assertPosLicensingEnablementEligible,
+  runProductionLicensingReadinessGate,
+  runStagingLicensingReadinessGate
+} = require("./server/licensing/posLicensingReadinessGate");
 
 const app = appModule;
 const { connectToDatabase } = appModule;
@@ -27,13 +33,16 @@ mongoose.connection.on("disconnected", () => {
   logDatabaseStatus("disconnected");
 });
 
-mongoose.connection.on("error", (error) => {
-  console.error(`[startup] Database error: ${error.message}`);
+mongoose.connection.on("error", () => {
+  console.error("[startup] Database error.");
 });
 
 async function startServer() {
+  const licensingStartup = app.locals.posLicensingStartup || {};
+  const licensingEnablementRequested = licensingStartup.enablementRequested === true;
+  let connection = null;
   try {
-    const connection = await connectToDatabase();
+    connection = await connectToDatabase();
 
     if (connection && mongoose.connection.readyState === 1) {
       hasLoggedInitialDatabaseState = true;
@@ -44,10 +53,20 @@ async function startServer() {
       hasLoggedInitialDatabaseState = true;
       logDatabaseStatus("not configured");
     }
-  } catch (error) {
+  } catch {
     hasLoggedInitialDatabaseState = true;
-    console.error(`[startup] Database startup check failed: ${error.message}`);
+    console.error("[startup] Database startup check failed.");
     logDatabaseStatus("disconnected");
+  }
+
+  if (["production", "staging"].includes(licensingStartup.mode)) {
+    const gate = licensingStartup.mode === "production"
+      ? await runProductionLicensingReadinessGate({ env: process.env, connection })
+      : await runStagingLicensingReadinessGate({ env: process.env, connection });
+    app.locals.posLicensingReadinessGate = gate;
+    if (licensingEnablementRequested) {
+      assertPosLicensingEnablementEligible(gate);
+    }
   }
 
   const server = app.listen(PORT, () => {
@@ -57,7 +76,7 @@ async function startServer() {
   });
 
   server.on("error", (error) => {
-    console.error(`[startup] Server failed to start: ${error.message}`);
+    console.error(sanitizeSensitiveText(`[startup] Server failed to start: ${error.message}`));
     process.exitCode = 1;
   });
 
@@ -66,7 +85,7 @@ async function startServer() {
 
 if (require.main === module) {
   startServer().catch((error) => {
-    console.error(`[startup] Unhandled startup failure: ${error.message}`);
+    console.error(sanitizeSensitiveText(`[startup] Unhandled startup failure: ${error.message}`));
     process.exitCode = 1;
   });
 }
