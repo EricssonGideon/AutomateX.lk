@@ -12,6 +12,7 @@
     "test:api": "node --test test/api/*.test.js",
     "check:storage": "node scripts/checkStorageConfig.js",
     "check:pos-licensing-production": "node scripts/checkPosLicensingProductionReadiness.js",
+    "check:pos-licensing-staging": "node scripts/checkPosLicensingStagingReadiness.js",
     "check:pos-licensing-secrets": "node scripts/checkPosLicensingSecrets.js",
     "provision:pos-licensing": "node scripts/provisionPosLicensing.js",
     "seed:admin": "node server/scripts/createAdmin.js",
