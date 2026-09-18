@@ -149,14 +149,43 @@ test("production rejects HTTP, localhost, loopback, wildcard, credentialed, and 
   }
 });
 
-test("approved production and staging hostnames must be valid and distinct", () => {
+test("staging passes hostname validation without a production hostname", () => {
+  const env = stagingEnv();
+  delete env.POS_LICENSING_PRODUCTION_HOSTNAME;
+  const config = validateStagingLicensingConfig(env);
+  assert.equal(config.approvedHostname, "licensing-staging.example.com");
+  assert.equal(config.transport.productionHostname, "");
+  assert.equal(config.transport.hostnamesDistinct, true);
+});
+
+test("production passes hostname validation without a staging hostname", () => {
+  const env = productionEnv();
+  delete env.POS_LICENSING_STAGING_HOSTNAME;
+  const config = validateProductionLicensingConfig(env);
+  assert.equal(config.approvedHostname, "licensing.example.com");
+  assert.equal(config.transport.stagingHostname, "");
+  assert.equal(config.transport.hostnamesDistinct, true);
+});
+
+test("production and staging hostnames are rejected when both are present and equal", () => {
+  assert.throws(
+    () => validateProductionLicensingConfig(productionEnv({ POS_LICENSING_STAGING_HOSTNAME: "licensing.example.com" })),
+    (error) => error.code === "hostname_environment_collision"
+  );
+  assert.throws(
+    () => validateStagingLicensingConfig(stagingEnv({ POS_LICENSING_PRODUCTION_HOSTNAME: "licensing-staging.example.com" })),
+    (error) => error.code === "hostname_environment_collision"
+  );
+});
+
+test("invalid current-environment hostnames are rejected", () => {
   assert.throws(
     () => validateProductionLicensingConfig(productionEnv({ POS_LICENSING_PRODUCTION_HOSTNAME: "*.example.com" })),
     (error) => error.code === "approved_hostname_invalid"
   );
   assert.throws(
-    () => validateProductionLicensingConfig(productionEnv({ POS_LICENSING_STAGING_HOSTNAME: "licensing.example.com" })),
-    (error) => error.code === "hostname_environment_collision"
+    () => validateStagingLicensingConfig(stagingEnv({ POS_LICENSING_STAGING_HOSTNAME: "localhost" })),
+    (error) => error.code === "approved_hostname_invalid"
   );
 });
 

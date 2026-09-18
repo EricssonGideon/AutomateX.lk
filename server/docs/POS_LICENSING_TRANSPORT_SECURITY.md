@@ -6,7 +6,7 @@ Part 78E prepares HTTPS, hostname, proxy, forwarded-header, and CORS controls fo
 
 ## HTTPS and approved hosts
 
-Production and staging each declare an approved non-local DNS hostname. The names must differ. The current environment's machine API origin must be exactly `https://<approved-hostname>` with no credentials, wildcard, path, query, or fragment. HTTP and loopback endpoints fail configuration. Request guards reject insecure and unexpected-host traffic without redirecting it.
+Production and staging each require an approved non-local DNS hostname when that environment is being validated. The opposite environment's hostname is optional, but is validated when present and the two names must differ when both are configured. The current environment's machine API origin must be exactly `https://<approved-hostname>` with no credentials, wildcard, path, query, or fragment. HTTP and loopback endpoints fail configuration. Request guards reject insecure and unexpected-host traffic without redirecting it.
 
 ## Reverse proxy model
 

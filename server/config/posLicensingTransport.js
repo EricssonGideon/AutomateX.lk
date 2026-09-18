@@ -37,6 +37,11 @@ function validateApprovedHostname(value, label) {
   return hostname;
 }
 
+function validateOptionalApprovedHostname(env, name, label) {
+  const value = clean(env && env[name]);
+  return value ? validateApprovedHostname(value, label) : "";
+}
+
 function validateHttpsOrigin(value, label) {
   const origin = clean(value);
   let parsed;
@@ -149,15 +154,27 @@ function validatePosLicensingTransportConfiguration(env, environment, machineApi
   if (!["production", "staging"].includes(environment)) {
     fail("transport_environment_invalid", "POS licensing transport requires production or staging identity.");
   }
-  const productionHostname = validateApprovedHostname(
-    required(env, "POS_LICENSING_PRODUCTION_HOSTNAME"),
-    "The production POS licensing hostname"
-  );
-  const stagingHostname = validateApprovedHostname(
-    required(env, "POS_LICENSING_STAGING_HOSTNAME"),
-    "The staging POS licensing hostname"
-  );
-  if (productionHostname === stagingHostname) {
+  const productionHostname = environment === "production"
+    ? validateApprovedHostname(
+      required(env, "POS_LICENSING_PRODUCTION_HOSTNAME"),
+      "The production POS licensing hostname"
+    )
+    : validateOptionalApprovedHostname(
+      env,
+      "POS_LICENSING_PRODUCTION_HOSTNAME",
+      "The production POS licensing hostname"
+    );
+  const stagingHostname = environment === "staging"
+    ? validateApprovedHostname(
+      required(env, "POS_LICENSING_STAGING_HOSTNAME"),
+      "The staging POS licensing hostname"
+    )
+    : validateOptionalApprovedHostname(
+      env,
+      "POS_LICENSING_STAGING_HOSTNAME",
+      "The staging POS licensing hostname"
+    );
+  if (productionHostname && stagingHostname && productionHostname === stagingHostname) {
     fail("hostname_environment_collision", "Production and staging POS licensing hostnames must be distinct.");
   }
   const machineOrigin = validateHttpsOrigin(machineApiOrigin, "The POS machine API origin");

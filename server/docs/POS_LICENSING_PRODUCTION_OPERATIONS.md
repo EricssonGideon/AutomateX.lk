@@ -36,7 +36,7 @@ All values must be supplied by the production runtime or approved server secret 
 | `POS_LICENSING_MACHINE_API_BASE_PATH` | Isolated machine namespace, currently planned as `/api/pos-machine/v1`. |
 | `POS_LICENSING_MACHINE_API_ORIGIN` | Explicit credential-free, non-local HTTPS API origin. |
 | `POS_LICENSING_PRODUCTION_HOSTNAME` | Approved production machine API hostname; must match the machine origin. |
-| `POS_LICENSING_STAGING_HOSTNAME` | Approved staging hostname used to prove production/staging isolation. |
+| `POS_LICENSING_STAGING_HOSTNAME` | Approved staging hostname; required for staging and optional-but-validated during production checks. |
 | `POS_LICENSING_PROXY_TRUST_MODE` | Explicitly `direct` or `cidr`; missing/unresolved configuration blocks readiness. |
 | `POS_LICENSING_TRUSTED_PROXY_CIDRS` | Bounded approved proxy ranges required only for `cidr`; universal trust is rejected. |
 | `POS_LICENSING_PRODUCTION_ADMIN_ORIGINS` | Exact HTTPS production Company System origins allowed for future POS Control browser requests. |
@@ -128,7 +128,7 @@ The Upstash REST adapter is now available for staging configuration, but this ch
 
 Part 78E replaces the previous one-hop global proxy trust with a conservative default. `direct` trusts only socket TLS and ignores forwarded protocol, host, and client identity. `cidr` trusts forwarded protocol and host only when the immediate socket peer matches an explicit bounded CIDR list. Numeric hop trust, universal CIDRs, and unresolved topology are rejected for production licensing readiness.
 
-The production and staging machine API hostnames are both explicit, valid non-local DNS names and must differ. The HTTPS origin must exactly match the hostname and cannot contain credentials, a wildcard, path, query, or fragment. The prepared request guard returns an error for insecure or unexpected-host requests and never redirects them into trusted state.
+The current environment's machine API hostname must be an explicit, valid non-local DNS name. The opposite environment's hostname is optional, but remains validated when configured; when both are present they must differ. The HTTPS origin must exactly match the current hostname and cannot contain credentials, a wildcard, path, query, or fragment. The prepared request guard returns an error for insecure or unexpected-host requests and never redirects them into trusted state.
 
 Native POS machine calls are originless HTTP clients and do not require browser CORS, so machine browser origins remain disabled. Future POS Control browser routes use a separate exact Company System origin allowlist with credentials. General public/staff/client CORS membership is not POS Control authorization; the existing server-side Admin-only permission boundary remains mandatory.
 
