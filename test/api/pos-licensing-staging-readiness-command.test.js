@@ -169,6 +169,15 @@ test("production configuration cannot satisfy the staging command", async () => 
   assert.equal(output.decisionCode, "staging_readiness_failed");
 });
 
+test("existing runtime MongoDB connection is reused without connect or disconnect", async () => {
+  const options = validOptions();
+  const connection = Object.freeze({ name: "existing-preview-connection" });
+  const output = await runStagingReadinessCheck({ ...options, connection });
+  assert.equal(output.ready, true);
+  assert.equal(options.mongo.connectCalls, 0);
+  assert.equal(options.mongo.disconnectCalls, 0);
+});
+
 test("staging command output contains no secrets or infrastructure values", async () => {
   const env = environment("staging", {
     UPSTASH_REDIS_REST_URL: "https://staging-secret-endpoint.example.invalid",

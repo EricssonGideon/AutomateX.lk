@@ -75,7 +75,8 @@ async function runStagingReadinessCheck(options = {}) {
   const loadEnvironment = options.loadEnvironment || loadRuntimeEnvironment;
   const validateConfig = options.validateConfig || validateStagingLicensingConfig;
   const runGate = options.runGate || runStagingLicensingReadinessGate;
-  let connection = null;
+  const suppliedConnection = options.connection || null;
+  let connection = suppliedConnection;
   let transactionCapability = options.transactionCapability || null;
 
   try {
@@ -86,11 +87,13 @@ async function runStagingReadinessCheck(options = {}) {
 
   try {
     const config = validateConfig(env);
-    await mongo.connect(
-      config.secrets.getMongoUri(),
-      getPosLicensingMongoConnectionOptions(config.databaseName)
-    );
-    connection = mongo.connection;
+    if (!suppliedConnection) {
+      await mongo.connect(
+        config.secrets.getMongoUri(),
+        getPosLicensingMongoConnectionOptions(config.databaseName)
+      );
+      connection = mongo.connection;
+    }
   } catch {
     transactionCapability = FAILED_TRANSACTION_CAPABILITY;
   }
@@ -107,7 +110,7 @@ async function runStagingReadinessCheck(options = {}) {
   } catch {
     return failedStagingReadinessOutput();
   } finally {
-    if (typeof mongo.disconnect === "function") {
+    if (!suppliedConnection && typeof mongo.disconnect === "function") {
       await mongo.disconnect().catch(() => null);
     }
   }
