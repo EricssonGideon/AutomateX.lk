@@ -9,3 +9,5 @@ files.zip
 logs/
 coverage/
 .DS_Store
+.vercel
+.env*
