@@ -224,13 +224,18 @@ test("every Part 77 through Part 78E readiness concern is represented once", asy
   assert.equal(names.filter((name) => name === "production_enablement").length, 1);
 });
 
-test("route mounting remains absent and the startup gate cannot partially activate routes", () => {
+test("production route mounting remains absent and staging mounting stays behind its dedicated gate", () => {
   const root = path.join(__dirname, "..", "..");
   const routes = fs.readFileSync(path.join(root, "server", "routes", "index.js"), "utf8");
   const app = fs.readFileSync(path.join(root, "server", "server.js"), "utf8");
+  const stagingMount = fs.readFileSync(path.join(root, "server", "routes", "stagingPosLicensing.js"), "utf8");
   const startup = fs.readFileSync(path.join(root, "server.js"), "utf8");
   assert.doesNotMatch(routes, /posActivation|posLicenceAdmin|pos-machine|pos-licensing/);
   assert.doesNotMatch(app, /require\(["'].\/routes\/pos(?:Activation|LicenceAdmin)["']\)/);
   assert.doesNotMatch(app, /app\.use\([^\n]*(?:pos-machine|admin\/pos-licensing)/);
+  assert.match(app, /mountStagingPosMachineRoutes\(app\)/);
+  assert.match(stagingMount, /eligibleForProductionRouteMount !== true/);
+  assert.match(stagingMount, /VERCEL_GIT_COMMIT_REF/);
+  assert.match(stagingMount, /POS_LICENSING_ENABLED/);
   assert.match(startup, /assertPosLicensingEnablementEligible/);
 });

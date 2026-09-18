@@ -23,6 +23,9 @@ const {
 const {
   mountStagingReadinessEndpoint
 } = require("./routes/internalStagingReadiness");
+const {
+  mountStagingPosMachineRoutes
+} = require("./routes/stagingPosLicensing");
 
 // POS licensing remains disabled unless explicitly selected. If production mode is
 // selected, validate the complete server-only contract before the app is created.
@@ -123,6 +126,7 @@ app.use(helmet({
 }));
 morgan.token("safe-url", (req) => sanitizeSensitiveText(String(req.originalUrl || req.url || "").split("?")[0]));
 app.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"'));
+mountStagingPosMachineRoutes(app);
 app.use(cors(corsOptionsDelegate));
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
