@@ -231,7 +231,7 @@ test("arbitrary origins are rejected rather than reflected", () => {
   assert.equal(res.headers["access-control-allow-credentials"], undefined);
 });
 
-test("untrusted forwarded protocol and host cannot make direct HTTP trusted", () => {
+test("direct mode remains unchanged and ignores untrusted forwarded protocol and host", () => {
   const proxy = resolvePosProxyTrustConfiguration({ POS_LICENSING_PROXY_TRUST_MODE: "direct" }, { required: true });
   const req = request({
     headers: {
@@ -250,7 +250,7 @@ test("untrusted forwarded protocol and host cannot make direct HTTP trusted", ()
   assert.equal(res.statusCode, 403);
 });
 
-test("explicit CIDR proxy trust accepts HTTPS and forwarded host only from a trusted proxy", () => {
+test("cidr mode remains unchanged and accepts forwarding only from a trusted proxy", () => {
   const proxy = resolvePosProxyTrustConfiguration({
     POS_LICENSING_PROXY_TRUST_MODE: "cidr",
     POS_LICENSING_TRUSTED_PROXY_CIDRS: "10.20.0.0/16"
@@ -268,6 +268,119 @@ test("explicit CIDR proxy trust accepts HTTPS and forwarded host only from a tru
   let nextCalled = false;
   createPosTransportGuard({ proxy, approvedHostname: "licensing.example.com" })(req, response(), () => { nextCalled = true; });
   assert.equal(nextCalled, true);
+});
+
+test("vercel mode works only in verified matching Vercel runtimes", () => {
+  for (const [environment, vercelEnvironment, envFactory] of [
+    ["staging", "preview", stagingEnv],
+    ["production", "production", productionEnv]
+  ]) {
+    const config = envFactory({
+      POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+      VERCEL: "1",
+      VERCEL_ENV: vercelEnvironment
+    });
+    const validated = environment === "staging"
+      ? validateStagingLicensingConfig(config)
+      : validateProductionLicensingConfig(config);
+    assert.equal(validated.transport.proxy.configured, true);
+    assert.equal(validated.transport.proxy.mode, "vercel");
+    assert.equal(validated.transport.proxy.expressTrust, false);
+
+    const req = request({
+      socket: { remoteAddress: "127.0.0.1", encrypted: false },
+      headers: {
+        host: validated.approvedHostname,
+        "x-forwarded-host": validated.approvedHostname,
+        "x-forwarded-proto": "https"
+      }
+    });
+    assert.equal(requestUsesTrustedHttps(req, validated.transport.proxy), true);
+    assert.equal(requestHostname(req, validated.transport.proxy), validated.approvedHostname);
+  }
+
+  assert.throws(
+    () => resolvePosProxyTrustConfiguration({
+      POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+      POS_LICENSING_TRUSTED_PROXY_CIDRS: "0.0.0.0/0",
+      VERCEL: "1",
+      VERCEL_ENV: "preview"
+    }, { required: true, environment: "staging" }),
+    (error) => error.code === "proxy_trust_invalid"
+  );
+});
+
+test("staging rejects a Vercel production runtime", () => {
+  assert.throws(
+    () => validateStagingLicensingConfig(stagingEnv({
+      POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+      VERCEL: "1",
+      VERCEL_ENV: "production"
+    })),
+    (error) => error.code === "proxy_trust_environment_mismatch"
+  );
+});
+
+test("production rejects a Vercel Preview runtime", () => {
+  assert.throws(
+    () => validateProductionLicensingConfig(productionEnv({
+      POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+      VERCEL: "1",
+      VERCEL_ENV: "preview"
+    })),
+    (error) => error.code === "proxy_trust_environment_mismatch"
+  );
+});
+
+test("non-Vercel runtimes reject vercel mode and spoofed forwarding remains untrusted", () => {
+  for (const runtime of [
+    { VERCEL_ENV: "preview" },
+    { VERCEL: "true", VERCEL_ENV: "preview" },
+    { VERCEL: "1", VERCEL_ENV: "development" }
+  ]) {
+    assert.throws(
+      () => resolvePosProxyTrustConfiguration({
+        POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+        ...runtime
+      }, { required: true, environment: "staging" }),
+      (error) => error.code === "proxy_trust_vercel_runtime_invalid"
+    );
+  }
+
+  const directProxy = resolvePosProxyTrustConfiguration({
+    POS_LICENSING_PROXY_TRUST_MODE: "direct"
+  }, { required: true });
+  const spoofed = request({
+    headers: {
+      host: "unapproved.example.com",
+      "x-forwarded-host": "licensing-staging.example.com",
+      "x-forwarded-proto": "https"
+    }
+  });
+  assert.equal(requestUsesTrustedHttps(spoofed, directProxy), false);
+  assert.equal(requestHostname(spoofed, directProxy), "unapproved.example.com");
+});
+
+test("vercel mode still rejects a request with the wrong approved hostname", () => {
+  const proxy = resolvePosProxyTrustConfiguration({
+    POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+    VERCEL: "1",
+    VERCEL_ENV: "preview"
+  }, { required: true, environment: "staging" });
+  const req = request({
+    headers: {
+      host: "unapproved.example.com",
+      "x-forwarded-host": "licensing-staging.example.com",
+      "x-forwarded-proto": "https"
+    }
+  });
+  assert.equal(requestUsesTrustedHttps(req, proxy), true);
+  assert.equal(requestHostname(req, proxy), "");
+  const res = response();
+  createPosTransportGuard({ proxy, approvedHostname: "licensing-staging.example.com" })(req, res, () => {
+    throw new Error("wrong Vercel hostname reached route");
+  });
+  assert.equal(res.statusCode, 421);
 });
 
 test("ambiguous or universal proxy trust fails closed", () => {
@@ -393,5 +506,6 @@ test("server source no longer uses hop-count proxy trust or raw forwarded client
   const serverSource = fs.readFileSync(path.join(root, "server", "server.js"), "utf8");
   const auditSource = fs.readFileSync(path.join(root, "server", "utils", "auditLog.js"), "utf8");
   assert.doesNotMatch(serverSource, /set\(["']trust proxy["'],\s*1\)/);
+  assert.doesNotMatch(serverSource, /set\(["']trust proxy["'],\s*true\)/);
   assert.doesNotMatch(auditSource, /x-forwarded-for/i);
 });

@@ -38,7 +38,9 @@ const { connectToDatabase } = require("./utils/db");
 const app = express();
 const proxyTrust = resolveStagingPreviewProxyTrust(
   process.env,
-  resolvePosProxyTrustConfiguration
+  (env) => resolvePosProxyTrustConfiguration(env, {
+    environment: posLicensingStartup.runtimeEnvironment.mode
+  })
 );
 app.set("trust proxy", proxyTrust.expressTrust);
 app.locals.posLicensingStartup = posLicensingStartup;

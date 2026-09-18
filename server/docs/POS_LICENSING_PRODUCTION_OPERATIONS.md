@@ -37,7 +37,7 @@ All values must be supplied by the production runtime or approved server secret 
 | `POS_LICENSING_MACHINE_API_ORIGIN` | Explicit credential-free, non-local HTTPS API origin. |
 | `POS_LICENSING_PRODUCTION_HOSTNAME` | Approved production machine API hostname; must match the machine origin. |
 | `POS_LICENSING_STAGING_HOSTNAME` | Approved staging hostname; required for staging and optional-but-validated during production checks. |
-| `POS_LICENSING_PROXY_TRUST_MODE` | Explicitly `direct` or `cidr`; missing/unresolved configuration blocks readiness. |
+| `POS_LICENSING_PROXY_TRUST_MODE` | Explicitly `direct`, `cidr`, or verified-runtime `vercel`; missing/unresolved configuration blocks readiness. Vercel Preview is permitted only for staging and Vercel Production only for production. |
 | `POS_LICENSING_TRUSTED_PROXY_CIDRS` | Bounded approved proxy ranges required only for `cidr`; universal trust is rejected. |
 | `POS_LICENSING_PRODUCTION_ADMIN_ORIGINS` | Exact HTTPS production Company System origins allowed for future POS Control browser requests. |
 | `POS_LICENSING_STAGING_ADMIN_ORIGINS` | Exact HTTPS staging Company System origins; must be disjoint from production. |

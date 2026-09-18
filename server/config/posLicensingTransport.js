@@ -1,7 +1,7 @@
 const net = require("node:net");
 const proxyaddr = require("proxy-addr");
 
-const PROXY_TRUST_MODES = Object.freeze(["direct", "cidr"]);
+const PROXY_TRUST_MODES = Object.freeze(["direct", "cidr", "vercel"]);
 const UNIVERSAL_PROXY_RANGES = new Set(["0.0.0.0/0", "::/0", "all", "*"]);
 const HOSTNAME_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
@@ -108,7 +108,7 @@ function resolvePosProxyTrustConfiguration(env = process.env, options = {}) {
     });
   }
   if (!PROXY_TRUST_MODES.includes(mode)) {
-    fail("proxy_trust_invalid", "POS licensing proxy trust mode must be direct or cidr.");
+    fail("proxy_trust_invalid", "POS licensing proxy trust mode must be direct, cidr, or vercel.");
   }
   const ranges = clean(env.POS_LICENSING_TRUSTED_PROXY_CIDRS)
     .split(",")
@@ -123,6 +123,32 @@ function resolvePosProxyTrustConfiguration(env = process.env, options = {}) {
       mode,
       ranges: Object.freeze([]),
       expressTrust: false,
+      trusts() { return false; }
+    });
+  }
+  if (mode === "vercel") {
+    if (ranges.length) {
+      fail("proxy_trust_invalid", "Vercel POS transport must not declare trusted proxy ranges.");
+    }
+    const environment = clean(options.environment).toLowerCase();
+    if (!["production", "staging"].includes(environment)) {
+      fail("proxy_trust_environment_invalid", "Vercel POS proxy trust requires an explicit production or staging identity.");
+    }
+    const vercelEnvironment = clean(env.VERCEL_ENV).toLowerCase();
+    if (env.VERCEL !== "1" || !["preview", "production"].includes(vercelEnvironment)) {
+      fail("proxy_trust_vercel_runtime_invalid", "Vercel POS proxy trust requires a verified Vercel runtime.");
+    }
+    const requiredVercelEnvironment = environment === "staging" ? "preview" : "production";
+    if (vercelEnvironment !== requiredVercelEnvironment) {
+      fail("proxy_trust_environment_mismatch", "The Vercel runtime does not match the POS licensing environment.");
+    }
+    return Object.freeze({
+      configured: true,
+      mode,
+      ranges: Object.freeze([]),
+      expressTrust: false,
+      verifiedVercelRuntime: true,
+      vercelEnvironment,
       trusts() { return false; }
     });
   }
@@ -183,7 +209,7 @@ function validatePosLicensingTransportConfiguration(env, environment, machineApi
     fail("machine_origin_hostname_mismatch", "The POS machine API origin must match its approved environment hostname.");
   }
 
-  const proxy = resolvePosProxyTrustConfiguration(env, { required: true });
+  const proxy = resolvePosProxyTrustConfiguration(env, { required: true, environment });
   const applicationOrigins = parseHttpsOriginAllowlist(
     required(env, "ALLOWED_ORIGINS"),
     "The Company System CORS allowlist"
@@ -231,10 +257,20 @@ function validatePosLicensingTransportConfiguration(env, environment, machineApi
 }
 
 function isTrustedProxyRequest(req, proxy) {
+  if (proxy && proxy.mode === "vercel") {
+    return proxy.verifiedVercelRuntime === true;
+  }
   return proxy && proxy.mode === "cidr" && proxy.trusts(req && req.socket && req.socket.remoteAddress);
 }
 
 function requestUsesTrustedHttps(req, proxy) {
+  if (proxy && proxy.mode === "vercel") {
+    if (!isTrustedProxyRequest(req, proxy)) {
+      return false;
+    }
+    const forwardedProto = clean(req && req.headers && req.headers["x-forwarded-proto"]);
+    return forwardedProto.toLowerCase() === "https" && !forwardedProto.includes(",");
+  }
   if (req && req.socket && req.socket.encrypted === true) {
     return true;
   }
@@ -248,7 +284,15 @@ function requestUsesTrustedHttps(req, proxy) {
 function requestHostname(req, proxy) {
   const trustedProxy = isTrustedProxyRequest(req, proxy);
   const forwardedHost = clean(req && req.headers && req.headers["x-forwarded-host"]);
-  const host = trustedProxy && forwardedHost ? forwardedHost : clean(req && req.headers && req.headers.host);
+  const requestHost = clean(req && req.headers && req.headers.host);
+  if (
+    proxy &&
+    proxy.mode === "vercel" &&
+    (!trustedProxy || !forwardedHost || forwardedHost.toLowerCase() !== requestHost.toLowerCase())
+  ) {
+    return "";
+  }
+  const host = trustedProxy && proxy.mode === "cidr" && forwardedHost ? forwardedHost : requestHost;
   if (!host || host.includes(",") || /[\s/@\\]/.test(host)) {
     return "";
   }

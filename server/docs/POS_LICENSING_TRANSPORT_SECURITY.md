@@ -14,10 +14,11 @@ Production and staging each require an approved non-local DNS hostname when that
 
 - `direct`: Node receives TLS directly, Express proxy trust is disabled, and forwarded headers are ignored.
 - `cidr`: TLS terminates at an approved proxy whose immediate socket address is within `POS_LICENSING_TRUSTED_PROXY_CIDRS`.
+- `vercel`: available only when `VERCEL=1` and the Vercel runtime matches the licensing environment (`preview` for staging, `production` for production). Express proxy trust remains disabled; the Vercel-controlled HTTPS forwarding signal is accepted only in that verified runtime, and forwarded host must agree with `Host` before exact approved-host validation.
 
-Empty, `unresolved`, numeric-hop, arbitrary, and universal proxy trust fail production readiness. The exact deployment CIDRs are intentionally not invented in this repository. Express now defaults to no proxy trust instead of trusting one unspecified hop. Audit identity uses Express's trust-aware `req.ip`, never raw `X-Forwarded-For`.
+Empty, `unresolved`, numeric-hop, arbitrary, and universal proxy trust fail production readiness. Vercel mode also fails outside Vercel or when Preview/Production does not match staging/production. The exact deployment CIDRs are intentionally not invented in this repository. Express defaults to no proxy trust instead of trusting one unspecified hop. Audit identity uses Express's trust-aware `req.ip`, never raw `X-Forwarded-For`.
 
-For trusted CIDR peers, only one unambiguous `X-Forwarded-Proto: https` and one unambiguous forwarded host are accepted. Untrusted forwarded protocol and host values have no effect.
+For trusted CIDR peers, only one unambiguous `X-Forwarded-Proto: https` and one unambiguous forwarded host are accepted. In verified Vercel mode, only one unambiguous `X-Forwarded-Proto: https` is accepted and `X-Forwarded-Host` must equal `Host`. Untrusted forwarded protocol and host values have no effect.
 
 ## Origin policy matrix
 
