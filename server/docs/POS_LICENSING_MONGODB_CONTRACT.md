@@ -54,3 +54,21 @@ npm run provision:pos-licensing
 ```
 
 Do not pass `--apply` until a later approved live provisioning step.
+
+## Staging provisioning command
+
+The staging command is separate from the existing production-oriented command. It reuses the reviewed seven-collection, 40-index plan and validates the complete staging licensing configuration before connecting. It accepts either verified Vercel Preview runtime identity or the explicit local execution value `POS_LICENSING_STAGING_PROVISION_EXECUTION=approved-local`. Production, ambiguous database identities, and other Vercel environments fail closed.
+
+Local staging dry run:
+
+```sh
+POS_LICENSING_STAGING_PROVISION_EXECUTION=approved-local npm run provision:pos-licensing-staging
+```
+
+Reviewed local staging apply:
+
+```sh
+POS_LICENSING_STAGING_PROVISION_EXECUTION=approved-local POS_LICENSING_STAGING_PROVISION_CONFIRM=PROVISION_AUTOMATEX_POS_LICENSING_STAGING npm run provision:pos-licensing-staging -- --apply
+```
+
+Apply creates missing defined collections and indexes or checks the existing definitions through idempotent MongoDB operations. It does not drop collections or indexes, delete records, migrate data, or inspect unrelated collections.
