@@ -101,7 +101,11 @@ function createDefaultRepositories() {
 
 function createDefaultAuditLogger() {
   return {
-    async create(entry) {
+    async create(entry, options = {}) {
+      if (options.session) {
+        const records = await AuditLog.create([entry], options);
+        return records[0];
+      }
       return AuditLog.create(entry);
     }
   };
@@ -349,19 +353,27 @@ function licencePersistenceFields(candidate) {
   };
 }
 
-async function readById(repository, id) {
+async function readById(repository, id, options = {}) {
   if (!id) {
     return null;
   }
 
-  return repository.findById(id);
+  const query = repository.findById(id);
+  if (query && typeof query.session === "function" && options.session) {
+    return query.session(options.session);
+  }
+  return query;
 }
 
-async function findOne(repository, query) {
+async function findOne(repository, query, options = {}) {
   if (!repository || typeof repository.findOne !== "function") {
     return null;
   }
-  return repository.findOne(query);
+  const result = repository.findOne(query);
+  if (result && typeof result.session === "function" && options.session) {
+    return result.session(options.session);
+  }
+  return result;
 }
 
 async function exists(repository, query) {
@@ -410,7 +422,7 @@ function createChangeSummary(input) {
   return Object.keys(input || {}).sort().join(", ");
 }
 
-async function writeLicenceAudit(auditLogger, actor, payload) {
+async function writeLicenceAudit(auditLogger, actor, payload, options = {}) {
   const metadata = sanitizeLicenceAuditMetadata({
     action: payload.action,
     actorId: actor.id,
@@ -440,7 +452,7 @@ async function writeLicenceAudit(auditLogger, actor, payload) {
       oldValue: null,
       newValue: metadata,
       severity: "Low"
-    });
+    }, options);
 
     return { ok: true };
   } catch (error) {
@@ -549,9 +561,9 @@ async function loadLicenceReferences(repositories, licence, options = {}) {
   const packageId = idText(licence.packageId);
 
   return {
-    client: clientId ? await readById(repositories.users, clientId) : null,
-    project: projectId || options.requireProject ? await readById(repositories.projects, projectId) : null,
-    posPackage: packageId ? await readById(repositories.posPackages, packageId) : null
+    client: clientId ? await readById(repositories.users, clientId, options) : null,
+    project: projectId || options.requireProject ? await readById(repositories.projects, projectId, options) : null,
+    posPackage: packageId ? await readById(repositories.posPackages, packageId, options) : null
   };
 }
 
@@ -570,12 +582,12 @@ function assertDraft(record, typeName) {
   }
 }
 
-async function assertPackageCodeAvailable(repositories, packageCode, currentId = "") {
+async function assertPackageCodeAvailable(repositories, packageCode, currentId = "", options = {}) {
   if (!packageCode) {
     return;
   }
 
-  const existing = await findOne(repositories.posPackages, { packageCode });
+  const existing = await findOne(repositories.posPackages, { packageCode }, options);
   if (existing && idText(existing._id || existing.id) !== currentId) {
     throw new PosLicenceAdminServiceError(409, "duplicate_package_code", "A POS package with this code already exists.");
   }
@@ -646,7 +658,7 @@ function createPosLicenceAdminService(options = {}) {
   const auditLogger = options.auditLogger || createDefaultAuditLogger();
 
   return {
-    async createDraftPackage(actor, input) {
+    async createDraftPackage(actor, input, optionsForCreate = {}) {
       assertAuthorizedActor(actor, LICENCE_MANAGE_PERMISSION);
       const fields = normalizePackageInput(input);
       const candidate = normalizePackageCandidate({
@@ -659,10 +671,13 @@ function createPosLicenceAdminService(options = {}) {
 
       assertRequiredPackageFields(candidate);
       throwPolicyErrors(validatePosPackagePolicy({ ...candidate, moduleIds: fields.moduleIds || [] }));
-      await assertPackageCodeAvailable(repositories, candidate.packageCode);
+      await assertPackageCodeAvailable(repositories, candidate.packageCode, "", optionsForCreate);
 
       try {
-        const record = await repositories.posPackages.create(candidate);
+        const created = optionsForCreate.session
+          ? await repositories.posPackages.create([candidate], { session: optionsForCreate.session })
+          : await repositories.posPackages.create(candidate);
+        const record = Array.isArray(created) ? created[0] : created;
         const audit = await writeLicenceAudit(auditLogger, actor, {
           action: "licences.package.create-draft",
           targetType: "PosPackage",
@@ -670,7 +685,7 @@ function createPosLicenceAdminService(options = {}) {
           packageId: idText(record._id || record.id),
           outcome: "success",
           changeSummary: createChangeSummary(fields)
-        });
+        }, optionsForCreate);
 
         return { package: serializePackage(record), readiness: packageReadiness(record), audit };
       } catch (error) {
@@ -732,7 +747,7 @@ function createPosLicenceAdminService(options = {}) {
       return { package: serializePackage(updated), readiness: packageReadiness(updated), audit };
     },
 
-    async createDraftLicence(actor, input) {
+    async createDraftLicence(actor, input, optionsForCreate = {}) {
       assertAuthorizedActor(actor, LICENCE_MANAGE_PERMISSION);
       const fields = normalizeLicenceInput(input);
       const candidate = normalizeLicenceCandidate({
@@ -742,7 +757,7 @@ function createPosLicenceAdminService(options = {}) {
         createdBy: actor.id,
         updatedBy: actor.id
       });
-      const references = await loadLicenceReferences(repositories, candidate);
+      const references = await loadLicenceReferences(repositories, candidate, optionsForCreate);
 
       assertRequiredLicenceFields(candidate);
       throwPolicyErrors([
@@ -753,7 +768,10 @@ function createPosLicenceAdminService(options = {}) {
         throwPolicyErrors(validateLicencePackageConsistency(candidate, references.posPackage));
       }
 
-      const record = await repositories.posLicences.create(candidate);
+      const created = optionsForCreate.session
+        ? await repositories.posLicences.create([candidate], { session: optionsForCreate.session })
+        : await repositories.posLicences.create(candidate);
+      const record = Array.isArray(created) ? created[0] : created;
       const audit = await writeLicenceAudit(auditLogger, actor, {
         action: "licences.licence.create-draft",
         targetType: "PosLicence",
@@ -762,7 +780,7 @@ function createPosLicenceAdminService(options = {}) {
         packageId: idText(record.packageId),
         outcome: "success",
         changeSummary: createChangeSummary(fields)
-      });
+      }, optionsForCreate);
 
       return { licence: serializeLicence(record), readiness: licenceReadiness(record, references), audit };
     },

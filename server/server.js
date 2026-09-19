@@ -27,6 +27,9 @@ const {
   mountStagingProvisioningEndpoint
 } = require("./routes/internalStagingProvisioning");
 const {
+  mountStagingTestFixtureEndpoint
+} = require("./routes/internalStagingActivationFixture");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -157,6 +160,7 @@ app.get("/api/health", async (_req, res) => {
 const stagingReadinessRouter = express.Router();
 mountStagingReadinessEndpoint(stagingReadinessRouter);
 mountStagingProvisioningEndpoint(stagingReadinessRouter);
+mountStagingTestFixtureEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
