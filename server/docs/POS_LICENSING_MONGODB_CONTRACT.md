@@ -72,3 +72,5 @@ POS_LICENSING_STAGING_PROVISION_EXECUTION=approved-local POS_LICENSING_STAGING_P
 ```
 
 Apply creates missing defined collections and indexes or checks the existing definitions through idempotent MongoDB operations. It does not drop collections or indexes, delete records, migrate data, or inspect unrelated collections.
+
+The temporary staging Preview provisioning endpoint is `POST /api/internal/pos-licensing-staging-provision`. It is mounted only for the explicit `pos-licensing-staging` Vercel Preview runtime with staging licensing enabled. It remains unavailable unless `POS_LICENSING_STAGING_PROVISION_ENABLED=true`, and that branch-only flag must stay false except for one controlled operator run. Before applying the same seven-collection, 40-index plan, the endpoint requires the aggregate staging readiness gate to pass. Responses contain only the applied state, collection count, index count, and a stable generic code.

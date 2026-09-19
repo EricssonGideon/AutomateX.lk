@@ -179,6 +179,24 @@ test("staging apply requires its separate confirmation and uses only the shared 
   assert.equal(mongo.disconnectCalls, 2);
 });
 
+test("staging apply can reuse a readiness-verified connection without reconnecting or disconnecting it", async () => {
+  const mongo = mongoStub();
+  const env = stagingEnvironment({
+    POS_LICENSING_STAGING_PROVISION_CONFIRM: STAGING_APPLY_CONFIRMATION
+  });
+  const result = await runStagingProvisioning({
+    env,
+    argv: ["--apply"],
+    mongo,
+    connection: mongo.connection
+  });
+  assert.equal(result.applied, true);
+  assert.equal(result.collectionCount, EXPECTED_COLLECTION_COUNT);
+  assert.equal(result.indexCount, EXPECTED_INDEX_COUNT);
+  assert.equal(mongo.connectCalls, 0);
+  assert.equal(mongo.disconnectCalls, 0);
+});
+
 test("staging provisioning output never includes MongoDB credentials or URI", async () => {
   const env = stagingEnvironment();
   const written = [];

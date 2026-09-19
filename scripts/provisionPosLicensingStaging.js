@@ -93,6 +93,7 @@ async function runStagingProvisioning(options = {}) {
   const env = options.env || process.env;
   const argv = options.argv || process.argv.slice(2);
   const mongo = options.mongo || mongoose;
+  const suppliedConnection = options.connection || null;
   const loadEnvironment = options.loadEnvironment || loadRuntimeEnvironment;
   const validateConfig = options.validateConfig || validateStagingLicensingConfig;
   const applyRequested = argv.includes("--apply");
@@ -116,12 +117,16 @@ async function runStagingProvisioning(options = {}) {
   }
 
   try {
-    connectionAttempted = true;
-    await mongo.connect(
-      config.secrets.getMongoUri(),
-      getPosLicensingMongoConnectionOptions(config.databaseName)
-    );
-    const result = await provisionPosLicensingDatabase(mongo.connection, { apply: true });
+    let connection = suppliedConnection;
+    if (!connection) {
+      connectionAttempted = true;
+      await mongo.connect(
+        config.secrets.getMongoUri(),
+        getPosLicensingMongoConnectionOptions(config.databaseName)
+      );
+      connection = mongo.connection;
+    }
+    const result = await provisionPosLicensingDatabase(connection, { apply: true });
     return Object.freeze({
       environment: "staging",
       mode: "apply",
