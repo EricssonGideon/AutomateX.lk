@@ -518,7 +518,8 @@ test("POS licensing remains isolated from normal startup and production route ex
   );
   assert.match(stagingFixtureRoute, /VERCEL_GIT_COMMIT_REF/);
   assert.match(stagingFixtureRoute, /POS_LICENSING_STAGING_TEST_FIXTURE_ENABLED/);
-  assert.match(stagingFixtureRoute, /requireLicencePermission\("licences:manage"\)/);
+  assert.match(stagingFixtureRoute, /POS_LICENSING_STAGING_TEST_FIXTURE_OPERATOR_TOKEN/);
+  assert.doesNotMatch(stagingFixtureRoute, /requireLicencePermission|verifyToken/);
 });
 
 test("POS schemas disable implicit collection and index creation", () => {

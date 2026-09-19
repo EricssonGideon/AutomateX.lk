@@ -15,7 +15,12 @@ const {
 } = require("../../server/services/stagingPosActivationFixtureService");
 const {
   STAGING_TEST_FIXTURE_PATH,
+  STAGING_TEST_FIXTURE_OPERATOR_ACTOR,
+  STAGING_TEST_FIXTURE_OPERATOR_TOKEN_ENV,
+  STAGING_TEST_FIXTURE_OPERATOR_TOKEN_HEADER,
   mountStagingTestFixtureEndpoint,
+  operatorTokensMatch,
+  readConfiguredOperatorToken,
   shouldMountStagingTestFixtureEndpoint,
   stagingTestFixtureIsEnabled,
   unavailableOutput,
@@ -29,6 +34,7 @@ const ADMIN = Object.freeze({
   role: "admin"
 });
 const FIXTURE_CODE = "posac_" + "0123456789abcdef".repeat(2);
+const OPERATOR_TOKEN = "fixture-operator-" + "a".repeat(48);
 const NOW = new Date("2026-09-19T00:00:00.000Z");
 
 function stagingPreviewEnvironment(overrides = {}) {
@@ -39,6 +45,7 @@ function stagingPreviewEnvironment(overrides = {}) {
     POS_LICENSING_MODE: "staging",
     POS_LICENSING_ENABLED: "true",
     POS_LICENSING_STAGING_TEST_FIXTURE_ENABLED: "true",
+    [STAGING_TEST_FIXTURE_OPERATOR_TOKEN_ENV]: OPERATOR_TOKEN,
     POS_LICENSING_ENVIRONMENT: "staging",
     POS_LICENSING_CLIENT_SCOPE: "staging-only",
     POS_LICENSING_SECRET_ENVIRONMENT: "staging",
@@ -101,29 +108,12 @@ async function invoke(handlers, req = {}) {
   return response;
 }
 
-function authMiddleware(req, res, next) {
-  if (!req.headers.authorization) {
-    return res.status(401).json({ message: "Authentication token is required." });
-  }
-  req.user = req.authenticatedUser || ADMIN;
-  return next();
-}
-
-function managePermissionMiddleware(req, res, next) {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ message: "You do not have permission to administer POS licences." });
-  }
-  return next();
-}
-
 function mountedHandlers(options = {}) {
   const router = routerRecorder();
   const mounted = mountStagingTestFixtureEndpoint(router, {
     env: stagingPreviewEnvironment(),
     connection: { name: "automatex_pos_staging", db: { databaseName: "automatex_pos_staging" } },
     validateDatabase() {},
-    verifyToken: authMiddleware,
-    requireManagePermission: managePermissionMiddleware,
     async runReadinessGate() { return eligibleReadiness(); },
     fixtureService: {
       async createFixture() {
@@ -135,6 +125,13 @@ function mountedHandlers(options = {}) {
   });
   assert.equal(mounted, true);
   return router.registrations[0].handlers;
+}
+
+function validOperatorRequest(overrides = {}) {
+  return {
+    headers: { [STAGING_TEST_FIXTURE_OPERATOR_TOKEN_HEADER]: OPERATOR_TOKEN },
+    ...overrides
+  };
 }
 
 test("temporary fixture endpoint mounts only on the exact staging Preview branch", () => {
@@ -167,8 +164,6 @@ test("disabled fixture flag returns unavailable before database, auth, readiness
   mountStagingTestFixtureEndpoint(router, {
     env,
     async connectionProvider() { counters.connection = 1; },
-    verifyToken() { counters.auth = 1; },
-    requireManagePermission() { counters.permission = 1; },
     async runReadinessGate() { counters.readiness = 1; },
     fixtureService: { async createFixture() { counters.fixture = 1; } }
   });
@@ -180,16 +175,45 @@ test("disabled fixture flag returns unavailable before database, auth, readiness
   assert.deepEqual(counters, {});
 });
 
-test("existing authentication and licences:manage authorization run before readiness or writes", async () => {
-  const handlers = mountedHandlers();
-  const unauthenticated = await invoke(handlers);
-  assert.equal(unauthenticated.statusCode, 401);
+test("missing and wrong staging operator tokens are rejected before database, readiness, or writes", async () => {
+  const secret = OPERATOR_TOKEN;
+  for (const headers of [
+    {},
+    { [STAGING_TEST_FIXTURE_OPERATOR_TOKEN_HEADER]: "wrong-" + "b".repeat(48) }
+  ]) {
+    const response = await invoke(mountedHandlers(), { headers });
+    assert.equal(response.statusCode, 401);
+    assert.deepEqual(response.body, unavailableOutput("staging_test_fixture_operator_unauthorized"));
+    assert.equal(JSON.stringify(response.body).includes(secret), false);
+  }
+});
 
-  const unauthorized = await invoke(handlers, {
-    headers: { authorization: "Bearer test-token" },
-    authenticatedUser: { id: "manager", role: "manager" }
-  });
-  assert.equal(unauthorized.statusCode, 403);
+test("operator token configuration requires a high-entropy server-only value", async () => {
+  for (const value of [undefined, "", "short", "contains spaces " + "x".repeat(40)]) {
+    const env = stagingPreviewEnvironment({ [STAGING_TEST_FIXTURE_OPERATOR_TOKEN_ENV]: value });
+    assert.equal(readConfiguredOperatorToken(env), "");
+    const response = await invoke(mountedHandlers({ env }), validOperatorRequest());
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.body, unavailableOutput("staging_test_fixture_operator_unavailable"));
+  }
+  assert.equal(readConfiguredOperatorToken(stagingPreviewEnvironment()), OPERATOR_TOKEN);
+  assert.equal(operatorTokensMatch(OPERATOR_TOKEN, OPERATOR_TOKEN), true);
+  assert.equal(operatorTokensMatch(OPERATOR_TOKEN, "wrong-" + "c".repeat(48)), false);
+});
+
+test("valid staging operator token supplies only the fixed internal actor", async () => {
+  let receivedActor = null;
+  const response = await invoke(mountedHandlers({
+    fixtureService: {
+      async createFixture(actor) {
+        receivedActor = actor;
+        return { created: true, activationCode: FIXTURE_CODE };
+      }
+    }
+  }), validOperatorRequest());
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(receivedActor, STAGING_TEST_FIXTURE_OPERATOR_ACTOR);
+  assert.equal(JSON.stringify(receivedActor).includes(OPERATOR_TOKEN), false);
 });
 
 test("failed staging readiness cannot create a fixture", async () => {
@@ -204,7 +228,7 @@ test("failed staging readiness cannot create a fixture", async () => {
       });
     },
     fixtureService: { async createFixture() { fixtureCalls += 1; } }
-  }), { headers: { authorization: "Bearer test-token" } });
+  }), validOperatorRequest());
 
   assert.equal(response.statusCode, 503);
   assert.deepEqual(response.body, unavailableOutput("staging_test_fixture_readiness_failed"));
@@ -227,9 +251,7 @@ test("production or mismatched connected database identity is rejected", () => {
 });
 
 test("successful response returns the activation plaintext once with controlled limits", async () => {
-  const response = await invoke(mountedHandlers(), {
-    headers: { authorization: "Bearer test-token" }
-  });
+  const response = await invoke(mountedHandlers(), validOperatorRequest());
   assert.equal(response.statusCode, 201);
   assert.deepEqual(response.body, {
     created: true,
@@ -242,7 +264,7 @@ test("successful response returns the activation plaintext once with controlled 
 
   const repeat = await invoke(mountedHandlers({
     fixtureService: { async createFixture() { return { created: false, alreadyExists: true }; } }
-  }), { headers: { authorization: "Bearer test-token" } });
+  }), validOperatorRequest());
   assert.equal(repeat.statusCode, 409);
   assert.deepEqual(repeat.body, { created: false, code: "staging_test_fixture_already_exists" });
   assert.equal(Object.prototype.hasOwnProperty.call(repeat.body, "activationCode"), false);

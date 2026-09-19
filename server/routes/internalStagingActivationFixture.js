@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const mongoose = require("mongoose");
 
 const { classifyRuntimeEnvironment } = require("../config/runtimeEnvironment");
@@ -11,10 +12,6 @@ const {
   resolveConfiguredRateLimitStoreFactory
 } = require("../licensing/upstashRateLimitStore");
 const {
-  requireLicencePermission,
-  verifyToken
-} = require("../middleware/auth");
-const {
   createStagingPosActivationFixtureService
 } = require("../services/stagingPosActivationFixtureService");
 const { connectToDatabase } = require("../utils/db");
@@ -23,6 +20,14 @@ const {
 } = require("./stagingPosLicensing");
 
 const STAGING_TEST_FIXTURE_PATH = "/internal/pos-licensing-staging-test-fixture";
+const STAGING_TEST_FIXTURE_OPERATOR_TOKEN_ENV = "POS_LICENSING_STAGING_TEST_FIXTURE_OPERATOR_TOKEN";
+const STAGING_TEST_FIXTURE_OPERATOR_TOKEN_HEADER = "x-automatex-staging-operator-token";
+const STAGING_TEST_FIXTURE_OPERATOR_ACTOR = Object.freeze({
+  id: "73746167696e676f70657261",
+  name: "Staging POS Fixture Operator",
+  email: "pos-fixture-operator@staging.invalid",
+  role: "admin"
+});
 
 function clean(value) {
   return String(value || "").trim();
@@ -49,6 +54,48 @@ function shouldMountStagingTestFixtureEndpoint(env = process.env) {
 
 function stagingTestFixtureIsEnabled(env = process.env) {
   return Boolean(env) && env.POS_LICENSING_STAGING_TEST_FIXTURE_ENABLED === "true";
+}
+
+function readConfiguredOperatorToken(env) {
+  const token = env && env[STAGING_TEST_FIXTURE_OPERATOR_TOKEN_ENV];
+  if (
+    typeof token !== "string" ||
+    token.length < 43 ||
+    token.length > 128 ||
+    !/^[A-Za-z0-9_-]+$/.test(token)
+  ) {
+    return "";
+  }
+  return token;
+}
+
+function readRequestOperatorToken(req) {
+  const token = req && req.headers && req.headers[STAGING_TEST_FIXTURE_OPERATOR_TOKEN_HEADER];
+  return typeof token === "string" ? token : "";
+}
+
+function operatorTokensMatch(expectedToken, suppliedToken) {
+  if (!expectedToken || !suppliedToken) {
+    return false;
+  }
+  const expectedDigest = crypto.createHash("sha256").update(expectedToken, "utf8").digest();
+  const suppliedDigest = crypto.createHash("sha256").update(suppliedToken, "utf8").digest();
+  return crypto.timingSafeEqual(expectedDigest, suppliedDigest);
+}
+
+function createStagingTestFixtureOperatorAuthorization(options = {}) {
+  const env = options.env || process.env;
+  return function stagingTestFixtureOperatorAuthorization(req, res, next) {
+    const expectedToken = readConfiguredOperatorToken(env);
+    if (!expectedToken) {
+      return res.status(503).json(unavailableOutput("staging_test_fixture_operator_unavailable"));
+    }
+    if (!operatorTokensMatch(expectedToken, readRequestOperatorToken(req))) {
+      return res.status(401).json(unavailableOutput("staging_test_fixture_operator_unauthorized"));
+    }
+    req.user = STAGING_TEST_FIXTURE_OPERATOR_ACTOR;
+    return next();
+  };
 }
 
 function createStagingTestFixturePrecondition(options = {}) {
@@ -156,9 +203,8 @@ function mountStagingTestFixtureEndpoint(router, options = {}) {
   router.post(
     STAGING_TEST_FIXTURE_PATH,
     createStagingTestFixturePrecondition({ ...options, env }),
+    createStagingTestFixtureOperatorAuthorization({ ...options, env }),
     createStagingTestFixtureConnectionMiddleware({ ...options, env }),
-    options.verifyToken || verifyToken,
-    options.requireManagePermission || requireLicencePermission("licences:manage"),
     createStagingTestFixtureHandler({ ...options, env })
   );
   return true;
@@ -166,10 +212,16 @@ function mountStagingTestFixtureEndpoint(router, options = {}) {
 
 module.exports = {
   STAGING_TEST_FIXTURE_PATH,
+  STAGING_TEST_FIXTURE_OPERATOR_ACTOR,
+  STAGING_TEST_FIXTURE_OPERATOR_TOKEN_ENV,
+  STAGING_TEST_FIXTURE_OPERATOR_TOKEN_HEADER,
   createStagingTestFixtureConnectionMiddleware,
   createStagingTestFixtureHandler,
+  createStagingTestFixtureOperatorAuthorization,
   createStagingTestFixturePrecondition,
   mountStagingTestFixtureEndpoint,
+  operatorTokensMatch,
+  readConfiguredOperatorToken,
   shouldMountStagingTestFixtureEndpoint,
   stagingTestFixtureIsEnabled,
   unavailableOutput,
