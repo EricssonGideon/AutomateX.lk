@@ -42,6 +42,9 @@ const {
   mountStagingOriginalActivationCodeRecoveryEndpoint
 } = require("./routes/internalStagingOriginalActivationCodeRecovery");
 const {
+  mountStagingBootstrapDiagnosticEndpoint
+} = require("./routes/internalStagingRenewalBootstrapDiagnostic");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -177,6 +180,7 @@ mountStagingActivationCodeRotationEndpoint(stagingReadinessRouter);
 mountStagingRenewalCredentialResetEndpoint(stagingReadinessRouter);
 mountStagingFreshActivationCodeEndpoint(stagingReadinessRouter);
 mountStagingOriginalActivationCodeRecoveryEndpoint(stagingReadinessRouter);
+mountStagingBootstrapDiagnosticEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
