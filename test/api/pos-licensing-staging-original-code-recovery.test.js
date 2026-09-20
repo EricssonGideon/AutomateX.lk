@@ -8,6 +8,7 @@ const {
 } = require("../../server/services/stagingPosActivationFixtureService");
 const {
   ORIGINAL_CODE_RECOVERY_AUDIT_ACTION,
+  ORIGINAL_CODE_REOPEN_AUDIT_ACTION,
   ORIGINAL_CODE_RECOVERY_LIFETIME_MS,
   createStagingPosOriginalActivationCodeRecoveryService
 } = require("../../server/services/stagingPosOriginalActivationCodeRecoveryService");
@@ -347,6 +348,16 @@ function snapshot(repository) {
   return JSON.stringify([...repository.records.values()]);
 }
 
+function addRecoveryAudit(repository, action) {
+  repository.records.set(`audit-${repository.records.size + 1}`, {
+    _id: `audit-${repository.records.size + 1}`,
+    action,
+    targetType: "PosActivationCode",
+    targetId: ORIGINAL_CODE_ID,
+    targetLabel: STAGING_FIXTURE_MARKER
+  });
+}
+
 test("only the expired issue-linked record status and expiry change and repeat execution is idempotent", async () => {
   const repositories = fixtureRepositories();
   const licenceBefore = snapshot(repositories.posLicences);
@@ -438,6 +449,100 @@ test("activation-code update results omit select:false hash material unless expl
     { $set: { status: "expired" } }
   ).select("+codeHash");
   assert.equal(selectedResult.codeHash, ORIGINAL_HASH);
+});
+
+test("one expired first recovery window can be reopened once by changing only expiresAt", async () => {
+  const repositories = fixtureRepositories();
+  const original = repositories.posActivationCodes.records.get(ORIGINAL_CODE_ID);
+  original.status = "redeemed";
+  addRecoveryAudit(repositories.auditLogs, ORIGINAL_CODE_RECOVERY_AUDIT_ACTION);
+  const originalBefore = clone(original);
+  const otherBefore = clone(repositories.posActivationCodes.records.get(OTHER_CODE_ID));
+  const licenceBefore = snapshot(repositories.posLicences);
+  const installationBefore = snapshot(repositories.posInstallations);
+  const issueBefore = snapshot(repositories.posLicenceIssues);
+  const service = createStagingPosOriginalActivationCodeRecoveryService({
+    repositories,
+    clock: () => NOW,
+    async runInTransaction(callback) { return callback({ reopenSession: true }); }
+  });
+
+  const reopened = await service.recoverOriginalFixtureActivationCode(STAGING_TEST_FIXTURE_OPERATOR_ACTOR);
+  assert.deepEqual(reopened, {
+    recovered: true,
+    alreadyRecovered: false,
+    recoveryExpiresAt: RECOVERY_EXPIRY
+  });
+
+  const originalAfter = repositories.posActivationCodes.records.get(ORIGINAL_CODE_ID);
+  assert.equal(originalAfter._id, originalBefore._id);
+  assert.equal(originalAfter.codeHash, originalBefore.codeHash);
+  assert.equal(originalAfter.status, "redeemed");
+  assert.equal(originalAfter.redeemedCount, originalBefore.redeemedCount);
+  assert.equal(originalAfter.maxRedemptions, originalBefore.maxRedemptions);
+  assert.equal(originalAfter.lastRedeemedAt, originalBefore.lastRedeemedAt);
+  assert.equal(originalAfter.createdBy, originalBefore.createdBy);
+  assert.equal(originalAfter.updatedBy, originalBefore.updatedBy);
+  assert.equal(originalAfter.createdAt, originalBefore.createdAt);
+  assert.equal(originalAfter.updatedAt, originalBefore.updatedAt);
+  assert.equal(originalAfter.__v, originalBefore.__v);
+  assert.equal(new Date(originalAfter.expiresAt).getTime(), RECOVERY_EXPIRY.getTime());
+  assert.deepEqual(repositories.posActivationCodes.records.get(OTHER_CODE_ID), otherBefore);
+  assert.equal(snapshot(repositories.posLicences), licenceBefore);
+  assert.equal(snapshot(repositories.posInstallations), installationBefore);
+  assert.equal(snapshot(repositories.posLicenceIssues), issueBefore);
+
+  const update = repositories.posActivationCodes.calls.findOneAndUpdate[0];
+  assert.deepEqual(Object.keys(update.update.$set), ["expiresAt"]);
+  assert.equal(update.query._id, ORIGINAL_CODE_ID);
+  assert.equal(update.query.licenceId, LICENCE_ID);
+  assert.equal(update.query.codeHash, ORIGINAL_HASH);
+  assert.equal(update.query.status, "redeemed");
+  assert.equal(update.query.redeemedCount, 1);
+  assert.equal(update.query.maxRedemptions, 1);
+  assert.equal(update.options.timestamps, false);
+  assert.equal(update.options.session.reopenSession, true);
+  assert.equal(update.selection, "+codeHash");
+  assert.equal(
+    [...repositories.auditLogs.records.values()].filter((audit) => audit.action === ORIGINAL_CODE_REOPEN_AUDIT_ACTION).length,
+    1
+  );
+  assert.equal(JSON.stringify([...repositories.auditLogs.records.values()]).includes(ORIGINAL_HASH), false);
+
+  const afterReopenExpiry = new Date(RECOVERY_EXPIRY.getTime() + 1000);
+  const repeatService = createStagingPosOriginalActivationCodeRecoveryService({
+    repositories,
+    clock: () => afterReopenExpiry,
+    async runInTransaction(callback) { return callback({}); }
+  });
+  const repeated = await repeatService.recoverOriginalFixtureActivationCode(STAGING_TEST_FIXTURE_OPERATOR_ACTOR);
+  assert.deepEqual(repeated, {
+    recovered: false,
+    alreadyRecovered: true,
+    recoveryExpiresAt: RECOVERY_EXPIRY
+  });
+  assert.equal(repositories.posActivationCodes.calls.findOneAndUpdate.length, 1);
+  assert.equal(
+    [...repositories.auditLogs.records.values()].filter((audit) => audit.action === ORIGINAL_CODE_REOPEN_AUDIT_ACTION).length,
+    1
+  );
+});
+
+test("an expired redeemed window cannot reopen without the successful first recovery audit", async () => {
+  const repositories = fixtureRepositories();
+  repositories.posActivationCodes.records.get(ORIGINAL_CODE_ID).status = "redeemed";
+  const service = createStagingPosOriginalActivationCodeRecoveryService({
+    repositories,
+    clock: () => NOW,
+    async runInTransaction(callback) { return callback({}); }
+  });
+
+  await assert.rejects(
+    () => service.recoverOriginalFixtureActivationCode(STAGING_TEST_FIXTURE_OPERATOR_ACTOR),
+    (error) => error && error.code === "fixture_activation_code_not_expired"
+  );
+  assert.equal(repositories.posActivationCodes.calls.findOneAndUpdate.length, 0);
+  assert.equal(repositories.auditLogs.records.size, 0);
 });
 
 test("a qualifying expired code not linked by the activation issue cannot be recovered", async () => {

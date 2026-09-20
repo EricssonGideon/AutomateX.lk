@@ -17,6 +17,7 @@ const {
 
 const ORIGINAL_CODE_RECOVERY_LIFETIME_MS = 30 * 60 * 1000;
 const ORIGINAL_CODE_RECOVERY_AUDIT_ACTION = "licences.staging-test-fixture.activation-code.recover-original";
+const ORIGINAL_CODE_REOPEN_AUDIT_ACTION = "licences.staging-test-fixture.activation-code.reopen-original";
 
 class StagingPosOriginalActivationCodeRecoveryError extends Error {
   constructor(code, message) {
@@ -250,6 +251,29 @@ async function writeRecoveryAudit(auditLogger, actor, licence, installation, act
   }, { session });
 }
 
+async function writeReopenAudit(auditLogger, actor, licence, installation, activationCode, session) {
+  await auditLogger.create({
+    actorId: actor.id,
+    actorName: actor.name || "",
+    actorEmail: actor.email || "",
+    actorRole: actor.role,
+    action: ORIGINAL_CODE_REOPEN_AUDIT_ACTION,
+    module: "Licences",
+    targetType: "PosActivationCode",
+    targetId: idText(activationCode),
+    targetLabel: STAGING_FIXTURE_MARKER,
+    oldValue: null,
+    newValue: {
+      licenceId: idText(licence),
+      installationId: idText(installation),
+      activationCodeId: idText(activationCode),
+      outcome: "additional-recovery-window-opened",
+      changeSummary: "expiresAt"
+    },
+    severity: "High"
+  }, { session });
+}
+
 function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
   const repositories = options.repositories || defaultRepositories();
   const connection = options.connection || mongoose.connection;
@@ -298,10 +322,61 @@ function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
         const completed = recognizeCompletedRecovery(audits, activationCode);
         if (completed) {
           assertCompletedRecoveryState(activationCode);
+          const reopenAudits = await findMany(repositories.auditLogs, {
+            action: ORIGINAL_CODE_REOPEN_AUDIT_ACTION,
+            targetLabel: STAGING_FIXTURE_MARKER
+          }, session);
+          const reopened = recognizeCompletedRecovery(reopenAudits, activationCode);
+          if (reopened || dateValue(activationCode.expiresAt).getTime() > now.getTime()) {
+            return Object.freeze({
+              recovered: false,
+              alreadyRecovered: true,
+              recoveryExpiresAt: activationCode.expiresAt
+            });
+          }
+
+          const reopenedActivationCode = await repositories.posActivationCodes.findOneAndUpdate(
+            {
+              _id: activationCode._id,
+              licenceId: licence._id,
+              codeHash: activationCode.codeHash,
+              status: "redeemed",
+              redeemedCount: 1,
+              maxRedemptions: 1,
+              expiresAt: activationCode.expiresAt
+            },
+            { $set: { expiresAt: recoveryExpiresAt } },
+            {
+              new: true,
+              runValidators: true,
+              session,
+              timestamps: false
+            }
+          ).select("+codeHash");
+          if (
+            !reopenedActivationCode ||
+            idText(reopenedActivationCode) !== idText(activationCode) ||
+            reopenedActivationCode.codeHash !== activationCode.codeHash ||
+            reopenedActivationCode.status !== "redeemed" ||
+            Number(reopenedActivationCode.redeemedCount) !== 1 ||
+            Number(reopenedActivationCode.maxRedemptions) !== 1 ||
+            dateValue(reopenedActivationCode.expiresAt).getTime() !== recoveryExpiresAt.getTime()
+          ) {
+            fail("fixture_activation_code_conflict", "The issue-linked activation code changed during recovery.");
+          }
+
+          await writeReopenAudit(
+            auditLogger,
+            actor,
+            licence,
+            installation,
+            reopenedActivationCode,
+            session
+          );
           return Object.freeze({
-            recovered: false,
-            alreadyRecovered: true,
-            recoveryExpiresAt: activationCode.expiresAt
+            recovered: true,
+            alreadyRecovered: false,
+            recoveryExpiresAt
           });
         }
 
@@ -350,6 +425,7 @@ function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
 
 module.exports = {
   ORIGINAL_CODE_RECOVERY_AUDIT_ACTION,
+  ORIGINAL_CODE_REOPEN_AUDIT_ACTION,
   ORIGINAL_CODE_RECOVERY_LIFETIME_MS,
   StagingPosOriginalActivationCodeRecoveryError,
   createStagingPosOriginalActivationCodeRecoveryService,
