@@ -27,6 +27,9 @@ const {
   mountStagingPublicKeyEndpoint
 } = require("./routes/internalStagingPublicKey");
 const {
+  mountStagingActivationEligibilityEndpoint
+} = require("./routes/internalStagingActivationEligibility");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -157,6 +160,7 @@ app.get("/api/health", async (_req, res) => {
 const stagingReadinessRouter = express.Router();
 mountStagingReadinessEndpoint(stagingReadinessRouter);
 mountStagingPublicKeyEndpoint(stagingReadinessRouter);
+mountStagingActivationEligibilityEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
