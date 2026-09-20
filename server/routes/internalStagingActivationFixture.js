@@ -85,13 +85,14 @@ function operatorTokensMatch(expectedToken, suppliedToken) {
 
 function createStagingTestFixtureOperatorAuthorization(options = {}) {
   const env = options.env || process.env;
+  const output = options.unavailableOutput || unavailableOutput;
   return function stagingTestFixtureOperatorAuthorization(req, res, next) {
     const expectedToken = readConfiguredOperatorToken(env);
     if (!expectedToken) {
-      return res.status(503).json(unavailableOutput("staging_test_fixture_operator_unavailable"));
+      return res.status(503).json(output("staging_test_fixture_operator_unavailable"));
     }
     if (!operatorTokensMatch(expectedToken, readRequestOperatorToken(req))) {
-      return res.status(401).json(unavailableOutput("staging_test_fixture_operator_unauthorized"));
+      return res.status(401).json(output("staging_test_fixture_operator_unauthorized"));
     }
     req.user = STAGING_TEST_FIXTURE_OPERATOR_ACTOR;
     return next();
@@ -122,6 +123,7 @@ function createStagingTestFixtureConnectionMiddleware(options = {}) {
   const suppliedConnection = options.connection || null;
   const connectionProvider = options.connectionProvider || connectToDatabase;
   const validateDatabase = options.validateDatabase || validateConnectedStagingDatabase;
+  const output = options.unavailableOutput || unavailableOutput;
 
   return async function stagingTestFixtureConnection(req, res, next) {
     try {
@@ -131,13 +133,13 @@ function createStagingTestFixtureConnectionMiddleware(options = {}) {
         connection = connected && connected.connection ? connected.connection : mongoose.connection;
       }
       if (!connection || !connection.db) {
-        return res.status(503).json(unavailableOutput("staging_test_fixture_database_unavailable"));
+        return res.status(503).json(output("staging_test_fixture_database_unavailable"));
       }
       validateDatabase(env, connection);
       req.posLicensingStagingConnection = connection;
       return next();
     } catch {
-      return res.status(503).json(unavailableOutput("staging_test_fixture_database_rejected"));
+      return res.status(503).json(output("staging_test_fixture_database_rejected"));
     }
   };
 }
