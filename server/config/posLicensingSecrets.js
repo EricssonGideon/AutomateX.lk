@@ -19,6 +19,7 @@ const POS_LICENSING_SERVER_SECRET_FIELD_NAMES = new Set([
   "signingPrivateJwk",
   "signingPrivateJwkB64",
   "expectedPublicJwk",
+  "POS_LICENSING_STAGING_PUBLIC_KEY_DIAGNOSTIC_TOKEN",
   "rateLimitStoreUri",
   "upstashRedisRestUrl",
   "upstashRedisRestToken",
