@@ -324,7 +324,7 @@ function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
             session,
             timestamps: false
           }
-        );
+        ).select("+codeHash");
         if (
           !updated ||
           idText(updated) !== idText(activationCode) ||

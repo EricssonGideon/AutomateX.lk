@@ -215,7 +215,7 @@ function matches(record, query = {}) {
   return Object.entries(query).every(([field, expected]) => comparable(record[field]) === comparable(expected));
 }
 
-function memoryRepository(initialRecords = []) {
+function memoryRepository(initialRecords = [], selectFalseFields = []) {
   const records = new Map(initialRecords.map((record) => [String(record._id), clone(record)]));
   const calls = { create: [], findOneAndUpdate: [] };
   return {
@@ -234,15 +234,43 @@ function memoryRepository(initialRecords = []) {
     async find(query) {
       return [...records.values()].filter((record) => matches(record, query)).map(clone);
     },
-    async findOneAndUpdate(query, update, options = {}) {
-      calls.findOneAndUpdate.push({ query, update, options });
-      const existing = [...records.values()].find((record) => matches(record, query));
-      if (!existing) {
-        return null;
-      }
-      const updated = { ...existing, ...(update.$set || {}) };
-      records.set(String(existing._id), clone(updated));
-      return clone(updated);
+    findOneAndUpdate(query, update, options = {}) {
+      const call = { query, update, options, selection: "" };
+      calls.findOneAndUpdate.push(call);
+      let execution;
+      const queryResult = {
+        select(selection) {
+          call.selection = selection;
+          return queryResult;
+        },
+        then(resolve, reject) {
+          if (!execution) {
+            execution = Promise.resolve().then(() => {
+              const existing = [...records.values()].find((record) => matches(record, query));
+              if (!existing) {
+                return null;
+              }
+              const updated = { ...existing, ...(update.$set || {}) };
+              records.set(String(existing._id), clone(updated));
+              const projected = clone(updated);
+              const explicitlySelected = new Set(
+                String(call.selection || "")
+                  .split(/\s+/)
+                  .filter((field) => field.startsWith("+"))
+                  .map((field) => field.slice(1))
+              );
+              for (const field of selectFalseFields) {
+                if (!explicitlySelected.has(field)) {
+                  delete projected[field];
+                }
+              }
+              return projected;
+            });
+          }
+          return execution.then(resolve, reject);
+        }
+      };
+      return queryResult;
     }
   };
 }
@@ -311,7 +339,7 @@ function fixtureRepositories() {
       maxRedemptions: 1,
       redeemedCount: 0,
       __v: 0
-    }])
+    }], ["codeHash"])
   };
 }
 
@@ -374,6 +402,7 @@ test("only the expired issue-linked record status and expiry change and repeat e
   assert.equal(Object.prototype.hasOwnProperty.call(update.update, "$inc"), false);
   assert.equal(update.options.timestamps, false);
   assert.equal(update.options.session.recoverySession, true);
+  assert.equal(update.selection, "+codeHash");
   assert.equal(JSON.stringify([...repositories.auditLogs.records.values()]).includes(ORIGINAL_HASH), false);
   assert.equal(
     [...repositories.auditLogs.records.values()].filter((audit) => audit.action === ORIGINAL_CODE_RECOVERY_AUDIT_ACTION).length,
@@ -389,6 +418,26 @@ test("only the expired issue-linked record status and expiry change and repeat e
   assert.equal(repositories.posActivationCodes.calls.findOneAndUpdate.length, 1);
   assert.equal(repositories.auditLogs.records.size, 1);
   assert.equal(transactionCalls, 2);
+});
+
+test("activation-code update results omit select:false hash material unless explicitly selected", async () => {
+  const repository = memoryRepository([{
+    _id: ORIGINAL_CODE_ID,
+    codeHash: ORIGINAL_HASH,
+    status: "expired"
+  }], ["codeHash"]);
+
+  const defaultResult = await repository.findOneAndUpdate(
+    { _id: ORIGINAL_CODE_ID },
+    { $set: { status: "expired" } }
+  );
+  assert.equal(Object.prototype.hasOwnProperty.call(defaultResult, "codeHash"), false);
+
+  const selectedResult = await repository.findOneAndUpdate(
+    { _id: ORIGINAL_CODE_ID },
+    { $set: { status: "expired" } }
+  ).select("+codeHash");
+  assert.equal(selectedResult.codeHash, ORIGINAL_HASH);
 });
 
 test("a qualifying expired code not linked by the activation issue cannot be recovered", async () => {
