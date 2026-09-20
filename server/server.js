@@ -30,6 +30,9 @@ const {
   mountStagingTestFixtureEndpoint
 } = require("./routes/internalStagingActivationFixture");
 const {
+  mountStagingActivationCodeRotationEndpoint
+} = require("./routes/internalStagingActivationCodeRotation");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -161,6 +164,7 @@ const stagingReadinessRouter = express.Router();
 mountStagingReadinessEndpoint(stagingReadinessRouter);
 mountStagingProvisioningEndpoint(stagingReadinessRouter);
 mountStagingTestFixtureEndpoint(stagingReadinessRouter);
+mountStagingActivationCodeRotationEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
