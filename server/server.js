@@ -45,6 +45,9 @@ const {
   mountStagingBootstrapDiagnosticEndpoint
 } = require("./routes/internalStagingRenewalBootstrapDiagnostic");
 const {
+  mountStagingFixtureRenewalPolicyRepairEndpoint
+} = require("./routes/internalStagingFixtureRenewalPolicyRepair");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -181,6 +184,7 @@ mountStagingRenewalCredentialResetEndpoint(stagingReadinessRouter);
 mountStagingFreshActivationCodeEndpoint(stagingReadinessRouter);
 mountStagingOriginalActivationCodeRecoveryEndpoint(stagingReadinessRouter);
 mountStagingBootstrapDiagnosticEndpoint(stagingReadinessRouter);
+mountStagingFixtureRenewalPolicyRepairEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
