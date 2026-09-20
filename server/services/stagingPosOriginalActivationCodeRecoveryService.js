@@ -187,7 +187,8 @@ function assertOriginalActivationCode(codes, issue) {
   const activationCode = codes[0];
   if (
     idText(activationCode) !== idText(issue.activationCodeId) ||
-    activationCode.status !== "redeemed" ||
+    idText(activationCode.licenceId) !== idText(issue.licenceId) ||
+    !["expired", "redeemed"].includes(activationCode.status) ||
     Number(activationCode.maxRedemptions) !== 1 ||
     Number(activationCode.redeemedCount) !== 1 ||
     !activationCode.codeHash ||
@@ -199,8 +200,17 @@ function assertOriginalActivationCode(codes, issue) {
 }
 
 function assertActivationCodeExpired(activationCode, now) {
-  if (dateValue(activationCode.expiresAt).getTime() > now.getTime()) {
+  if (
+    activationCode.status !== "expired" ||
+    dateValue(activationCode.expiresAt).getTime() > now.getTime()
+  ) {
     fail("fixture_activation_code_not_expired", "The issue-linked activation code does not require recovery.");
+  }
+}
+
+function assertCompletedRecoveryState(activationCode) {
+  if (activationCode.status !== "redeemed") {
+    fail("fixture_original_code_recovery_ambiguous", "The original activation-code recovery state is ambiguous.");
   }
 }
 
@@ -234,7 +244,7 @@ async function writeRecoveryAudit(auditLogger, actor, licence, installation, act
       installationId: idText(installation),
       activationCodeId: idText(activationCode),
       outcome: "recovery-window-opened",
-      changeSummary: "expiresAt"
+      changeSummary: "status,expiresAt"
     },
     severity: "High"
   }, { session });
@@ -287,6 +297,7 @@ function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
         }, session);
         const completed = recognizeCompletedRecovery(audits, activationCode);
         if (completed) {
+          assertCompletedRecoveryState(activationCode);
           return Object.freeze({
             recovered: false,
             alreadyRecovered: true,
@@ -301,12 +312,12 @@ function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
             _id: activationCode._id,
             licenceId: licence._id,
             codeHash: activationCode.codeHash,
-            status: "redeemed",
+            status: "expired",
             redeemedCount: 1,
             maxRedemptions: 1,
             expiresAt: activationCode.expiresAt
           },
-          { $set: { expiresAt: recoveryExpiresAt } },
+          { $set: { status: "redeemed", expiresAt: recoveryExpiresAt } },
           {
             new: true,
             runValidators: true,
@@ -320,6 +331,7 @@ function createStagingPosOriginalActivationCodeRecoveryService(options = {}) {
           updated.codeHash !== activationCode.codeHash ||
           updated.status !== "redeemed" ||
           Number(updated.redeemedCount) !== 1 ||
+          Number(updated.maxRedemptions) !== 1 ||
           dateValue(updated.expiresAt).getTime() !== recoveryExpiresAt.getTime()
         ) {
           fail("fixture_activation_code_conflict", "The issue-linked activation code changed during recovery.");

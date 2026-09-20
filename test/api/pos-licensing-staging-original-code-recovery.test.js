@@ -292,7 +292,7 @@ function fixtureRepositories() {
       _id: ORIGINAL_CODE_ID,
       licenceId: LICENCE_ID,
       codeHash: ORIGINAL_HASH,
-      status: "redeemed",
+      status: "expired",
       expiresAt: ORIGINAL_EXPIRY,
       maxRedemptions: 1,
       redeemedCount: 1,
@@ -319,7 +319,7 @@ function snapshot(repository) {
   return JSON.stringify([...repository.records.values()]);
 }
 
-test("only the issue-linked record expiry changes and repeat execution is idempotent", async () => {
+test("only the expired issue-linked record status and expiry change and repeat execution is idempotent", async () => {
   const repositories = fixtureRepositories();
   const licenceBefore = snapshot(repositories.posLicences);
   const installationBefore = snapshot(repositories.posInstallations);
@@ -345,8 +345,10 @@ test("only the issue-linked record expiry changes and repeat execution is idempo
   const originalAfter = repositories.posActivationCodes.records.get(ORIGINAL_CODE_ID);
   assert.equal(originalAfter._id, originalBefore._id);
   assert.equal(originalAfter.codeHash, originalBefore.codeHash);
+  assert.equal(originalBefore.status, "expired");
   assert.equal(originalAfter.status, "redeemed");
   assert.equal(originalAfter.redeemedCount, originalBefore.redeemedCount);
+  assert.equal(originalAfter.maxRedemptions, originalBefore.maxRedemptions);
   assert.equal(originalAfter.lastRedeemedAt, originalBefore.lastRedeemedAt);
   assert.equal(originalAfter.createdBy, originalBefore.createdBy);
   assert.equal(originalAfter.updatedBy, originalBefore.updatedBy);
@@ -360,7 +362,15 @@ test("only the issue-linked record expiry changes and repeat execution is idempo
   assert.equal(snapshot(repositories.posLicenceIssues), issueBefore);
 
   const update = repositories.posActivationCodes.calls.findOneAndUpdate[0];
-  assert.deepEqual(Object.keys(update.update.$set), ["expiresAt"]);
+  assert.deepEqual(Object.keys(update.update.$set).sort(), ["expiresAt", "status"]);
+  assert.equal(update.query._id, ORIGINAL_CODE_ID);
+  assert.equal(update.query.licenceId, LICENCE_ID);
+  assert.equal(update.query.codeHash, ORIGINAL_HASH);
+  assert.equal(update.query.status, "expired");
+  assert.equal(update.query.redeemedCount, 1);
+  assert.equal(update.query.maxRedemptions, 1);
+  assert.equal(update.update.$set.status, "redeemed");
+  assert.equal(new Date(update.update.$set.expiresAt).getTime(), RECOVERY_EXPIRY.getTime());
   assert.equal(Object.prototype.hasOwnProperty.call(update.update, "$inc"), false);
   assert.equal(update.options.timestamps, false);
   assert.equal(update.options.session.recoverySession, true);
@@ -381,9 +391,31 @@ test("only the issue-linked record expiry changes and repeat execution is idempo
   assert.equal(transactionCalls, 2);
 });
 
-test("a non-redeemed issue-linked code is rejected rather than rewriting status", async () => {
+test("a qualifying expired code not linked by the activation issue cannot be recovered", async () => {
   const repositories = fixtureRepositories();
-  repositories.posActivationCodes.records.get(ORIGINAL_CODE_ID).status = "expired";
+  repositories.posActivationCodes.records.delete(ORIGINAL_CODE_ID);
+  const unrelated = repositories.posActivationCodes.records.get(OTHER_CODE_ID);
+  unrelated.status = "expired";
+  unrelated.expiresAt = ORIGINAL_EXPIRY;
+  unrelated.redeemedCount = 1;
+  const unrelatedBefore = clone(unrelated);
+  const service = createStagingPosOriginalActivationCodeRecoveryService({
+    repositories,
+    clock: () => NOW,
+    async runInTransaction(callback) { return callback({}); }
+  });
+
+  await assert.rejects(
+    () => service.recoverOriginalFixtureActivationCode(STAGING_TEST_FIXTURE_OPERATOR_ACTOR),
+    (error) => error && error.code === "fixture_activation_code_ambiguous"
+  );
+  assert.equal(repositories.posActivationCodes.calls.findOneAndUpdate.length, 0);
+  assert.deepEqual(repositories.posActivationCodes.records.get(OTHER_CODE_ID), unrelatedBefore);
+});
+
+test("an issue-linked record in a state other than expired cannot start recovery", async () => {
+  const repositories = fixtureRepositories();
+  repositories.posActivationCodes.records.get(ORIGINAL_CODE_ID).status = "active";
   const service = createStagingPosOriginalActivationCodeRecoveryService({
     repositories,
     clock: () => NOW,
