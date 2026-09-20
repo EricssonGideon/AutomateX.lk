@@ -503,23 +503,11 @@ test("POS licensing remains isolated from normal startup and production route ex
   });
 
   const routeFiles = fs.readdirSync(path.join(rootDir, "server/routes"))
-    .filter((fileName) => fileName.endsWith(".js") && ![
-      "posLicenceAdmin.js",
-      "internalStagingActivationFixture.js"
-    ].includes(fileName));
+    .filter((fileName) => fileName.endsWith(".js") && fileName !== "posLicenceAdmin.js");
   routeFiles.forEach((fileName) => {
     const source = fs.readFileSync(path.join(rootDir, "server/routes", fileName), "utf8");
     assert.doesNotMatch(source, /posLicenceAdminService|requireLicencePermission/);
   });
-
-  const stagingFixtureRoute = fs.readFileSync(
-    path.join(rootDir, "server/routes", "internalStagingActivationFixture.js"),
-    "utf8"
-  );
-  assert.match(stagingFixtureRoute, /VERCEL_GIT_COMMIT_REF/);
-  assert.match(stagingFixtureRoute, /POS_LICENSING_STAGING_TEST_FIXTURE_ENABLED/);
-  assert.match(stagingFixtureRoute, /POS_LICENSING_STAGING_TEST_FIXTURE_OPERATOR_TOKEN/);
-  assert.doesNotMatch(stagingFixtureRoute, /requireLicencePermission|verifyToken/);
 });
 
 test("POS schemas disable implicit collection and index creation", () => {

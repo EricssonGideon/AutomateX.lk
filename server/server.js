@@ -24,33 +24,6 @@ const {
   mountStagingReadinessEndpoint
 } = require("./routes/internalStagingReadiness");
 const {
-  mountStagingProvisioningEndpoint
-} = require("./routes/internalStagingProvisioning");
-const {
-  mountStagingTestFixtureEndpoint
-} = require("./routes/internalStagingActivationFixture");
-const {
-  mountStagingActivationCodeRotationEndpoint
-} = require("./routes/internalStagingActivationCodeRotation");
-const {
-  mountStagingRenewalCredentialResetEndpoint
-} = require("./routes/internalStagingRenewalCredentialReset");
-const {
-  mountStagingFreshActivationCodeEndpoint
-} = require("./routes/internalStagingFreshActivationCode");
-const {
-  mountStagingOriginalActivationCodeRecoveryEndpoint
-} = require("./routes/internalStagingOriginalActivationCodeRecovery");
-const {
-  mountStagingBootstrapDiagnosticEndpoint
-} = require("./routes/internalStagingRenewalBootstrapDiagnostic");
-const {
-  mountStagingFixtureRenewalPolicyRepairEndpoint
-} = require("./routes/internalStagingFixtureRenewalPolicyRepair");
-const {
-  mountStagingRenewalStateVerifyEndpoint
-} = require("./routes/internalStagingRenewalStateVerification");
-const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -180,15 +153,6 @@ app.get("/api/health", async (_req, res) => {
 
 const stagingReadinessRouter = express.Router();
 mountStagingReadinessEndpoint(stagingReadinessRouter);
-mountStagingProvisioningEndpoint(stagingReadinessRouter);
-mountStagingTestFixtureEndpoint(stagingReadinessRouter);
-mountStagingActivationCodeRotationEndpoint(stagingReadinessRouter);
-mountStagingRenewalCredentialResetEndpoint(stagingReadinessRouter);
-mountStagingFreshActivationCodeEndpoint(stagingReadinessRouter);
-mountStagingOriginalActivationCodeRecoveryEndpoint(stagingReadinessRouter);
-mountStagingBootstrapDiagnosticEndpoint(stagingReadinessRouter);
-mountStagingFixtureRenewalPolicyRepairEndpoint(stagingReadinessRouter);
-mountStagingRenewalStateVerifyEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
