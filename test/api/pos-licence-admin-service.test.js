@@ -98,6 +98,11 @@ function createRepository(initialRecords = []) {
         throw duplicate;
       }
       const _id = input._id || new mongoose.Types.ObjectId().toString();
+      if (records.has(String(_id))) {
+        const duplicate = new Error("duplicate key error");
+        duplicate.code = 11000;
+        throw duplicate;
+      }
       const record = {
         __v: 0,
         createdAt: new Date("2026-08-31T00:00:00.000Z"),
@@ -254,6 +259,42 @@ test("authorized admins can create and update draft POS licences with valid refe
   assert.deepEqual(updated.licence.entitledModules, [...POS_STANDARD_MANDATORY_MODULE_IDS, "reports"]);
   assert.equal(updated.licence.version, 1);
   assert.equal(repositories.posLicences.calls.findOneAndUpdate, 1);
+});
+
+test("trusted internal licence identity is deterministic and never accepted from public input", async () => {
+  const { service } = createFixtureService();
+  const internalDocumentId = "507f1f77bcf86cd799439099";
+  const created = await service.createDraftLicence(ADMIN, {
+    clientId: CLIENT_ID,
+    projectId: PROJECT_ID,
+    packageId: PACKAGE_ID,
+    edition: "standard",
+    entitledModules: [...POS_STANDARD_MANDATORY_MODULE_IDS, "reports"],
+    updateChannel: "stable",
+    licenceExpiry: futureDate(30),
+    supportExpiry: futureDate(90)
+  }, { internalDocumentId });
+
+  assert.equal(created.licence.id, internalDocumentId);
+  await assertServiceRejects(
+    () => service.createDraftLicence(ADMIN, {
+      clientId: CLIENT_ID,
+      projectId: PROJECT_ID,
+      packageId: PACKAGE_ID,
+      entitledModules: [...POS_STANDARD_MANDATORY_MODULE_IDS, "reports"],
+      updateChannel: "stable",
+      licenceExpiry: futureDate(30)
+    }, { internalDocumentId }),
+    "internal_document_id_conflict"
+  );
+  await assertServiceRejects(
+    () => service.createDraftLicence(ADMIN, { clientId: CLIENT_ID, _id: internalDocumentId }),
+    "protected_field"
+  );
+  await assertServiceRejects(
+    () => service.createDraftLicence(ADMIN, { clientId: CLIENT_ID }, { internalDocumentId: "invalid" }),
+    "invalid_internal_document_id"
+  );
 });
 
 test("unauthorized callers fail before protected reads or writes", async () => {

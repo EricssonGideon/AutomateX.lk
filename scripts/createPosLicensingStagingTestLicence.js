@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const mongoose = require("mongoose");
 
 const AuditLog = require("../server/models/AuditLog");
@@ -88,6 +89,14 @@ function clean(value) {
 
 function idText(value) {
   return value ? String(value._id || value.id || value) : "";
+}
+
+function stagingLicenceDocumentId(testMarker) {
+  return crypto
+    .createHash("sha256")
+    .update(`automatex-pos-staging-test-licence:v1:${clean(testMarker)}`, "utf8")
+    .digest("hex")
+    .slice(0, 24);
 }
 
 function parseCliArguments(argv = []) {
@@ -360,7 +369,10 @@ async function applyStagingLicencePlan(options) {
         offlineValidUntil,
         maxInstallations: 1,
         notes: input.testMarker
-      }, { session });
+      }, {
+        session,
+        internalDocumentId: stagingLicenceDocumentId(input.testMarker)
+      });
       assertAuditSucceeded(draftResult);
 
       const licenceId = draftResult.licence.id;
@@ -418,15 +430,26 @@ async function applyStagingLicencePlan(options) {
         maxRedemptions: 1
       });
 
+      if (!approvedResult || !approvedResult.licence || approvedResult.licence.status !== "active") {
+        fail("staging_licence_activation_failed");
+      }
+
       committedResult = Object.freeze({
         activationCode: issuedResult.activationCode,
         activationCodeExpiresAt: activationCodeExpiry.toISOString(),
         activationCodeId: issuedResult.activationCodeMetadata.id,
         licenceExpiry: licenceExpiry.toISOString(),
         licenceId: approvedResult.licence.id,
+        licenceStatus: approvedResult.licence.status,
+        maxInstallations: 1,
         marker: input.testMarker
       });
     }, REQUIRED_POS_TRANSACTION_OPTIONS);
+  } catch (error) {
+    if (error && error.code === "internal_document_id_conflict") {
+      fail("test_marker_already_exists");
+    }
+    throw error;
   } finally {
     await session.endSession();
   }
@@ -477,6 +500,8 @@ function applyOutput(result) {
     licenceExpiry: result.licenceExpiry,
     activationCodeId: result.activationCodeId,
     activationCodeExpiresAt: result.activationCodeExpiresAt,
+    licenceStatus: result.licenceStatus,
+    maxInstallations: result.maxInstallations,
     activationCode: result.activationCode
   });
 }
@@ -574,6 +599,7 @@ module.exports = {
   parseCliArguments,
   readOperatorPrerequisites,
   runStagingTestLicenceOperator,
+  stagingLicenceDocumentId,
   stagingValidationEnvironment,
   validateConnectedDatabase,
   validateExecutionContext,

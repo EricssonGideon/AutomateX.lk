@@ -36,6 +36,9 @@ const {
   mountStagingTestLicenceDryRunEndpoint
 } = require("./routes/internalStagingTestLicenceDryRun");
 const {
+  mountStagingTestLicenceApplyEndpoint
+} = require("./routes/internalStagingTestLicenceApply");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -169,6 +172,7 @@ mountStagingPublicKeyEndpoint(stagingReadinessRouter);
 mountStagingActivationEligibilityEndpoint(stagingReadinessRouter);
 mountStagingAdminBootstrapEndpoint(stagingReadinessRouter);
 mountStagingTestLicenceDryRunEndpoint(stagingReadinessRouter);
+mountStagingTestLicenceApplyEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {

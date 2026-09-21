@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+
 const User = require("../models/User");
 const Project = require("../models/Project");
 const AuditLog = require("../models/AuditLog");
@@ -757,6 +759,13 @@ function createPosLicenceAdminService(options = {}) {
         createdBy: actor.id,
         updatedBy: actor.id
       });
+      if (optionsForCreate.internalDocumentId) {
+        const internalDocumentId = String(optionsForCreate.internalDocumentId).trim().toLowerCase();
+        if (!mongoose.Types.ObjectId.isValid(internalDocumentId) || String(new mongoose.Types.ObjectId(internalDocumentId)) !== internalDocumentId) {
+          throw new PosLicenceAdminServiceError(500, "invalid_internal_document_id", "Internal POS licence identity is invalid.");
+        }
+        candidate._id = new mongoose.Types.ObjectId(internalDocumentId);
+      }
       const references = await loadLicenceReferences(repositories, candidate, optionsForCreate);
 
       assertRequiredLicenceFields(candidate);
@@ -768,9 +777,17 @@ function createPosLicenceAdminService(options = {}) {
         throwPolicyErrors(validateLicencePackageConsistency(candidate, references.posPackage));
       }
 
-      const created = optionsForCreate.session
-        ? await repositories.posLicences.create([candidate], { session: optionsForCreate.session })
-        : await repositories.posLicences.create(candidate);
+      let created;
+      try {
+        created = optionsForCreate.session
+          ? await repositories.posLicences.create([candidate], { session: optionsForCreate.session })
+          : await repositories.posLicences.create(candidate);
+      } catch (error) {
+        if (optionsForCreate.internalDocumentId && isDuplicateKeyError(error)) {
+          throw new PosLicenceAdminServiceError(409, "internal_document_id_conflict", "Internal POS licence identity already exists.");
+        }
+        throw error;
+      }
       const record = Array.isArray(created) ? created[0] : created;
       const audit = await writeLicenceAudit(auditLogger, actor, {
         action: "licences.licence.create-draft",

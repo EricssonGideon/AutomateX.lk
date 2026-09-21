@@ -8,6 +8,7 @@ const {
   executeStagingTestLicenceOperatorCommand,
   parseCliArguments,
   runStagingTestLicenceOperator,
+  stagingLicenceDocumentId,
   stagingValidationEnvironment,
   validateExecutionContext,
   validatePrerequisites
@@ -257,6 +258,7 @@ test("writes require --apply", async () => {
 
 test("apply plan returns plaintext only after the outer transaction commits", async () => {
   const events = [];
+  const now = new Date("2030-01-01T00:00:00.000Z");
   let releaseCommit;
   const commitGate = new Promise((resolve) => {
     releaseCommit = resolve;
@@ -277,7 +279,9 @@ test("apply plan returns plaintext only after the outer transaction commits", as
   const initial = validatePrerequisites(records, transactionCapability());
   const repositories = {
     posLicences: {
-      async findOneAndUpdate() {
+      async findOneAndUpdate(_query, update, options) {
+        assert.equal(options.session, session);
+        assert.equal(update.$set.renewalWindowDurationMinutes, 60);
         events.push("renewal-policy-written");
         return { __v: 1 };
       }
@@ -292,8 +296,13 @@ test("apply plan returns plaintext only after the outer transaction commits", as
   const createAdminService = () => ({
     async createDraftLicence(_actor, input, options) {
       assert.equal(options.session, session);
+      assert.equal(options.internalDocumentId, stagingLicenceDocumentId(MARKER));
       assert.equal(input.maxInstallations, 1);
       assert.deepEqual(input.entitledModules, POS_STANDARD_MODULE_IDS);
+      assert.equal(input.edition, "standard");
+      assert.equal(input.licenceExpiry.getTime() - now.getTime(), 24 * 60 * 60 * 1000);
+      assert.equal(input.supportExpiry.getTime() - now.getTime(), 24 * 60 * 60 * 1000);
+      assert.equal(input.offlineValidUntil.getTime() - now.getTime(), 6 * 60 * 60 * 1000);
       events.push("draft-created");
       return { licence: { id: "licence1", version: 0 }, audit: { ok: true } };
     }
@@ -304,7 +313,7 @@ test("apply plan returns plaintext only after the outer transaction commits", as
         assert.equal(nestedSession, session);
       });
       events.push("licence-approved");
-      return { licence: { id: "licence1" } };
+      return { licence: { id: "licence1", status: "active" } };
     }
   });
   const createActivationService = ({ runInTransaction }) => ({
@@ -313,6 +322,7 @@ test("apply plan returns plaintext only after the outer transaction commits", as
         assert.equal(nestedSession, session);
       });
       assert.equal(input.maxRedemptions, 1);
+      assert.equal(input.expiresAt.getTime() - now.getTime(), 60 * 60 * 1000);
       events.push("activation-issued");
       return {
         activationCode: "plaintext-only-after-commit",
@@ -332,7 +342,7 @@ test("apply plan returns plaintext only after the outer transaction commits", as
     createAdminService,
     createLifecycleService,
     createActivationService,
-    clock: () => new Date("2030-01-01T00:00:00.000Z")
+    clock: () => now
   }).then((result) => {
     resolved = true;
     return result;
@@ -344,7 +354,138 @@ test("apply plan returns plaintext only after the outer transaction commits", as
   releaseCommit();
   const result = await resultPromise;
   assert.equal(result.activationCode, "plaintext-only-after-commit");
-  assert.ok(events.indexOf("committed") < events.indexOf("session-ended"));
+  assert.equal(result.licenceStatus, "active");
+  assert.equal(result.maxInstallations, 1);
+  assert.deepEqual(events, [
+    "transaction-started",
+    "draft-created",
+    "renewal-policy-written",
+    "renewal-audited",
+    "licence-approved",
+    "activation-issued",
+    "callback-complete",
+    "committed",
+    "session-ended"
+  ]);
+});
+
+test("apply transaction revalidates prerequisites before its first write", async () => {
+  const session = {
+    async withTransaction(callback) { await callback(); },
+    async endSession() {}
+  };
+  let writeServiceCalls = 0;
+  const initialRecords = prerequisites();
+  await assert.rejects(
+    applyStagingLicencePlan({
+      connection: { async startSession() { return session; } },
+      input: { apply: true, adminId: ADMIN_ID, testMarker: MARKER },
+      repositories: {},
+      initialPrerequisites: validatePrerequisites(initialRecords, transactionCapability()),
+      readPrerequisites: async () => prerequisites({ clients: [] }),
+      createAdminService: () => {
+        writeServiceCalls += 1;
+        return {};
+      }
+    }),
+    (error) => error.code === "fixture_client_missing_or_ambiguous"
+  );
+  assert.equal(writeServiceCalls, 0);
+});
+
+test("duplicate marker is rejected before writes and deterministic-ID races fail closed", async () => {
+  let applyCalls = 0;
+  await assert.rejects(
+    runStagingTestLicenceOperator(runnerOptions({
+      argv: ["--admin-id", ADMIN_ID, "--test-marker", MARKER, "--apply"],
+      readPrerequisites: async () => prerequisites({ markerMatches: [{ _id: objectId("existing") }] }),
+      applyPlan: async () => { applyCalls += 1; }
+    })),
+    (error) => error.code === "test_marker_already_exists"
+  );
+  assert.equal(applyCalls, 0);
+
+  const duplicate = new Error("duplicate deterministic staging licence identity");
+  duplicate.code = "internal_document_id_conflict";
+  const session = {
+    async withTransaction() { throw duplicate; },
+    async endSession() {}
+  };
+  await assert.rejects(
+    applyStagingLicencePlan({
+      connection: { async startSession() { return session; } },
+      input: { apply: true, adminId: ADMIN_ID, testMarker: MARKER },
+      repositories: {},
+      initialPrerequisites: validatePrerequisites(prerequisites(), transactionCapability())
+    }),
+    (error) => error.code === "test_marker_already_exists"
+  );
+});
+
+test("transaction rollback returns no activation plaintext or partial result", async () => {
+  const events = [];
+  const session = {
+    async withTransaction(callback) {
+      events.push("transaction-started");
+      await callback();
+      events.push("rollback");
+      throw new Error("simulated commit failure");
+    },
+    async endSession() { events.push("session-ended"); }
+  };
+  const records = prerequisites();
+  const initial = validatePrerequisites(records, transactionCapability());
+  const repositories = {
+    posLicences: {
+      async findOneAndUpdate() { return { __v: 1 }; }
+    }
+  };
+  const auditLogger = { async create() { return {}; } };
+  const createAdminService = () => ({
+    async createDraftLicence() {
+      events.push("licence-staged");
+      return { licence: { id: "licence1", version: 0 }, audit: { ok: true } };
+    }
+  });
+  const createLifecycleService = () => ({
+    async approveDraftLicence() {
+      events.push("approval-staged");
+      return { licence: { id: "licence1", status: "active" } };
+    }
+  });
+  const createActivationService = () => ({
+    async issueActivationCode() {
+      events.push("activation-staged");
+      return {
+        activationCode: "plaintext-must-be-discarded",
+        activationCodeMetadata: { id: "activation1" }
+      };
+    }
+  });
+
+  await assert.rejects(
+    applyStagingLicencePlan({
+      connection: { async startSession() { return session; } },
+      input: { apply: true, adminId: ADMIN_ID, testMarker: MARKER },
+      repositories,
+      initialPrerequisites: initial,
+      readPrerequisites: async () => records,
+      auditLogger,
+      createAdminService,
+      createLifecycleService,
+      createActivationService,
+      clock: () => new Date("2030-01-01T00:00:00.000Z")
+    }),
+    /simulated commit failure/
+  );
+  assert.deepEqual(events, [
+    "transaction-started",
+    "licence-staged",
+    "approval-staged",
+    "activation-staged",
+    "rollback",
+    "session-ended"
+  ]);
 });
 
 test("failed commit never writes activation plaintext to command output", async () => {
