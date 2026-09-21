@@ -16,7 +16,7 @@ function capability(overrides = {}) {
   });
 }
 
-async function inspectMongoTransactionCapability(connection) {
+async function inspectMongoTransactionCapability(connection, options = {}) {
   if (!connection || !connection.db || typeof connection.db.admin !== "function") {
     return capability({ reason: "database_not_connected" });
   }
@@ -42,14 +42,31 @@ async function inspectMongoTransactionCapability(connection) {
   }
 
   let session;
+  let transactionStarted = false;
+  let transactionAborted = false;
   try {
     session = await connection.startSession();
-    if (!session || typeof session.withTransaction !== "function") {
+    if (!session) {
       return capability({ verified: true, logicalSessions: true, transactionalTopology: true, reason: "transaction_api_unavailable" });
     }
-    await session.withTransaction(async () => {
+
+    if (options.abortAfterProbe === true) {
+      if (typeof session.startTransaction !== "function" || typeof session.abortTransaction !== "function") {
+        return capability({ verified: true, logicalSessions: true, transactionalTopology: true, reason: "transaction_api_unavailable" });
+      }
+      session.startTransaction(REQUIRED_POS_TRANSACTION_OPTIONS);
+      transactionStarted = true;
       await connection.db.collection("pospackages").findOne({}, { session, projection: { _id: 1 } });
-    }, REQUIRED_POS_TRANSACTION_OPTIONS);
+      await session.abortTransaction();
+      transactionAborted = true;
+    } else {
+      if (typeof session.withTransaction !== "function") {
+        return capability({ verified: true, logicalSessions: true, transactionalTopology: true, reason: "transaction_api_unavailable" });
+      }
+      await session.withTransaction(async () => {
+        await connection.db.collection("pospackages").findOne({}, { session, projection: { _id: 1 } });
+      }, REQUIRED_POS_TRANSACTION_OPTIONS);
+    }
     return capability({
       supported: true,
       verified: true,
@@ -61,6 +78,9 @@ async function inspectMongoTransactionCapability(connection) {
   } catch {
     return capability({ verified: true, logicalSessions: true, transactionalTopology: true, reason: "transaction_probe_failed" });
   } finally {
+    if (session && transactionStarted && !transactionAborted && typeof session.abortTransaction === "function") {
+      await session.abortTransaction().catch(() => null);
+    }
     if (session && typeof session.endSession === "function") {
       await session.endSession().catch(() => null);
     }

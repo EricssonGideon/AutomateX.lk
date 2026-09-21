@@ -313,6 +313,34 @@ test("successful simulated transaction probe uses required safety options and pa
   }
 });
 
+test("abort-only transaction probe verifies capability without a commit", async () => {
+  const events = [];
+  const session = {
+    startTransaction(transactionOptions) {
+      events.push(["startTransaction", transactionOptions]);
+    },
+    async abortTransaction() {
+      events.push(["abortTransaction"]);
+    },
+    async endSession() {
+      events.push(["endSession"]);
+    }
+  };
+  const connection = transactionConnection(
+    { logicalSessionTimeoutMinutes: 30, setName: "rs0" },
+    { events, session }
+  );
+  const result = await inspectMongoTransactionCapability(connection, { abortAfterProbe: true });
+
+  assert.equal(result.supported, true);
+  assert.equal(result.probePassed, true);
+  assert.deepEqual(events.find(([event]) => event === "startTransaction")[1], REQUIRED_POS_TRANSACTION_OPTIONS);
+  assert.equal(events.filter(([event]) => event === "findOne").length, 1);
+  assert.equal(events.filter(([event]) => event === "abortTransaction").length, 1);
+  assert.equal(events.filter(([event]) => event === "withTransaction").length, 0);
+  assert.equal(events.filter(([event]) => event === "endSession").length, 1);
+});
+
 test("provisioning dry run is repeatable, non-writing, and definitions stay valid", async () => {
   const connection = new Proxy({}, {
     get() {
