@@ -15,6 +15,7 @@
     "check:pos-licensing-staging": "node scripts/checkPosLicensingStagingReadiness.js",
     "check:pos-licensing-staging-fixture": "node scripts/checkPosLicensingStagingFixtureEligibility.js",
     "check:pos-licensing-secrets": "node scripts/checkPosLicensingSecrets.js",
+    "operator:pos-licensing-staging-test-licence": "node scripts/createPosLicensingStagingTestLicence.js",
     "provision:pos-licensing": "node scripts/provisionPosLicensing.js",
     "provision:pos-licensing-staging": "node scripts/provisionPosLicensingStaging.js",
     "seed:admin": "node server/scripts/createAdmin.js",
