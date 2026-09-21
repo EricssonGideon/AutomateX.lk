@@ -8,9 +8,13 @@ const {
   executeStagingTestLicenceOperatorCommand,
   parseCliArguments,
   runStagingTestLicenceOperator,
+  stagingValidationEnvironment,
   validateExecutionContext,
   validatePrerequisites
 } = require("../../scripts/createPosLicensingStagingTestLicence");
+const {
+  validateStagingLicensingConfig
+} = require("../../server/config/posLicensingProduction");
 const {
   FIXTURE_CLIENT_EMAIL,
   FIXTURE_CLIENT_NAME,
@@ -34,6 +38,29 @@ function stagingEnv(overrides = {}) {
     VERCEL_GIT_COMMIT_REF: "pos-licensing-staging",
     AUTOMATEX_ENV: "staging",
     POS_LICENSING_MODE: "staging",
+    ...overrides
+  };
+}
+
+function vercelStagingConfigEnv(overrides = {}) {
+  return {
+    ...stagingEnv(),
+    VERCEL: "1",
+    NODE_ENV: "production",
+    POS_LICENSING_ENVIRONMENT: "staging",
+    POS_LICENSING_CLIENT_SCOPE: "staging-only",
+    POS_LICENSING_SECRET_ENVIRONMENT: "staging",
+    POS_LICENSING_SECRET_SOURCE: "secret-manager",
+    MONGO_URI: "mongodb+srv://staging_user:staging_password@staging.example/automatex_pos_staging",
+    POS_LICENSING_DATABASE_NAME: "automatex_pos_staging",
+    POS_LICENSING_MACHINE_API_ORIGIN: "https://licensing-staging.example.com",
+    POS_LICENSING_PRODUCTION_HOSTNAME: "licensing.example.com",
+    POS_LICENSING_STAGING_HOSTNAME: "licensing-staging.example.com",
+    POS_LICENSING_PROXY_TRUST_MODE: "vercel",
+    ALLOWED_ORIGINS: "https://company-staging.example.com",
+    POS_LICENSING_PRODUCTION_ADMIN_ORIGINS: "https://company.example.com",
+    POS_LICENSING_STAGING_ADMIN_ORIGINS: "https://company-staging.example.com",
+    POS_LICENSING_MACHINE_ALLOWED_ORIGINS: "none",
     ...overrides
   };
 }
@@ -127,6 +154,20 @@ test("requires exact staging preview branch guards", () => {
       (error) => error.code === "staging_execution_context_rejected"
     );
   }
+});
+
+test("Vercel runtime identity survives the safe staging configuration projection", () => {
+  const projected = stagingValidationEnvironment(vercelStagingConfigEnv({
+    POS_LICENSING_SIGNING_PRIVATE_JWK_B64: "excluded-private-material",
+    POS_LICENSING_STAGING_TEST_LICENCE_DRY_RUN_TOKEN: "excluded-operator-token"
+  }));
+  assert.equal(projected.VERCEL, "1");
+  assert.equal("POS_LICENSING_SIGNING_PRIVATE_JWK_B64" in projected, false);
+  assert.equal("POS_LICENSING_STAGING_TEST_LICENCE_DRY_RUN_TOKEN" in projected, false);
+  const config = validateStagingLicensingConfig(projected);
+  assert.equal(config.environment, "staging");
+  assert.equal(config.transport.proxy.mode, "vercel");
+  assert.equal(config.transport.proxy.verifiedVercelRuntime, true);
 });
 
 test("requires explicit admin ID and uniquely prefixed staging marker", () => {

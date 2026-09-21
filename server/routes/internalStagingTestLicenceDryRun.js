@@ -2,7 +2,6 @@ const crypto = require("node:crypto");
 const mongoose = require("mongoose");
 
 const {
-  StagingTestLicenceOperatorError,
   runStagingTestLicenceOperator
 } = require("../../scripts/createPosLicensingStagingTestLicence");
 const {
@@ -107,26 +106,61 @@ function emptyResponse(blocker) {
 
 function failureResponse(error) {
   const response = emptyResponse("dry_run_unavailable");
-  if (!(error instanceof StagingTestLicenceOperatorError)) {
-    return response;
-  }
+  const code = clean(error && error.code);
+  const environmentErrorCodes = new Set([
+    "admin_origin_environment_collision",
+    "admin_origin_not_application_approved",
+    "approved_hostname_invalid",
+    "cors_allowlist_invalid",
+    "database_name_mismatch",
+    "environment_mismatch",
+    "explicit_environment_required",
+    "hostname_environment_collision",
+    "https_origin_invalid",
+    "implicit_database_forbidden",
+    "invalid_environment",
+    "invalid_secret_environment",
+    "machine_browser_cors_not_approved",
+    "machine_origin_hostname_mismatch",
+    "missing_configuration",
+    "missing_transport_configuration",
+    "production_signing_fallback_forbidden",
+    "proxy_trust_environment_invalid",
+    "proxy_trust_environment_mismatch",
+    "proxy_trust_invalid",
+    "proxy_trust_unresolved",
+    "proxy_trust_vercel_runtime_invalid",
+    "secret_environment_mismatch",
+    "staging_configuration_rejected",
+    "staging_database_identity_mismatch",
+    "staging_execution_context_rejected",
+    "transport_environment_invalid",
+    "unauthenticated_mongodb_configuration",
+    "unapproved_secret_source",
+    "unsafe_client_scope",
+    "unsafe_database_name",
+    "unsafe_mongodb_configuration"
+  ]);
 
-  const code = error.code;
-  if (["staging_admin_missing_or_ambiguous", "staging_admin_inactive", "staging_admin_unauthorized"].includes(code)) {
+  if (environmentErrorCodes.has(code)) {
+    response.blocker = "environment_mismatch";
+  } else if (code === "staging_admin_missing_or_ambiguous") {
+    response.blocker = "admin_missing";
+  } else if (["staging_admin_inactive", "staging_admin_unauthorized"].includes(code)) {
     response.blocker = "admin_invalid";
   } else if (code === "fixture_client_missing_or_ambiguous") {
-    response.blocker = "client_invalid";
+    response.blocker = "client_missing";
   } else if (code === "fixture_client_identity_mismatch") {
     response.adminValid = true;
     response.blocker = "client_invalid";
   } else if (code === "fixture_project_missing_or_ambiguous") {
-    response.blocker = "project_invalid";
+    response.blocker = "project_missing";
   } else if (code === "fixture_project_identity_mismatch") {
     response.adminValid = true;
     response.clientValid = true;
     response.blocker = "project_invalid";
   } else if (code === "fixture_package_missing_or_ambiguous") {
-    response.blocker = "package_invalid";
+    response.blocker = "package_missing";
   } else if ([
     "fixture_package_identity_mismatch",
     "fixture_package_standard_contract_invalid"
@@ -140,7 +174,7 @@ function failureResponse(error) {
     response.clientValid = true;
     response.projectValid = true;
     response.packageValid = true;
-    response.blocker = "marker_not_unique";
+    response.blocker = "marker_conflict";
   } else if (code === "mongodb_transaction_requirement_failed") {
     response.adminValid = true;
     response.clientValid = true;

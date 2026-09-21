@@ -332,15 +332,58 @@ test("actual operator dry-run performs zero writes and aborts its capability tra
 });
 
 test("operator failures return fixed sanitized fields only", async () => {
-  const { StagingTestLicenceOperatorError } = require("../../scripts/createPosLicensingStagingTestLicence");
   const response = await invoke(stagingEnvironment(), `Bearer ${OPERATOR_TOKEN}`, {
-    runOperator: async () => { throw new StagingTestLicenceOperatorError("staging_admin_unauthorized"); }
+    runOperator: async () => {
+      const error = new Error("sensitive internal detail");
+      error.code = "staging_admin_unauthorized";
+      throw error;
+    }
   });
   assert.equal(response.statusCode, 503);
   assert.deepEqual(Object.keys(response.body), RESPONSE_FIELDS);
   assert.equal(response.body.adminValid, false);
   assert.equal(response.body.safeToApply, false);
   assert.equal(response.body.blocker, "admin_invalid");
+  assert.equal(JSON.stringify(response.body).includes("sensitive internal detail"), false);
+});
+
+test("known failures map to fixed sanitized blocker codes", async () => {
+  const cases = [
+    ["staging_admin_missing_or_ambiguous", "admin_missing"],
+    ["fixture_client_missing_or_ambiguous", "client_missing"],
+    ["fixture_project_missing_or_ambiguous", "project_missing"],
+    ["fixture_package_missing_or_ambiguous", "package_missing"],
+    ["mongodb_transaction_requirement_failed", "transaction_unavailable"],
+    ["test_marker_already_exists", "marker_conflict"],
+    ["proxy_trust_vercel_runtime_invalid", "environment_mismatch"],
+    ["staging_database_identity_mismatch", "environment_mismatch"]
+  ];
+
+  for (const [code, blocker] of cases) {
+    const response = await invoke(stagingEnvironment(), `Bearer ${OPERATOR_TOKEN}`, {
+      runOperator: async () => {
+        const error = new Error("must not be returned");
+        error.code = code;
+        throw error;
+      }
+    });
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(Object.keys(response.body), RESPONSE_FIELDS);
+    assert.equal(response.body.blocker, blocker);
+    assert.equal(JSON.stringify(response.body).includes(code), false);
+    assert.equal(JSON.stringify(response.body).includes("must not be returned"), false);
+  }
+
+  const unknown = await invoke(stagingEnvironment(), `Bearer ${OPERATOR_TOKEN}`, {
+    runOperator: async () => {
+      const error = new Error("unknown internal failure");
+      error.code = "unrecognized_internal_code";
+      throw error;
+    }
+  });
+  assert.equal(unknown.statusCode, 503);
+  assert.equal(unknown.body.blocker, "dry_run_unavailable");
+  assert.equal(JSON.stringify(unknown.body).includes("unrecognized_internal_code"), false);
 });
 
 test("operator token is rejected from request fields and redacted from runtime logs", () => {
