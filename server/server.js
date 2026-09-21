@@ -30,6 +30,9 @@ const {
   mountStagingActivationEligibilityEndpoint
 } = require("./routes/internalStagingActivationEligibility");
 const {
+  mountStagingAdminBootstrapEndpoint
+} = require("./routes/internalStagingAdminBootstrap");
+const {
   mountStagingPosMachineRoutes
 } = require("./routes/stagingPosLicensing");
 
@@ -161,6 +164,7 @@ const stagingReadinessRouter = express.Router();
 mountStagingReadinessEndpoint(stagingReadinessRouter);
 mountStagingPublicKeyEndpoint(stagingReadinessRouter);
 mountStagingActivationEligibilityEndpoint(stagingReadinessRouter);
+mountStagingAdminBootstrapEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
 app.use("/api", async (_req, _res, next) => {
