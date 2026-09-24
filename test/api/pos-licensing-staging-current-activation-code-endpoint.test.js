@@ -5,6 +5,7 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || "pos-staging-current-activati
 
 const {
   RESPONSE_FIELDS,
+  SAFE_REASON_CODES,
   STAGING_CURRENT_ACTIVATION_CODE_PATH,
   TARGET_LICENCE_ID,
   createStagingCurrentActivationCodeHandler,
@@ -114,6 +115,7 @@ async function invoke(env, authorization, options = {}) {
     },
     repository: repositoryReturning([activationCodeRecord()]),
     clock: () => NOW,
+    logger: { warn() {} },
     ...options
   });
   await handler(request(authorization, options.query), response);
@@ -222,6 +224,20 @@ test("zero records fail closed", async () => {
   });
   assert.equal(response.statusCode, 503);
   assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
+});
+
+test("null, undefined, and empty expiry values fail closed without becoming the Unix epoch", async () => {
+  for (const expiresAt of [null, undefined, "", "   "]) {
+    const warnings = [];
+    const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
+      repository: repositoryReturning([activationCodeRecord({ expiresAt })]),
+      logger: { warn(message) { warnings.push(message); } }
+    });
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
+    assert.deepEqual(warnings, ["[staging-current-activation-code] reason=malformed_record"]);
+    assert.equal(JSON.stringify(response.body).includes("1970-01-01"), false);
+  }
 });
 
 test("wrong licence and malformed records fail closed", async () => {
@@ -339,6 +355,72 @@ test("database mismatch and query errors return only a generic response", async 
     assert.equal(response.statusCode, 503);
     assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
     assert.equal(JSON.stringify(response.body).includes(DIAGNOSTIC_TOKEN), false);
+  }
+});
+
+test("failures log only allowlisted safe reason codes and keep client responses generic", async () => {
+  const cases = [
+    {
+      reason: "mongo_config_invalid",
+      options: { validateMongoConfig() { throw new Error(`token=${DIAGNOSTIC_TOKEN}`); } }
+    },
+    {
+      reason: "database_mismatch",
+      options: { connection: { name: "unexpected_database" } }
+    },
+    {
+      reason: "database_connection_failed",
+      options: {
+        connection: null,
+        connectionProvider() { throw new Error("mongodb://user:password@private-host/staging"); }
+      }
+    },
+    {
+      reason: "no_records",
+      options: { repository: repositoryReturning([]) }
+    },
+    {
+      reason: "query_failed",
+      options: {
+        repository: {
+          find() {
+            throw new Error(`codeHash=sha256:v1:secret activationCode=posac_secret privateKey=secret token=${DIAGNOSTIC_TOKEN}`);
+          }
+        }
+      }
+    },
+    {
+      reason: "malformed_record",
+      options: { repository: repositoryReturning([activationCodeRecord({ expiresAt: null })]) }
+    },
+    {
+      reason: "invalid_clock",
+      options: { clock: () => new Date("invalid") }
+    }
+  ];
+
+  assert.deepEqual(cases.map(({ reason }) => reason), SAFE_REASON_CODES);
+  for (const { reason, options } of cases) {
+    const warnings = [];
+    const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
+      ...options,
+      logger: { warn(message) { warnings.push(message); } }
+    });
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
+    assert.deepEqual(warnings, [`[staging-current-activation-code] reason=${reason}`]);
+    const serialized = JSON.stringify({ warnings, response: response.body });
+    for (const secret of [
+      DIAGNOSTIC_TOKEN,
+      "mongodb://",
+      "password",
+      "codeHash",
+      "posac_secret",
+      "privateKey",
+      "sha256:v1:secret"
+    ]) {
+      assert.equal(serialized.includes(secret), false);
+    }
   }
 });
 

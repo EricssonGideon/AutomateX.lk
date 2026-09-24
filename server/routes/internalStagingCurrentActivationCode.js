@@ -23,6 +23,48 @@ const RESPONSE_FIELDS = Object.freeze([
 const NOT_FOUND_RESPONSE = Object.freeze({ message: "Not found." });
 const UNAUTHORIZED_RESPONSE = Object.freeze({ message: "Unauthorized." });
 const UNAVAILABLE_RESPONSE = Object.freeze({ message: "Activation-code diagnostic unavailable." });
+const SAFE_REASON_CODES = Object.freeze([
+  "mongo_config_invalid",
+  "database_mismatch",
+  "database_connection_failed",
+  "no_records",
+  "query_failed",
+  "malformed_record",
+  "invalid_clock"
+]);
+const SAFE_REASON_CODE_SET = new Set(SAFE_REASON_CODES);
+
+class StagingCurrentActivationCodeDiagnosticError extends Error {
+  constructor(reasonCode) {
+    super(reasonCode);
+    this.name = "StagingCurrentActivationCodeDiagnosticError";
+    this.reasonCode = reasonCode;
+  }
+}
+
+function fail(reasonCode) {
+  throw new StagingCurrentActivationCodeDiagnosticError(reasonCode);
+}
+
+function safeReasonCode(error) {
+  return error instanceof StagingCurrentActivationCodeDiagnosticError &&
+    SAFE_REASON_CODE_SET.has(error.reasonCode)
+    ? error.reasonCode
+    : "query_failed";
+}
+
+function logSafeReason(logger, reasonCode) {
+  if (!SAFE_REASON_CODE_SET.has(reasonCode)) {
+    return;
+  }
+  try {
+    if (logger && typeof logger.warn === "function") {
+      logger.warn(`[staging-current-activation-code] reason=${reasonCode}`);
+    }
+  } catch {
+    // Diagnostic logging must not alter fail-closed HTTP behaviour.
+  }
+}
 
 function clean(value) {
   return String(value || "").trim();
@@ -89,32 +131,46 @@ function canonicalObjectId(value) {
 async function resolveCurrentActivationCode(options = {}) {
   const repository = options.repository || PosActivationCode;
   const clock = options.clock || (() => new Date());
-  let query = repository.find({
-    licenceId: TARGET_LICENCE_ID
-  });
-  if (query && typeof query.select === "function") {
-    query = query.select("_id licenceId status redeemedCount maxRedemptions expiresAt");
+  let records;
+  try {
+    let query = repository.find({
+      licenceId: TARGET_LICENCE_ID
+    });
+    if (query && typeof query.select === "function") {
+      query = query.select("_id licenceId status redeemedCount maxRedemptions expiresAt");
+    }
+    if (query && typeof query.sort === "function") {
+      query = query.sort({ _id: 1 });
+    }
+    if (query && typeof query.lean === "function") {
+      query = query.lean();
+    }
+    records = await query || [];
+  } catch {
+    fail("query_failed");
   }
-  if (query && typeof query.sort === "function") {
-    query = query.sort({ _id: 1 });
-  }
-  if (query && typeof query.lean === "function") {
-    query = query.lean();
-  }
-  const records = await query || [];
   if (!Array.isArray(records) || records.length < 1) {
-    throw new Error("Current activation-code records are unavailable.");
+    fail("no_records");
   }
 
-  const now = clock();
+  let now;
+  try {
+    now = clock();
+  } catch {
+    fail("invalid_clock");
+  }
   if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
-    throw new Error("Current activation-code diagnostic clock is invalid.");
+    fail("invalid_clock");
   }
 
   const sanitizedRecords = records.map((record) => {
     const activationCodeId = canonicalObjectId(record);
     const licenceId = canonicalObjectId(record && record.licenceId);
-    const expiresAt = new Date(record && record.expiresAt);
+    const expiresAtValue = record && record.expiresAt;
+    const missingExpiresAt = expiresAtValue === null ||
+      expiresAtValue === undefined ||
+      typeof expiresAtValue === "string" && expiresAtValue.trim() === "";
+    const expiresAt = missingExpiresAt ? null : new Date(expiresAtValue);
     const status = record && record.status;
     const redeemedCount = record && record.redeemedCount;
     const maxRedemptions = record && record.maxRedemptions;
@@ -127,9 +183,10 @@ async function resolveCurrentActivationCode(options = {}) {
       !Number.isInteger(maxRedemptions) ||
       maxRedemptions < 1 ||
       redeemedCount > maxRedemptions ||
+      !expiresAt ||
       Number.isNaN(expiresAt.getTime())
     ) {
-      throw new Error("Current activation-code record is invalid.");
+      fail("malformed_record");
     }
 
     return Object.freeze({
@@ -144,7 +201,7 @@ async function resolveCurrentActivationCode(options = {}) {
   }).sort((left, right) => left.activationCodeId.localeCompare(right.activationCodeId));
 
   if (new Set(sanitizedRecords.map((record) => record.activationCodeId)).size !== sanitizedRecords.length) {
-    throw new Error("Current activation-code record IDs are ambiguous.");
+    fail("malformed_record");
   }
 
   return Object.freeze(sanitizedRecords);
@@ -154,6 +211,7 @@ function createStagingCurrentActivationCodeHandler(options = {}) {
   const env = options.env || process.env;
   const validateMongoConfig = options.validateMongoConfig || validatePosLicensingMongoConfiguration;
   const connectionProvider = options.connectionProvider || connectToDatabase;
+  const logger = options.logger || console;
 
   return async function stagingCurrentActivationCodeHandler(req, res) {
     res.set("Cache-Control", "no-store");
@@ -165,24 +223,38 @@ function createStagingCurrentActivationCodeHandler(options = {}) {
     }
 
     try {
-      const mongoConfig = validateMongoConfig(env, "staging");
+      let mongoConfig;
+      try {
+        mongoConfig = validateMongoConfig(env, "staging");
+      } catch {
+        fail("mongo_config_invalid");
+      }
       if (!mongoConfig || mongoConfig.environment !== "staging") {
-        return res.status(503).json(UNAVAILABLE_RESPONSE);
+        fail("mongo_config_invalid");
       }
 
       let connection = options.connection || null;
       if (!connection) {
-        const connected = await connectionProvider();
-        connection = connected && connected.connection ? connected.connection : mongoose.connection;
+        try {
+          const connected = await connectionProvider();
+          connection = connected && connected.connection ? connected.connection : mongoose.connection;
+        } catch {
+          fail("database_connection_failed");
+        }
       }
-      validateConnectedStagingDatabase(connection, mongoConfig.databaseName);
+      try {
+        validateConnectedStagingDatabase(connection, mongoConfig.databaseName);
+      } catch {
+        fail("database_mismatch");
+      }
 
       const result = await resolveCurrentActivationCode({
         repository: options.repository,
         clock: options.clock
       });
       return res.status(200).json(result);
-    } catch {
+    } catch (error) {
+      logSafeReason(logger, safeReasonCode(error));
       return res.status(503).json(UNAVAILABLE_RESPONSE);
     }
   };
@@ -202,6 +274,7 @@ function mountStagingCurrentActivationCodeEndpoint(router, options = {}) {
 
 module.exports = {
   RESPONSE_FIELDS,
+  SAFE_REASON_CODES,
   STAGING_CURRENT_ACTIVATION_CODE_PATH,
   TARGET_LICENCE_ID,
   createStagingCurrentActivationCodeHandler,
