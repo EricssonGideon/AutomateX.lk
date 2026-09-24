@@ -48,6 +48,9 @@ const {
   mountStagingActivationRecoveryEndpoint
 } = require("./routes/internalStagingActivationRecovery");
 const {
+  mountStagingAdminReissueReadbackEndpoint
+} = require("./routes/internalStagingAdminReissueReadback");
+const {
   mountStagingRenewalRecoveryEndpoint
 } = require("./routes/internalStagingRenewalRecovery");
 const {
@@ -188,6 +191,7 @@ mountStagingTestLicenceApplyEndpoint(stagingReadinessRouter);
 mountStagingCurrentActivationCodeEndpoint(stagingReadinessRouter);
 mountStagingReplaceActivationCodeEndpoint(stagingReadinessRouter);
 mountStagingActivationRecoveryEndpoint(stagingReadinessRouter);
+mountStagingAdminReissueReadbackEndpoint(stagingReadinessRouter);
 mountStagingRenewalRecoveryEndpoint(stagingReadinessRouter);
 app.use("/api", stagingReadinessRouter);
 
