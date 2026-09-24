@@ -177,7 +177,7 @@ test("fixed request identity is required and missing or extra fields are rejecte
     { adminId: FIXED_STAGING_ADMIN_ID },
     validBody({ adminId: "not-an-object-id" }),
     validBody({ adminId: "64b64c88c4a2f7781a123456" }),
-    validBody({ testMarker: "automatex-pos-staging-tauri-e2e-20260922" }),
+    validBody({ testMarker: "automatex-pos-staging-tauri-e2e-20260921" }),
     { ...validBody(), apply: true },
     { ...validBody(), token: OPERATOR_TOKEN }
   ]) {

@@ -13,7 +13,7 @@ const { connectToDatabase } = require("../utils/db");
 
 const STAGING_TEST_LICENCE_APPLY_PATH = "/internal/pos-licensing-staging-test-licence-apply";
 const FIXED_STAGING_ADMIN_ID = "6ab0a078e2b1d24644d368ad";
-const FIXED_TEST_MARKER = "automatex-pos-staging-tauri-e2e-20260921";
+const FIXED_TEST_MARKER = "automatex-pos-staging-tauri-e2e-20260924";
 const REQUEST_FIELDS = Object.freeze(["adminId", "testMarker"]);
 const SORTED_REQUEST_FIELDS = Object.freeze([...REQUEST_FIELDS].sort());
 const SUCCESS_FIELDS = Object.freeze([
