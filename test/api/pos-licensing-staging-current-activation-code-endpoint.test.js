@@ -119,6 +119,7 @@ async function invoke(env, authorization, options = {}) {
 test("exact staging Preview guard mounts the GET endpoint", () => {
   const env = stagingEnvironment();
   const router = routerRecorder();
+  assert.equal(TARGET_LICENCE_ID, "3e50bcf4c418d82b7663e655");
   assert.equal(shouldMountStagingCurrentActivationCodeEndpoint(env), true);
   assert.equal(mountStagingCurrentActivationCodeEndpoint(router, { env }), true);
   assert.equal(router.registrations.length, 1);

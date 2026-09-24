@@ -266,6 +266,7 @@ async function runFixture(fixture) {
 test("exact staging Preview guards mount only the POST replacement endpoint", () => {
   const env = stagingEnvironment();
   const router = routerRecorder();
+  assert.equal(TARGET_LICENCE_ID, "3e50bcf4c418d82b7663e655");
   assert.equal(shouldMountStagingReplaceActivationCodeEndpoint(env), true);
   assert.equal(mountStagingReplaceActivationCodeEndpoint(router, { env }), true);
   assert.deepEqual(router.registrations, [{

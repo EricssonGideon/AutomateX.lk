@@ -9,7 +9,7 @@ const { connectToDatabase } = require("../utils/db");
 
 const STAGING_CURRENT_ACTIVATION_CODE_PATH =
   "/internal/pos-licensing-staging-current-activation-code";
-const TARGET_LICENCE_ID = "1543e8de0d2fc76e4db30677";
+const TARGET_LICENCE_ID = "3e50bcf4c418d82b7663e655";
 const RESPONSE_FIELDS = Object.freeze([
   "activationCodeId",
   "status",

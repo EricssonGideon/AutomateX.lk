@@ -20,7 +20,9 @@ const {
 } = require("../utils/posLicencePolicy");
 
 const FIXED_STAGING_ADMIN_ID = "6ab0a078e2b1d24644d368ad";
-const TARGET_LICENCE_ID = "1543e8de0d2fc76e4db30677";
+const TARGET_LICENCE_ID = "3e50bcf4c418d82b7663e655";
+// Keep this pinned until the authenticated read-only diagnostic resolves the
+// new licence's single eligible activation-code record.
 const EXPECTED_OLD_ACTIVATION_CODE_ID = "6ab0af64058d4881f5e3d6dd";
 const REPLACEMENT_DURATION_MS = 60 * 60 * 1000;
 const MINIMUM_REPLACEMENT_VALIDITY_MS = 15 * 60 * 1000;
