@@ -5,6 +5,7 @@ const {
   validatePosLicensingMongoConfiguration
 } = require("../config/posLicensingMongo");
 const PosActivationCode = require("../models/PosActivationCode");
+const { POS_ACTIVATION_CODE_STATES } = require("../utils/posLicencePolicy");
 const { connectToDatabase } = require("../utils/db");
 
 const STAGING_CURRENT_ACTIVATION_CODE_PATH =
@@ -89,49 +90,64 @@ async function resolveCurrentActivationCode(options = {}) {
   const repository = options.repository || PosActivationCode;
   const clock = options.clock || (() => new Date());
   let query = repository.find({
-    licenceId: TARGET_LICENCE_ID,
-    status: "active",
-    redeemedCount: 0,
-    maxRedemptions: 1
+    licenceId: TARGET_LICENCE_ID
   });
   if (query && typeof query.select === "function") {
     query = query.select("_id licenceId status redeemedCount maxRedemptions expiresAt");
+  }
+  if (query && typeof query.sort === "function") {
+    query = query.sort({ _id: 1 });
   }
   if (query && typeof query.lean === "function") {
     query = query.lean();
   }
   const records = await query || [];
-  if (!Array.isArray(records) || records.length !== 1) {
-    throw new Error("Current activation-code record is missing or ambiguous.");
+  if (!Array.isArray(records) || records.length < 1) {
+    throw new Error("Current activation-code records are unavailable.");
   }
 
-  const record = records[0];
-  const activationCodeId = canonicalObjectId(record);
-  const licenceId = canonicalObjectId(record && record.licenceId);
-  const expiresAt = new Date(record && record.expiresAt);
   const now = clock();
-  if (
-    !activationCodeId ||
-    licenceId !== TARGET_LICENCE_ID ||
-    record.status !== "active" ||
-    record.redeemedCount !== 0 ||
-    record.maxRedemptions !== 1 ||
-    !(now instanceof Date) ||
-    Number.isNaN(now.getTime()) ||
-    Number.isNaN(expiresAt.getTime())
-  ) {
-    throw new Error("Current activation-code record is not eligible.");
+  if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
+    throw new Error("Current activation-code diagnostic clock is invalid.");
   }
 
-  return Object.freeze({
-    activationCodeId,
-    status: "active",
-    redeemedCount: 0,
-    maxRedemptions: 1,
-    expiresAt: expiresAt.toISOString(),
-    expired: expiresAt.getTime() <= now.getTime(),
-    unused: true
-  });
+  const sanitizedRecords = records.map((record) => {
+    const activationCodeId = canonicalObjectId(record);
+    const licenceId = canonicalObjectId(record && record.licenceId);
+    const expiresAt = new Date(record && record.expiresAt);
+    const status = record && record.status;
+    const redeemedCount = record && record.redeemedCount;
+    const maxRedemptions = record && record.maxRedemptions;
+    if (
+      !activationCodeId ||
+      licenceId !== TARGET_LICENCE_ID ||
+      !POS_ACTIVATION_CODE_STATES.includes(status) ||
+      !Number.isInteger(redeemedCount) ||
+      redeemedCount < 0 ||
+      !Number.isInteger(maxRedemptions) ||
+      maxRedemptions < 1 ||
+      redeemedCount > maxRedemptions ||
+      Number.isNaN(expiresAt.getTime())
+    ) {
+      throw new Error("Current activation-code record is invalid.");
+    }
+
+    return Object.freeze({
+      activationCodeId,
+      status,
+      redeemedCount,
+      maxRedemptions,
+      expiresAt: expiresAt.toISOString(),
+      expired: status === "expired" || expiresAt.getTime() <= now.getTime(),
+      unused: redeemedCount === 0
+    });
+  }).sort((left, right) => left.activationCodeId.localeCompare(right.activationCodeId));
+
+  if (new Set(sanitizedRecords.map((record) => record.activationCodeId)).size !== sanitizedRecords.length) {
+    throw new Error("Current activation-code record IDs are ambiguous.");
+  }
+
+  return Object.freeze(sanitizedRecords);
 }
 
 function createStagingCurrentActivationCodeHandler(options = {}) {

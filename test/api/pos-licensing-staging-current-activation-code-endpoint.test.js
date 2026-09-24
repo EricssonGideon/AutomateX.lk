@@ -85,6 +85,10 @@ function repositoryReturning(records, calls = []) {
           calls.push({ operation: "select", projection });
           return this;
         },
+        sort(sort) {
+          calls.push({ operation: "sort", sort });
+          return this;
+        },
         lean() {
           calls.push({ operation: "lean" });
           return Promise.resolve(records);
@@ -153,8 +157,9 @@ test("authorized response contains exactly the sanitized metadata allowlist", as
   const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`);
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers["cache-control"], "no-store");
-  assert.deepEqual(Object.keys(response.body), RESPONSE_FIELDS);
-  assert.deepEqual(response.body, {
+  assert.equal(Array.isArray(response.body), true);
+  assert.deepEqual(Object.keys(response.body[0]), RESPONSE_FIELDS);
+  assert.deepEqual(response.body, [{
     activationCodeId: ACTIVATION_CODE_ID,
     status: "active",
     redeemedCount: 0,
@@ -162,7 +167,7 @@ test("authorized response contains exactly the sanitized metadata allowlist", as
     expiresAt: FUTURE_EXPIRY,
     expired: false,
     unused: true
-  });
+  }]);
   const serialized = JSON.stringify(response.body);
   assert.equal(serialized.includes("posac_"), false);
   assert.equal(serialized.includes("sha256"), false);
@@ -211,28 +216,24 @@ test("main and production fail closed before database access", async () => {
   assert.equal(validationCalls, 0);
 });
 
-test("zero or multiple active unused records fail closed", async () => {
-  for (const records of [
-    [],
-    [activationCodeRecord(), activationCodeRecord({ _id: "6ab0a078e2b1d24644d368af" })]
-  ]) {
-    const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
-      repository: repositoryReturning(records)
-    });
-    assert.equal(response.statusCode, 503);
-    assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
-  }
+test("zero records fail closed", async () => {
+  const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
+    repository: repositoryReturning([])
+  });
+  assert.equal(response.statusCode, 503);
+  assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
 });
 
-test("redeemed, non-active, mismatched, invalid-ID/date, or non-single-redemption records fail closed", async () => {
+test("wrong licence and malformed records fail closed", async () => {
   const invalidRecords = [
-    activationCodeRecord({ status: "redeemed", redeemedCount: 1 }),
-    activationCodeRecord({ status: "revoked" }),
     activationCodeRecord({ licenceId: "6ab0a078e2b1d24644d368ad" }),
     activationCodeRecord({ _id: "invalid-id" }),
     activationCodeRecord({ licenceId: "invalid-id" }),
     activationCodeRecord({ expiresAt: new Date("invalid") }),
-    activationCodeRecord({ maxRedemptions: 2 })
+    activationCodeRecord({ status: "unknown" }),
+    activationCodeRecord({ redeemedCount: -1 }),
+    activationCodeRecord({ redeemedCount: 2, maxRedemptions: 1 }),
+    activationCodeRecord({ maxRedemptions: 0 })
   ];
   for (const record of invalidRecords) {
     const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
@@ -243,6 +244,23 @@ test("redeemed, non-active, mismatched, invalid-ID/date, or non-single-redemptio
   }
 });
 
+test("a redeemed record is visible as sanitized used metadata", async () => {
+  const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
+    repository: repositoryReturning([activationCodeRecord({ status: "redeemed", redeemedCount: 1 })])
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, [{
+    activationCodeId: ACTIVATION_CODE_ID,
+    status: "redeemed",
+    redeemedCount: 1,
+    maxRedemptions: 1,
+    expiresAt: FUTURE_EXPIRY,
+    expired: false,
+    unused: false
+  }]);
+});
+
 test("an expired active unused single-redemption record returns metadata with expired true", async () => {
   const expiredAt = "2026-09-24T08:03:17.579Z";
   const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
@@ -250,7 +268,7 @@ test("an expired active unused single-redemption record returns metadata with ex
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(response.body, {
+  assert.deepEqual(response.body, [{
     activationCodeId: ACTIVATION_CODE_ID,
     status: "active",
     redeemedCount: 0,
@@ -258,30 +276,54 @@ test("an expired active unused single-redemption record returns metadata with ex
     expiresAt: expiredAt,
     expired: true,
     unused: true
-  });
+  }]);
   assert.equal(JSON.stringify(response.body).includes("posac_"), false);
   assert.equal(JSON.stringify(response.body).includes("sha256"), false);
 });
 
-test("resolution uses only a fixed read query and excludes hash and plaintext fields", async () => {
+test("multiple records are returned in deterministic ID order without plaintext or hashes", async () => {
+  const firstId = "6ab0a078e2b1d24644d368ac";
+  const lastId = "6ab0a078e2b1d24644d368af";
+  const calls = [];
+  const result = await resolveCurrentActivationCode({
+    repository: repositoryReturning([
+      activationCodeRecord({ _id: lastId, status: "revoked" }),
+      activationCodeRecord({ _id: ACTIVATION_CODE_ID, status: "redeemed", redeemedCount: 1 }),
+      activationCodeRecord({ _id: firstId, status: "expired", expiresAt: new Date(FUTURE_EXPIRY) })
+    ], calls),
+    clock: () => NOW
+  });
+
+  assert.deepEqual(result.map((record) => record.activationCodeId), [firstId, ACTIVATION_CODE_ID, lastId]);
+  assert.deepEqual(result.map((record) => record.status), ["expired", "redeemed", "revoked"]);
+  assert.deepEqual(result.map((record) => record.expired), [true, false, false]);
+  assert.deepEqual(result.map((record) => record.unused), [true, false, true]);
+  assert.equal(JSON.stringify(result).includes("posac_"), false);
+  assert.equal(JSON.stringify(result).includes("sha256"), false);
+  assert.deepEqual(calls[0], {
+    operation: "find",
+    filter: { licenceId: TARGET_LICENCE_ID }
+  });
+  assert.deepEqual(calls.find((call) => call.operation === "sort"), {
+    operation: "sort",
+    sort: { _id: 1 }
+  });
+});
+
+test("resolution selects only fixed metadata fields and performs no writes", async () => {
   const calls = [];
   const result = await resolveCurrentActivationCode({
     repository: repositoryReturning([activationCodeRecord()], calls),
     clock: () => NOW
   });
-  assert.equal(result.activationCodeId, ACTIVATION_CODE_ID);
+  assert.equal(result[0].activationCodeId, ACTIVATION_CODE_ID);
   assert.deepEqual(calls[0], {
     operation: "find",
-    filter: {
-      licenceId: TARGET_LICENCE_ID,
-      status: "active",
-      redeemedCount: 0,
-      maxRedemptions: 1
-    }
+    filter: { licenceId: TARGET_LICENCE_ID }
   });
   assert.equal(calls.filter((call) => call.operation === "find").length, 1);
   assert.equal(calls.some((call) => /codeHash|activationCode/.test(call.projection || "")), false);
-  assert.deepEqual(calls.map((call) => call.operation), ["find", "select", "lean"]);
+  assert.deepEqual(calls.map((call) => call.operation), ["find", "select", "sort", "lean"]);
 });
 
 test("database mismatch and query errors return only a generic response", async () => {
