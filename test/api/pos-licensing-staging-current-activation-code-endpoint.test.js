@@ -160,6 +160,7 @@ test("authorized response contains exactly the sanitized metadata allowlist", as
     redeemedCount: 0,
     maxRedemptions: 1,
     expiresAt: FUTURE_EXPIRY,
+    expired: false,
     unused: true
   });
   const serialized = JSON.stringify(response.body);
@@ -223,12 +224,14 @@ test("zero or multiple active unused records fail closed", async () => {
   }
 });
 
-test("redeemed, revoked, expired, mismatched, or non-single-redemption records fail closed", async () => {
+test("redeemed, non-active, mismatched, invalid-ID/date, or non-single-redemption records fail closed", async () => {
   const invalidRecords = [
     activationCodeRecord({ status: "redeemed", redeemedCount: 1 }),
     activationCodeRecord({ status: "revoked" }),
-    activationCodeRecord({ expiresAt: new Date("2029-12-31T23:59:59.000Z") }),
     activationCodeRecord({ licenceId: "6ab0a078e2b1d24644d368ad" }),
+    activationCodeRecord({ _id: "invalid-id" }),
+    activationCodeRecord({ licenceId: "invalid-id" }),
+    activationCodeRecord({ expiresAt: new Date("invalid") }),
     activationCodeRecord({ maxRedemptions: 2 })
   ];
   for (const record of invalidRecords) {
@@ -238,6 +241,26 @@ test("redeemed, revoked, expired, mismatched, or non-single-redemption records f
     assert.equal(response.statusCode, 503);
     assert.deepEqual(response.body, { message: "Activation-code diagnostic unavailable." });
   }
+});
+
+test("an expired active unused single-redemption record returns metadata with expired true", async () => {
+  const expiredAt = "2026-09-24T08:03:17.579Z";
+  const response = await invoke(stagingEnvironment(), `Bearer ${DIAGNOSTIC_TOKEN}`, {
+    repository: repositoryReturning([activationCodeRecord({ expiresAt: new Date(expiredAt) })])
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.body, {
+    activationCodeId: ACTIVATION_CODE_ID,
+    status: "active",
+    redeemedCount: 0,
+    maxRedemptions: 1,
+    expiresAt: expiredAt,
+    expired: true,
+    unused: true
+  });
+  assert.equal(JSON.stringify(response.body).includes("posac_"), false);
+  assert.equal(JSON.stringify(response.body).includes("sha256"), false);
 });
 
 test("resolution uses only a fixed read query and excludes hash and plaintext fields", async () => {
@@ -252,7 +275,8 @@ test("resolution uses only a fixed read query and excludes hash and plaintext fi
     filter: {
       licenceId: TARGET_LICENCE_ID,
       status: "active",
-      redeemedCount: 0
+      redeemedCount: 0,
+      maxRedemptions: 1
     }
   });
   assert.equal(calls.filter((call) => call.operation === "find").length, 1);

@@ -16,6 +16,7 @@ const RESPONSE_FIELDS = Object.freeze([
   "redeemedCount",
   "maxRedemptions",
   "expiresAt",
+  "expired",
   "unused"
 ]);
 const NOT_FOUND_RESPONSE = Object.freeze({ message: "Not found." });
@@ -90,7 +91,8 @@ async function resolveCurrentActivationCode(options = {}) {
   let query = repository.find({
     licenceId: TARGET_LICENCE_ID,
     status: "active",
-    redeemedCount: 0
+    redeemedCount: 0,
+    maxRedemptions: 1
   });
   if (query && typeof query.select === "function") {
     query = query.select("_id licenceId status redeemedCount maxRedemptions expiresAt");
@@ -116,8 +118,7 @@ async function resolveCurrentActivationCode(options = {}) {
     record.maxRedemptions !== 1 ||
     !(now instanceof Date) ||
     Number.isNaN(now.getTime()) ||
-    Number.isNaN(expiresAt.getTime()) ||
-    expiresAt.getTime() <= now.getTime()
+    Number.isNaN(expiresAt.getTime())
   ) {
     throw new Error("Current activation-code record is not eligible.");
   }
@@ -128,6 +129,7 @@ async function resolveCurrentActivationCode(options = {}) {
     redeemedCount: 0,
     maxRedemptions: 1,
     expiresAt: expiresAt.toISOString(),
+    expired: expiresAt.getTime() <= now.getTime(),
     unused: true
   });
 }
