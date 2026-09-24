@@ -235,6 +235,7 @@ async function resetCollections() {
   keyPair = crypto.generateKeyPairSync("ed25519");
   service = createPosActivationRedemptionService({
     keyProvider: {
+      keyId: "automatex-pos-prod-ed25519-v1",
       async getPrivateKey() {
         return keyPair.privateKey;
       }
@@ -576,6 +577,7 @@ if (!RUN_REDEMPTION_TX) {
     assert.equal(result.signedLicence.installationId, DEVICE_ID);
     assert.equal(result.signedLicence.clientId, String(fixture.client._id));
     assert.equal(result.signedLicence.offlineValidUntil, fixture.licence.offlineValidUntil.toISOString());
+    assert.equal(result.signedLicence.keyId, "automatex-pos-prod-ed25519-v1");
 
     const pos = loadActualPosVerifier(keyPair.publicKey.export({ format: "jwk" }));
     try {
@@ -693,6 +695,7 @@ if (!RUN_REDEMPTION_TX) {
     assert.ok(first.signedLicence.signature);
     const laterService = createPosActivationRedemptionService({
       keyProvider: {
+        keyId: "automatex-pos-prod-ed25519-v1",
         async getPrivateKey() {
           return keyPair.privateKey;
         }
@@ -791,6 +794,7 @@ if (!RUN_REDEMPTION_TX) {
     const missingKeyFixture = await createActivationFixture();
     const missingKeyService = createPosActivationRedemptionService({
       keyProvider: {
+        keyId: "automatex-pos-prod-ed25519-v1",
         async getPrivateKey() {
           return null;
         }
@@ -807,6 +811,7 @@ if (!RUN_REDEMPTION_TX) {
     const auditFailureFixture = await createActivationFixture();
     const auditFailureService = createPosActivationRedemptionService({
       keyProvider: {
+        keyId: "automatex-pos-prod-ed25519-v1",
         async getPrivateKey() {
           return keyPair.privateKey;
         }

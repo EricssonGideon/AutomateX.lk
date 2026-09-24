@@ -238,6 +238,7 @@ async function cleanupDisposableReplicaSet() {
 
 function createKeyProvider() {
   return {
+    keyId: "automatex-pos-prod-ed25519-v1",
     async getPrivateKey() {
       return keyPair.privateKey;
     }
@@ -642,6 +643,7 @@ if (!RUN_ACTIVATION_ROUTER) {
   test("valid activation is accepted by the real POS activation response path", async () => {
     const fixture = await createActivationFixture();
     const pos = loadActualPosVerifier(keyPair.publicKey.export({ format: "jwk" }));
+    let activationResponsePayload = null;
     try {
       seedPosInstallationIdentity(pos);
       const result = await pos.exports.requestStandardPosActivation({
@@ -658,12 +660,14 @@ if (!RUN_ACTIVATION_ROUTER) {
             body: request.body
           });
           assert.equal(response.headers.get("cache-control"), "no-store");
+          activationResponsePayload = await response.clone().json();
           return response;
         }
       });
       assert.equal(result.ok, true);
       assert.equal(result.provider.licenceStatus, "active");
       assert.equal(result.provider.installationId, DEVICE_ID);
+      assert.equal(activationResponsePayload.keyId, "automatex-pos-prod-ed25519-v1");
     } finally {
       pos.cleanup();
     }
@@ -764,6 +768,7 @@ if (!RUN_ACTIVATION_ROUTER) {
     const missingKeyFixture = await createActivationFixture();
     await startIsolatedApp({
       keyProvider: {
+        keyId: "automatex-pos-prod-ed25519-v1",
         async getPrivateKey() {
           return null;
         }

@@ -125,6 +125,7 @@ test("POS Standard contract constants match the current verifier shape", () => {
     "supportExpiry",
     "issuedAt",
     "offlineValidUntil",
+    "keyId",
     "signature"
   ]);
 });
@@ -132,6 +133,7 @@ test("POS Standard contract constants match the current verifier shape", () => {
 test("signature data canonicalization sorts object keys and excludes signature", () => {
   const payload = {
     signature: "hidden",
+    keyId: "automatex-pos-test-ed25519-v1",
     edition: "standard",
     schemaVersion: 1,
     enabledModules: ["billing", "reports"],
@@ -143,7 +145,7 @@ test("signature data canonicalization sorts object keys and excludes signature",
 
   assert.equal(
     getStandardLicenceSignatureData(payload),
-    "{\"edition\":\"standard\",\"enabledModules\":[\"billing\",\"reports\"],\"nested\":{\"a\":null,\"z\":true},\"schemaVersion\":1}"
+    "{\"edition\":\"standard\",\"enabledModules\":[\"billing\",\"reports\"],\"keyId\":\"automatex-pos-test-ed25519-v1\",\"nested\":{\"a\":null,\"z\":true},\"schemaVersion\":1}"
   );
 });
 
@@ -151,12 +153,12 @@ test("signed response field validation rejects missing and extra contract fields
   const validPayload = Object.fromEntries(POS_STANDARD_SIGNED_RESPONSE_FIELDS.map((field) => [field, field]));
   assert.deepEqual(validateStandardSignedResponseFieldSet(validPayload), []);
 
-  const invalidPayload = { ...validPayload, keyId: "not-in-pos-contract" };
+  const invalidPayload = { ...validPayload, unsupportedField: "not-in-pos-contract" };
   delete invalidPayload.signature;
 
   const errors = validateStandardSignedResponseFieldSet(invalidPayload);
   assert.match(errors.join(" "), /missing fields: signature/);
-  assert.match(errors.join(" "), /unsupported fields: keyId/);
+  assert.match(errors.join(" "), /unsupported fields: unsupportedField/);
 });
 
 test("valid Standard package, licence, installation, activation code, and issue records validate without a database connection", async () => {

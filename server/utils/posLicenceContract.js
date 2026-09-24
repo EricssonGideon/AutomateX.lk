@@ -43,6 +43,7 @@ const POS_STANDARD_SIGNED_RESPONSE_FIELDS = Object.freeze([
   "supportExpiry",
   "issuedAt",
   "offlineValidUntil",
+  "keyId",
   "signature"
 ]);
 

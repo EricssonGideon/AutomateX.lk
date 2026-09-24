@@ -250,6 +250,7 @@ async function cleanupDisposableReplicaSet() {
 
 function createKeyProvider() {
   return {
+    keyId: "automatex-pos-prod-ed25519-v1",
     async getPrivateKey() {
       return keyPair.privateKey;
     }
@@ -705,6 +706,7 @@ if (!RUN_RENEWAL_ROUTER) {
     const body = await responseJson(response);
     assert.equal(body.installationId, DEVICE_ID);
     assert.equal(body.offlineValidUntil, futureDate(RENEWAL_NOW, 7).toISOString());
+    assert.equal(body.keyId, "automatex-pos-prod-ed25519-v1");
 
     const pos = loadActualPosVerifier(keyPair.publicKey.export({ format: "jwk" }));
     try {
@@ -846,7 +848,12 @@ if (!RUN_RENEWAL_ROUTER) {
 
   test("signing, database and audit failure responses are sanitized", async () => {
     const fixture = await createRenewalFixture();
-    await startIsolatedApp({ keyProvider: { async getPrivateKey() { return null; } } });
+    await startIsolatedApp({
+      keyProvider: {
+        keyId: "automatex-pos-prod-ed25519-v1",
+        async getPrivateKey() { return null; }
+      }
+    });
     const signing = await postRenewal(renewalRequest(fixture), { origin: LOCAL_POS_ORIGIN });
     assert.equal(signing.status, 503);
     assert.deepEqual(await responseJson(signing), {

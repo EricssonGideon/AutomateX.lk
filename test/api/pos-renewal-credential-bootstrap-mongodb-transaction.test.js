@@ -275,6 +275,7 @@ async function resetCollections() {
   keyPair = crypto.generateKeyPairSync("ed25519");
   redemptionService = createPosActivationRedemptionService({
     keyProvider: {
+      keyId: "automatex-pos-prod-ed25519-v1",
       async getPrivateKey() {
         return keyPair.privateKey;
       }

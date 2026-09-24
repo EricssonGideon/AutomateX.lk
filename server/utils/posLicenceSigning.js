@@ -99,7 +99,7 @@ function enabledModulesForSignedPayload(licence, posPackage) {
   return POS_STANDARD_MODULE_IDS.filter((moduleId) => licenceModules.has(moduleId) && packageModules.has(moduleId));
 }
 
-function buildStandardSignedLicencePayload({ licence, posPackage, installation, issuedAt, offlineValidUntil }) {
+function buildStandardSignedLicencePayload({ licence, posPackage, installation, issuedAt, offlineValidUntil, keyId }) {
   if (!licence || !posPackage || !installation) {
     throw new PosLicenceSigningError("validation_failed", "Licence, package and installation records are required for POS licence signing.");
   }
@@ -149,6 +149,7 @@ function buildStandardSignedLicencePayload({ licence, posPackage, installation, 
     supportExpiry: supportExpiryIso,
     issuedAt: issuedAtIso,
     offlineValidUntil: offlineValidUntilIso,
+    keyId: assertText(keyId, "keyId"),
     signature: ""
   };
 
@@ -160,10 +161,21 @@ function buildStandardSignedLicencePayload({ licence, posPackage, installation, 
   return payload;
 }
 
-async function resolvePrivateKey(keyProvider) {
+function resolveSigningKeyId(keyProvider) {
   if (!keyProvider || typeof keyProvider.getPrivateKey !== "function") {
     throw new PosLicenceSigningError("signing_key_unavailable", "POS licence signing key provider is not configured.");
   }
+
+  const keyId = String(keyProvider.keyId || "").trim();
+  if (!keyId || keyId.length > 120) {
+    throw new PosLicenceSigningError("signing_key_invalid", "POS licence signing key ID is invalid.");
+  }
+
+  return keyId;
+}
+
+async function resolvePrivateKey(keyProvider) {
+  resolveSigningKeyId(keyProvider);
 
   const keyMaterial = await keyProvider.getPrivateKey();
   if (!keyMaterial) {
@@ -187,7 +199,12 @@ async function resolvePrivateKey(keyProvider) {
 }
 
 async function signStandardLicencePayload(unsignedPayload, keyProvider) {
-  const payload = { ...(unsignedPayload || {}), signature: "" };
+  const keyId = resolveSigningKeyId(keyProvider);
+  if (unsignedPayload && Object.prototype.hasOwnProperty.call(unsignedPayload, "keyId") && unsignedPayload.keyId !== keyId) {
+    throw new PosLicenceSigningError("signing_key_mismatch", "POS licence payload key ID does not match the configured signing key provider.");
+  }
+
+  const payload = { ...(unsignedPayload || {}), keyId, signature: "" };
   const fieldErrors = validateStandardSignedResponseFieldSet(payload);
   if (fieldErrors.length) {
     throw new PosLicenceSigningError("contract_mismatch", "Signed POS licence payload does not match the POS Standard response contract.", { errors: fieldErrors });
@@ -204,7 +221,8 @@ async function signStandardLicencePayload(unsignedPayload, keyProvider) {
 }
 
 async function buildAndSignStandardLicencePayload(records, keyProvider) {
-  return signStandardLicencePayload(buildStandardSignedLicencePayload(records), keyProvider);
+  const keyId = resolveSigningKeyId(keyProvider);
+  return signStandardLicencePayload(buildStandardSignedLicencePayload({ ...records, keyId }), keyProvider);
 }
 
 module.exports = {

@@ -490,6 +490,7 @@ async function resetCollections() {
   currentNow = new Date(RENEWAL_NOW);
   redemptionService = createPosActivationRedemptionService({
     keyProvider: {
+      keyId: "automatex-pos-prod-ed25519-v1",
       async getPrivateKey() {
         return keyPair.privateKey;
       }
@@ -501,6 +502,7 @@ async function resetCollections() {
   });
   renewalService = createPosLicenceRenewalService({
     keyProvider: {
+      keyId: "automatex-pos-prod-ed25519-v1",
       async getPrivateKey() {
         return keyPair.privateKey;
       }
@@ -633,6 +635,7 @@ if (!RUN_RENEWAL_TX) {
     assert.equal(response.installationId, DEVICE_ID);
     assert.equal(response.licenceExpiry, fixture.licence.licenceExpiry.toISOString());
     assert.equal(response.offlineValidUntil, futureDate(RENEWAL_NOW, 7).toISOString());
+    assert.equal(response.keyId, "automatex-pos-prod-ed25519-v1");
     assert.notEqual(response.signature, fixture.activationSignedLicence.signature);
 
     const pos = loadActualPosVerifier(keyPair.publicKey.export({ format: "jwk" }));
@@ -831,6 +834,7 @@ if (!RUN_RENEWAL_TX) {
 
     const failingAuditService = createPosLicenceRenewalService({
       keyProvider: {
+        keyId: "automatex-pos-prod-ed25519-v1",
         async getPrivateKey() {
           return keyPair.privateKey;
         }

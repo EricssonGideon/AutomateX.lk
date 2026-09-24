@@ -34,13 +34,15 @@ const ISSUED_AT = "2026-08-31T00:00:00.000Z";
 const LICENCE_EXPIRY = "2026-10-30T00:00:00.000Z";
 const SUPPORT_EXPIRY = "2026-11-29T00:00:00.000Z";
 const OFFLINE_VALID_UNTIL = "2026-09-14T00:00:00.000Z";
+const TEST_SIGNING_KEY_ID = "automatex-pos-prod-ed25519-v1";
 
 function generateEphemeralKeyPair() {
   return crypto.generateKeyPairSync("ed25519");
 }
 
-function createKeyProvider(privateKey) {
+function createKeyProvider(privateKey, keyId = TEST_SIGNING_KEY_ID) {
   return {
+    keyId,
     async getPrivateKey() {
       return privateKey;
     }
@@ -92,7 +94,8 @@ function buildRecords(overrides = {}) {
     posPackage: buildPackage(overrides.posPackage),
     installation: buildInstallation(overrides.installation),
     issuedAt: overrides.issuedAt || ISSUED_AT,
-    offlineValidUntil: overrides.offlineValidUntil || OFFLINE_VALID_UNTIL
+    offlineValidUntil: overrides.offlineValidUntil || OFFLINE_VALID_UNTIL,
+    keyId: overrides.keyId || TEST_SIGNING_KEY_ID
   };
 }
 
@@ -359,6 +362,7 @@ test("server signing helper builds only the POS Standard signed response fields"
     "supportExpiry",
     "issuedAt",
     "offlineValidUntil",
+    "keyId",
     "signature"
   ]);
   assert.equal(unsignedPayload.signature, "");
@@ -372,6 +376,7 @@ test("server signing helper builds only the POS Standard signed response fields"
   assert.equal(unsignedPayload.installationId, DEVICE_INSTALLATION_ID);
   assert.equal(unsignedPayload.issuedAt, ISSUED_AT);
   assert.equal(unsignedPayload.offlineValidUntil, OFFLINE_VALID_UNTIL);
+  assert.equal(unsignedPayload.keyId, TEST_SIGNING_KEY_ID);
 
   const signedPayload = await signStandardLicencePayload(unsignedPayload, createKeyProvider(privateKey));
   assert.match(signedPayload.signature, /^[A-Za-z0-9+/]+={0,2}$/);
@@ -384,6 +389,29 @@ test("server signing helper builds only the POS Standard signed response fields"
     ),
     true
   );
+  assert.match(getStandardLicenceSignatureData(signedPayload), /"keyId":"automatex-pos-prod-ed25519-v1"/);
+  assert.equal(
+    crypto.verify(
+      null,
+      Buffer.from(getStandardLicenceSignatureData({ ...signedPayload, keyId: "automatex-pos-prod-ed25519-v2" }), "utf8"),
+      publicKey,
+      Buffer.from(signedPayload.signature, "base64")
+    ),
+    false
+  );
+});
+
+test("server signing helper takes keyId from the configured signing provider", async () => {
+  const { privateKey } = generateEphemeralKeyPair();
+  const configuredKeyId = "automatex-pos-staging-ed25519-v1";
+  const records = buildRecords({ keyId: configuredKeyId });
+  const signedPayload = await buildAndSignStandardLicencePayload(records, createKeyProvider(privateKey, configuredKeyId));
+
+  assert.equal(signedPayload.keyId, configuredKeyId);
+  await assert.rejects(
+    () => signStandardLicencePayload(signedPayload, createKeyProvider(privateKey, "different-provider-key")),
+    (error) => error instanceof PosLicenceSigningError && error.code === "signing_key_mismatch"
+  );
 });
 
 test("server signing helper fails closed for missing or invalid keys and ineligible records", async () => {
@@ -395,6 +423,10 @@ test("server signing helper fails closed for missing or invalid keys and ineligi
   await assert.rejects(
     () => signStandardLicencePayload(unsignedPayload, createKeyProvider(null)),
     (error) => error instanceof PosLicenceSigningError && error.code === "signing_key_unavailable"
+  );
+  await assert.rejects(
+    () => signStandardLicencePayload(unsignedPayload, { async getPrivateKey() { return generateEphemeralKeyPair().privateKey; } }),
+    (error) => error instanceof PosLicenceSigningError && error.code === "signing_key_invalid"
   );
   const rsaKey = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
   await assert.rejects(
@@ -514,6 +546,18 @@ test("actual POS verifier rejects tampering, wrong key, wrong destination and co
     );
     await assertPosRejects(
       () => pos.exports.verifyStandardSignedLicencePayload(mutateSignedPayload(signedPayload, {
+        keyId: "automatex-pos-prod-ed25519-v2"
+      }), pos.exports.createStandardInternalLicenceVerificationOptions({
+        expectedInstallationId: DEVICE_INSTALLATION_ID,
+        now: "2026-09-01T00:00:00.000Z",
+        trustedProductionPublicKeys: {
+          "automatex-pos-prod-ed25519-v2": publicKey.export({ format: "jwk" })
+        }
+      })),
+      /signature could not be verified/
+    );
+    await assertPosRejects(
+      () => pos.exports.verifyStandardSignedLicencePayload(mutateSignedPayload(signedPayload, {
         installationId: "different-installation"
       }), pos.exports.createStandardInternalLicenceVerificationOptions({
         expectedInstallationId: DEVICE_INSTALLATION_ID,
@@ -545,7 +589,7 @@ test("actual POS verifier rejects tampering, wrong key, wrong destination and co
       /installation id does not match/
     );
     await assertPosRejects(
-      () => pos.exports.normalizeStandardActivationResponsePayload({ ...signedPayload, keyId: "internal-key-id" }),
+      () => pos.exports.normalizeStandardActivationResponsePayload({ ...signedPayload, unsupportedField: "internal-value" }),
       /Activation response was invalid/
     );
     const missingSignature = { ...signedPayload };

@@ -248,6 +248,7 @@ async function cleanupDisposableReplicaSet() {
 
 function createKeyProvider() {
   return {
+    keyId: "automatex-pos-prod-ed25519-v1",
     async getPrivateKey() {
       return keyPair.privateKey;
     }
